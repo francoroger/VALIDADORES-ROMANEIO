@@ -268,12 +268,17 @@ function parseResult(t){
   return rows;
 }
 
-// PAGINAÇÃO: MCP cap de limit=500. Para >500 rows usar callDBAll.
+// PAGINAÇÃO: MCP cap de limit=500. Para >500 rows usar callDBAll (faz LIMIT 500 OFFSET N até esvaziar).
+// Trata queries que já têm LIMIT/OFFSET (loadRecent tinha LIMIT 200) — strip antes de adicionar.
 async function callDBAll(sqlBase, label){
   const PAGE = 500;
+  let core = sqlBase.replace(/\s*LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/i, '').trim();
+  let orderBy = '';
+  const orderMatch = core.match(/(\s+ORDER BY [\s\S]+)$/i);
+  if (orderMatch){ orderBy = orderMatch[1]; core = core.slice(0, orderMatch.index).trim(); }
   let all = [], offset = 0;
   while (offset < 100000) {
-    const sql = sqlBase.replace(/(\s*ORDER BY [^;]+?)?\s*$/, (m, ord) => (ord||'') + ` LIMIT ${PAGE} OFFSET ${offset}`);
+    const sql = `${core}${orderBy} LIMIT ${PAGE} OFFSET ${offset}`;
     const rows = await callDB(sql, label);
     all = all.concat(rows);
     if (rows.length < PAGE) break;

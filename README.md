@@ -1,56 +1,78 @@
-# Franco Galvânica · Artefatos de Conciliação
+# VALIDADORES-ROMANEIO
 
-Conjunto de ferramentas web (artefatos vivos do Cowork/Claude) para validação e conciliação de romaneios da Franco Galvânica/Folheados — empresa de banho ouro/prata.
+> Conjunto de **artefatos web vivos** para validação e conciliação de romaneios da **Franco Galvânica/Folheados** — empresa de banho ouro/prata.
 
-## Artefatos
+Os 4 artefatos rodam dentro do **Cowork** (Claude desktop) e fazem queries diretas ao PostgreSQL na Aiven (espelho do banco local de produção).
 
-| Arquivo | Descrição |
+## Estado atual
+
+| Artefato | Versão | Linhas | Função |
+|---|---:|---:|---|
+| **Validador de Romaneio** | v2.7 | ~940 | Análise detalhada de 1 romaneio (5 seções: 7 documentos, conciliação por bucket, fórmula triádica, itens, alertas) |
+| **Monitor de Romaneios** | v2.4 | ~720 | Lista todos romaneios de um período com KPIs e variação Pass→Rom |
+| **Romaneio × Passagem** | v3.1 | ~1.180 | Comparativo Por Serviço / Diário com filtros |
+| **Extrato Cliente** | v2.9 | ~830 | 4 modos: Conciliação por Bucket, Diário, Por Romaneio, Resumo Cliente |
+
+## Conteúdo
+
+| Documento | Para quê |
 |---|---|
-| **franco_validador_romaneio.html** | Validador detalhado por romaneio individual: 7 documentos, conciliação por bucket, fórmula triádica, alertas |
-| **monitor_romaneios.html** | Monitor diário de romaneios saindo, com KPIs e variação Pass→Rom |
-| **franco_rp_fixed.html** | Comparativo Romaneio×Passagem com 2 abas (Por Serviço, Diário) |
-| **extrato_cliente.html** | Conciliação por bucket em 4 modos (Conciliação, Diário, Por Romaneio, Resumo Cliente) |
+| [README.md](README.md) | (Este arquivo) Visão geral e quick start |
+| [CHANGELOG.md](CHANGELOG.md) | Histórico de versões dos 4 artefatos |
+| [ARQUITETURA.md](ARQUITETURA.md) | Sistema, bancos, MCPs, fluxo de dados |
+| [ARTEFATOS.md](ARTEFATOS.md) | Descrição detalhada de cada um dos 4 artefatos |
+| [REGRAS_NEGOCIO.md](REGRAS_NEGOCIO.md) | Fórmula triádica, fluxo de 7 documentos, idiossincrasias |
+| [BUGS_E_LICOES.md](BUGS_E_LICOES.md) | Bugs encontrados e como evitar regressão |
+| [DEPLOY.md](DEPLOY.md) | Como atualizar artefatos no Cowork e fazer push GitHub |
+| [docs/memory/](docs/memory/) | Memória persistente do Claude — referência canônica |
 
-Os 4 chamam o MCP `mcp__postgres-aiven__pg_consultar` (banco PostgreSQL na Aiven, espelho do banco local de produção).
+## Quick start
 
-## Documentação
+### Abrir um artefato
 
-A pasta `docs/memory/` contém o conhecimento construído pelo Claude ao longo das sessões:
-
-- **regras_negocio_franco.md** — fórmula triádica, fluxo de 7 documentos, idiossincrasias
-- **regra_peso_total_romaneio.md** — vernizes/acessórios/ródio caneta NÃO somam no peso
-- **topologia_kanban_franco.md** — FKs e heurísticas Recebimento↔Separação↔Triagem↔OS↔Romaneio↔Passagens
-- **anchor_separacao_romaneio.md** — lógica correta de ligar romaneio à separação (case #24855 provou)
-- **bug_parseresult_observacao_quebralinha.md** — sanitizar CHR(13)/CHR(10) em observações
-- **duplicatas_passagem_pecas.md** — sistema às vezes faz POST duplo, inflando variação (case #24874)
-- **processo_aplicar_correcao_ui.md** — checklist obrigatório pra UI fixes não regredirem
-- **preferencias_estilo_roger.md** — convenções de UI consolidadas
-- **versionamento_artefatos.md** — todo artefato deve ter VERSIONS array + log clicável
-- **arquitetura_bancos_mcps.md** — 3 Postgres + 2 Firebird, qual MCP quando
-- **artefatos_e_arquivos_referencia.md** — paths e referências
-- **projeto_franco_modernizacao.md** — escopo e stack (Laravel 11 + React Vite + Tailwind/shadcn)
-- **MEMORY.md** — índice
-
-## Estado atual (2026-05-10)
-
-⚠ Os 4 arquivos HTML neste commit estão **truncados** no fim do JS — bug do ambiente de edição em sessões longas. O próximo commit reescreve tudo do zero.
-
-Histórico de bugs corrigidos antes da regressão:
-- v2.0 anchor SEPARAÇÃO via janela de expedição (não ±2d) — caso #24855 NP SOARES
-- v2.1 fallback estimado quando banho_ini é NULL — caso #24871 ULIANE
-- v2.2 query concorrentes com LEAST/GREATEST (não tstzrange) — protege contra dados invertidos
-- v2.3 cores variação: positivo verde, negativo vermelho
-- v2.4 (planejado) tolerância +24h banho_fim limitada por próxima sep + detector duplicatas — casos #24863 LAYLA, #24874 LETÍCIA
-
-## Setup local
+Os artefatos são HTMLs autocontidos. Para abrir localmente (apenas inspeção visual, sem dados):
 
 ```bash
-# Abrir um artefato no navegador para inspeção (estático — não chama MCP)
+# Windows
+start franco_validador_romaneio.html
+
+# macOS
 open franco_validador_romaneio.html
 ```
 
-## Próximos passos
+Para usar com **dados reais**, eles precisam estar publicados no Cowork e abertos pelo painel **Live artifacts**. Ver [DEPLOY.md](DEPLOY.md).
 
-1. Reescrever os 4 artefatos com fim íntegro
-2. Adicionar testes automatizados de sintaxe HTML/JS (parser headless)
-3. Migrar para o projeto novo (Laravel 11 API + React Vite TS) — strangler fig
+### Acessar via URL no validador
+
+O validador suporta URL direta para um romaneio específico:
+
+```
+https://...artifact-url.../?rom=24855
+# ou
+https://...artifact-url.../#rom=24855
+```
+
+## Fluxo de processo Franco (resumo)
+
+```
+Recebimento → Catalogação (Triagem) → Separação (Preparação)
+    → Banho → Revisão → Romaneio (Faturamento) → Expedição (Motoboy)
+```
+
+7 documentos no total. O validador casa esses documentos por cliente e datas, com detecção de:
+- Separações concorrentes (mesmo cliente, banho sobreposto)
+- Duplicatas de passagem (POST duplo na API)
+- Banho com `data_inicio_banho` NULL (operador esqueceu de marcar)
+- OS ligada via texto "CAT: NNNN" na observação
+
+## Stack
+
+- **Frontend dos artefatos:** HTML/CSS/JS puro (sem build step), com Chart.js / Grid.js opcionais via CDN
+- **Banco:** PostgreSQL 17 na Aiven (`164.92.100.77:24135`)
+- **MCP:** `mcp__postgres-aiven__pg_consultar` (cap de `limit=500` por chamada — usa paginação `callDBAll`)
+- **Backup local:** PostgreSQL local Galvânica (192.168.0.250) + 2 Firebird (legado Delphi)
+
+## Contato
+
+- Owner: **Roger Franco** ([@francoroger](https://github.com/francoroger))
+- Empresa: Franco Galvânica/Folheados

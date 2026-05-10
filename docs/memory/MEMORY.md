@@ -10,3 +10,5 @@
 - [Processo para aplicar correção de UI](processo_aplicar_correcao_ui.md) — Checklist obrigatório (grep exaustivo em todos artefatos antes de dizer "pronto")
 - [Anchor romaneio↔separação correto](anchor_separacao_romaneio.md) — Use "data_rom DENTRO de exp_ini..exp_fim+2d", NÃO "±2d do exp_ini" (caso #24855 provou)
 - [Duplicatas em passagem_pecas](duplicatas_passagem_pecas.md) — Sistema às vezes faz POST duplo (mesmo created_at), inflando variação. Detectar e alertar, não deduplicar auto
+- [Bug script duplicado em HTML](bug_script_duplicado_html.md) — Não usar cat >> em arquivo HTML truncado sem antes verificar/limpar duplicação de </script></body></html>
+- [MCP pg_consultar tem cap limit=500](mcp_pg_consultar_limit_500.md) — Pydantic rejeita limit>500; sempre paginar via callDBAll com OFFSET pra queries que podem trazer >500 rows
