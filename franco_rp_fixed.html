@@ -268,6 +268,7 @@ canvas{max-height:340px}
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '2.9', date: '2026-05-10 21:00', changes: 'Tolerância +24h no banho_fim (LIMITADA pela próxima sep) e detector de duplicatas em sv._passDuplicatas. Casos: #24863 e #24874.' },
   { v: '2.8', date: '2026-05-10 19:30', changes: 'Cores da variação corrigidas na função variacao(): positivo (rom > pass) = verde, negativo (rom < pass) = vermelho. Antes usava Math.abs para decidir cor, ignorando o sinal. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
   { v: '2.7', date: '2026-05-10 02:30', changes: 'Fallback inteligente quando banho_ini é NULL na separação (operador esqueceu de marcar — caso #24871 ULIANE sep 14942): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Marca sv._banhoEstimado=true.' },
   { v: '2.6', date: '2026-05-09 18:30', changes: 'BUGFIX crítico anchor SEPARAÇÃO: trocada lógica "exp_ini ±2 dias" pela semanticamente correta "data_servico cai DENTRO da janela de expedição (exp_ini ≤ data ≤ exp_fim+2d)". Mesmo bug do monitor v1.8: romaneios feitos N dias após o início da expedição não casavam separação e caíam pro fallback 60d, vazando passagens de outros lotes. SQL de carga ampliado pra dFrom-20d e seleciona exp_fim. Aplicado em todas as tabs (Por Serviço, Diário).' },
@@ -629,11 +630,24 @@ function attachPassagensWindowToServicos(){
       }
     }
     if (sv._separacao && bIni && bFim){
-      // Janela EXATA (ou estimada) banho_ini→banho_fim (timestamp) — não pega lotes paralelos
+      // Tolerância +24h no fim, LIMITADA pelo banho_ini da próxima sep do cliente
+      const proxSep = (state.separacoes||[]).filter(s => s.cliente_id === sv.idcliente && s.sep_id !== sv._separacao.sep_id && s.banho_ini && new Date(s.banho_ini) > bFim).sort((a,b)=> new Date(a.banho_ini) - new Date(b.banho_ini))[0];
+      const proxIni = proxSep ? new Date(new Date(proxSep.banho_ini).getTime() - 60000) : null;
+      const tolMax = new Date(bFim.getTime() + 24*3600000);
+      const bFimTol = proxIni && proxIni < tolMax ? proxIni : tolMax;
       sv._passagensWindow = todas.filter(p => {
         const ts = new Date(p.data_full || p.data);
-        return ts >= bIni && ts <= bFim;
+        return ts >= bIni && ts <= bFimTol;
       });
+      // Duplicatas
+      const dupGroups = new Map();
+      sv._passagensWindow.forEach(p => {
+        const key = `${p.material}|${p.cor||'_'}|${p.milesimos??'_'}|${p.tiposerv}|${p.peso}|${p.data_full||p.data}`;
+        if (!dupGroups.has(key)) dupGroups.set(key, []);
+        dupGroups.get(key).push(p);
+      });
+      sv._passDuplicatas = [...dupGroups.values()].filter(g => g.length > 1);
+      sv._passDuplicatasPeso = sv._passDuplicatas.reduce((s,g)=>s+(g.length-1)*(+g[0].peso||0), 0);
       sv._janelaUsada = banhoEstimado ? 'banho-estimado' : 'banho-exato';
       sv._banhoEstimado = banhoEstimado;
       // Detectar separações concorrentes do mesmo cliente sobrepondo a janela

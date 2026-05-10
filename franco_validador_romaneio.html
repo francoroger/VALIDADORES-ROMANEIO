@@ -244,6 +244,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
+  { v: '2.4', date: '2026-05-10 21:00', changes: 'Tolerância +24h no banho_fim (LIMITADA pelo banho_ini da próxima sep do cliente — não vaza pra próximo lote). Operadores escaneiam peças no dia seguinte ao "fim banho" — caso #24863 LAYLA peça 1m42s depois. PLUS detector de duplicatas com alerta visual na seção ⑤: agrupa passagens por material+cor+milésimos+tiposerv+peso+data+created_at e mostra IDs duplicados quando há POST duplo na API (caso #24874 LETÍCIA: 4 IDs iguais no mesmo segundo, inflavam variação artificialmente).' },
   { v: '2.3', date: '2026-05-10 19:30', changes: 'Cores da variação corrigidas: positivo (rom > pass) = verde, negativo (rom < pass) = vermelho. Antes estava por módulo (|v|>15=vermelho independente do sinal), confundindo. Threshold neutro para |v|<0.5%. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
   { v: '2.2', date: '2026-05-10 14:30', changes: 'BUGFIX crítico: query de detecção de separações concorrentes usava tstzrange() e quebrava com erro "range lower bound must be less than or equal to range upper bound" quando alguma sep tinha banho_ini > banho_fim (dados ruins no banco — existem ~10 separações antigas com isso). Substituído por comparação direta com LEAST/GREATEST que é tolerante. Também adicionado guard: só roda a query se banhoIni e banhoFim estão definidos.' },
   { v: '2.1', date: '2026-05-10 02:30', changes: 'Fallback inteligente quando banho_ini é NULL na separação (operador esqueceu de marcar — caso #24871 ULIANE sep 14942): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Faz uma query extra pra achar a sep anterior. Antes usava cat_fim/rec_fim que era muito amplo e englobava lotes anteriores. Marca state.banhoEstimado=true.' },
@@ -396,7 +397,15 @@ async function loadRomaneio(romNum){
         state.banhoEstimado = true;
       }
       if (banhoIni && banhoFim){
-        const sqlPass = `SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS data, p.material_id, m.descricao AS material, p.cor_id, COALESCE(cor.descricao,'—') AS cor, p.milesimos, p.peso, p.tiposervico_id, ts.descricao AS tiposerv FROM passagem_pecas p JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id JOIN tiposervico ts ON ts.id=p.tiposervico_id WHERE p.deleted_at IS NULL AND p.cliente_id = ${cli} AND p.data_servico >= '${banhoIni}'::timestamp AND p.data_servico <= '${banhoFim}'::timestamp ORDER BY p.data_servico DESC`;
+        // Tolerância +24h no fim, LIMITADA pelo banho_ini da próxima sep do cliente.
+        // Operador costuma escanear peças no dia seguinte ao "fim banho" (caso #24863 LAYLA: peça 1m42s depois).
+        const sqlPass = `WITH limite AS (
+  SELECT LEAST(
+    '${banhoFim}'::timestamp + INTERVAL '24 hours',
+    COALESCE((SELECT data_inicio_banho - INTERVAL '1 minute' FROM separacoes WHERE cliente_id=${cli} AND id<>${sep.id} AND data_inicio_banho > '${banhoFim}'::timestamp ORDER BY data_inicio_banho LIMIT 1), '${banhoFim}'::timestamp + INTERVAL '24 hours')
+  ) AS fim_tol
+)
+SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS data, p.material_id, m.descricao AS material, p.cor_id, COALESCE(cor.descricao,'—') AS cor, p.milesimos, p.peso, p.tiposervico_id, ts.descricao AS tiposerv, p.created_at::text AS created_at FROM passagem_pecas p JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id JOIN tiposervico ts ON ts.id=p.tiposervico_id, limite WHERE p.deleted_at IS NULL AND p.cliente_id = ${cli} AND p.data_servico >= '${banhoIni}'::timestamp AND p.data_servico <= limite.fim_tol ORDER BY p.data_servico DESC`;
         idxPass = promises3.length;
         promises3.push(callDB(sqlPass));
       }
@@ -815,6 +824,23 @@ function renderAlertas(){
   if (state.separacoesConcorrentes && state.separacoesConcorrentes.length > 0){
     const concList = state.separacoesConcorrentes.map(s => `Sep #${s.id} (cat ${s.catalogacao_id||'—'}, status ${s.status||'—'}) banho ${s.banho_ini ? fmt.date(s.banho_ini.slice(0,10)) : '—'} → ${s.banho_fim ? fmt.date(s.banho_fim.slice(0,10)) : '—'}`).join('<br>');
     alertas.push({k:'warn', msg:`<strong>⚠ ${state.separacoesConcorrentes.length} ${state.separacoesConcorrentes.length===1?'separação concorrente detectada':'separações concorrentes detectadas'}</strong> do mesmo cliente com banho sobrepondo a janela desta separação. Pode haver passagens de outros lotes interferindo na conciliação. Concorrentes:<br><small style="font-family:ui-monospace,monospace">${concList}</small>`});
+  }
+
+  // DUPLICATAS NA PASSAGEM — agrupar por (material+cor+milésimos+tiposerv+peso+data_servico+created_at)
+  // 2+ registros idênticos no mesmo created_at = quase sempre POST duplo na API (caso #24874 LETÍCIA).
+  if (state.passagens && state.passagens.length > 0){
+    const dupGroups = new Map();
+    state.passagens.forEach(p => {
+      const key = `${p.material_id}|${p.cor_id||'_'}|${p.milesimos??'_'}|${p.tiposervico_id}|${p.peso}|${p.data_full||''}|${(p.created_at||'').slice(0,19)}`;
+      if (!dupGroups.has(key)) dupGroups.set(key, []);
+      dupGroups.get(key).push(p);
+    });
+    const dups = [...dupGroups.values()].filter(g => g.length > 1);
+    if (dups.length > 0){
+      const totalDup = dups.reduce((s,g)=>s+(g.length-1)*(+g[0].peso||0), 0);
+      const dupList = dups.map(g => `<li>${g.length}× ${g[0].material} ${g[0].cor||'—'} ${g[0].milesimos??'—'} milésimos · ${fmt.g(g[0].peso)} · IDs ${g.map(p=>p.id).join(', ')} · created_at ${(g[0].created_at||'').slice(0,19)}</li>`).join('');
+      alertas.push({k:'warn', msg:`<strong>⚠ ${dups.length} ${dups.length===1?'grupo de passagens duplicadas detectado':'grupos de passagens duplicadas detectados'}</strong> (mesmo material, peso, milésimos, timestamp e created_at). Provável POST duplo na API — total potencialmente inflado em <strong>${fmt.g(totalDup)}</strong>.<br><ul style="margin-top:6px;padding-left:18px;font-family:ui-monospace,monospace;font-size:11px">${dupList}</ul>`});
+    }
   }
 
   // OS sem CAT

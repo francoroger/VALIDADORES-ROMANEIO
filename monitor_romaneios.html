@@ -204,6 +204,8 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '2.2', date: '2026-05-10 21:30', changes: 'Detector de duplicatas com ALERTA VISUAL na expansão do romaneio (igual já estava no validador). Mostra: quantos grupos duplicados, peso inflado total, IDs envolvidos, e variação recalculada IGNORANDO duplicatas. Caso #24874 LETÍCIA: alerta exibe 4 IDs no mesmo segundo (POST duplo na API), peso real ≈ 1.280g (não 1.766g), variação ≈ +1.3% (não -26.6%).' },
+  { v: '2.1', date: '2026-05-10 21:00', changes: 'Tolerância +24h no banho_fim (LIMITADA pela próxima sep do cliente) e detector de duplicatas em rom.passDuplicatas/rom.passDuplicatasPeso. Casos: #24863 LAYLA (peça 1m42s depois) e #24874 LETÍCIA (POST duplo). Detector ainda não exibe alerta na UI — só no state.' },
   { v: '2.0', date: '2026-05-10 19:30', changes: 'Cores da variação corrigidas: positivo (rom > pass) = verde, negativo (rom < pass) = vermelho. Antes era por módulo (|v|>15=vermelho independente do sinal), confundia. Aplicado em 3 lugares: linha principal de romaneio, bucket-table expandido, total expandido. Threshold neutro para |v|<0.5%.' },
   { v: '1.9', date: '2026-05-10 02:30', changes: 'DUPLO BUGFIX: (1) Removidas 4 ocorrências de ‰ que escaparam nas correções anteriores — header "Material · Cor · ‰" da bucket-table e cell template "‰${b.mil}" (produzindo "‰50") + mesmo padrão na adic-table. Erro de processo: o grep anterior buscava só headers inline e perdeu strings concatenadas em JS (`html += ´<table>...‰...´`) e template literals com ‰ junto. Memória de processo (processo_aplicar_correcao_ui.md) atualizada com regex novos. (2) Fallback inteligente quando banho_ini é NULL na separação (caso #24871 ULIANE sep 14942 onde operador esqueceu de marcar): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Marca banhoEstimado=true pra futuro alerta na UI.' },
   { v: '1.8', date: '2026-05-09 18:30', changes: 'BUGFIX crítico anchor SEPARAÇÃO: trocada lógica "exp_ini ±2 dias" pela semanticamente correta "romaneio cai DENTRO da janela de expedição (exp_ini ≤ data_rom ≤ exp_fim+2d)". Caso #24855 (NP SOARES) tinha exp_ini=04-30 e romaneio=05-04 (4 dias depois, dentro de 04-30→05-07) — antes não casava e caía pro fallback de 60d vazando 4180g de Prateado 70 milésimos. SQL de carga também ampliado: agora busca exp_ini de dFrom-20d a dTo+5d (antes só -5d). Adiciona seleção de exp_fim. Validado nos 5 casos previamente corretos (#24856, #24870, #24876, #24878, #24884).' },
@@ -401,11 +403,25 @@ function buildModel(){
       }
     }
     if (rom.separacao && bIni && bFim){
+      // Tolerância +24h no fim, LIMITADA pelo banho_ini da próxima sep do cliente (não vaza)
+      const proxSep = (state.seps||[]).filter(s => s.cliente_id === rom.cliente_id && s.sep_id !== rom.separacao.sep_id && s.banho_ini && new Date(s.banho_ini) > bFim).sort((a,b)=> new Date(a.banho_ini) - new Date(b.banho_ini))[0];
+      const proxIni = proxSep ? new Date(new Date(proxSep.banho_ini).getTime() - 60000) : null;
+      const tolMax = new Date(bFim.getTime() + 24*3600000);
+      const bFimTol = proxIni && proxIni < tolMax ? proxIni : tolMax;
       rom.passagens = state.passes.filter(p => {
         if (p.cliente_id !== rom.cliente_id) return false;
         const ts = new Date(p.data_full || p.data);
-        return ts >= bIni && ts <= bFim;
+        return ts >= bIni && ts <= bFimTol;
       });
+      // Detectar duplicatas
+      const dupGroups = new Map();
+      rom.passagens.forEach(p => {
+        const key = `${p.material}|${p.cor||'_'}|${p.milesimos??'_'}|${p.tiposerv}|${p.peso}|${p.data_full||p.data}`;
+        if (!dupGroups.has(key)) dupGroups.set(key, []);
+        dupGroups.get(key).push(p);
+      });
+      rom.passDuplicatas = [...dupGroups.values()].filter(g => g.length > 1);
+      rom.passDuplicatasPeso = rom.passDuplicatas.reduce((s,g)=>s+(g.length-1)*(+g[0].peso||0), 0);
       rom.passEhAntiga = false;
       rom.passJanelaUsada = banhoEstimado ? 'banho-estimado' : 'banho-exato';
       rom.banhoEstimado = banhoEstimado;
@@ -577,6 +593,22 @@ function renderExpand(r){
   const arr1 = r.os ? `<div class="tl-arr">→ ${r.os.observacao && r.os.observacao.match(/CAT:\s*(\d+)/)?'<span style="font-size:10px">CAT '+r.os.observacao.match(/CAT:\s*(\d+)/)[1]+'</span>':''} ${r.osDeltaDias!==null?'·  '+r.osDeltaDias+'d  ·':''} →</div>` : '<div class="tl-arr">→</div>';
   const arr2 = r.passagens.length ? `<div class="tl-arr">→ ${r.passDeltaDias!==null?r.passDeltaDias+'d ·':''} →</div>` : '<div class="tl-arr">→</div>';
   html += `<div class="timeline">${stepOS}${arr1}${stepPass}${arr2}${stepRom}</div>`;
+
+  // ALERTA: passagens duplicadas (POST duplo na API)
+  if (r.passDuplicatas && r.passDuplicatas.length > 0){
+    const dupList = r.passDuplicatas.map(g => {
+      const ids = g.map(p=>p.pass_id||p.id).join(', ');
+      return `<li>${g.length}× ${g[0].material} ${g[0].cor||'—'} ${g[0].milesimos??'—'} milésimos · ${fmt.g(g[0].peso)} · IDs ${ids}</li>`;
+    }).join('');
+    const passSemDup = r.banhoPass - r.passDuplicatas.filter(g => !isAdicional(g[0].material, g[0].tiposerv)).reduce((s,g)=>s+(g.length-1)*(+g[0].peso||0), 0);
+    const varSemDup = passSemDup > 0 ? (r.banhoRom/passSemDup-1)*100 : null;
+    html += `<div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#7a4509">
+      <strong>⚠ ${r.passDuplicatas.length} ${r.passDuplicatas.length===1?'grupo de passagens duplicadas detectado':'grupos de passagens duplicadas detectados'}</strong> (mesmo material+peso+timestamp). Provável POST duplo na API.<br>
+      <span style="color:var(--text-2)">Peso total das duplicatas: <strong>${fmt.g(r.passDuplicatasPeso)}</strong></span><br>
+      <span style="color:var(--text-2)">Se ignorar duplicatas: passagem ≈ <strong>${fmt.g(passSemDup)}</strong> · variação ≈ <strong>${varSemDup===null?'—':(varSemDup>=0?'+':'')+varSemDup.toFixed(1)+'%'}</strong></span>
+      <ul style="margin-top:6px;padding-left:18px;font-family:ui-monospace,monospace;font-size:11px">${dupList}</ul>
+    </div>`;
+  }
 
   // Tabela de buckets banho
   if (r.buckets.length){

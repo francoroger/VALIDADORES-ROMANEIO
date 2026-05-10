@@ -210,6 +210,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '2.7', date: '2026-05-10 21:00', changes: 'Tolerância +24h no banho_fim (LIMITADA pela próxima sep). Caso #24863 LAYLA: peça escaneada 1m42s após banho_fim agora entra na janela.' },
   { v: '2.6', date: '2026-05-10 19:30', changes: 'Cores da variação: nova função fmt.pctColor() aplicada em todas as 7 ocorrências (KPI + tabelas + cards). Positivo (rom > pass) = verde, negativo (rom < pass) = vermelho, |v|<0.5 = neutro. Classes CSS .var-pos/.var-neg/.var-neut adicionadas. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
   { v: '2.5', date: '2026-05-10 02:30', changes: 'Fallback inteligente quando banho_ini é NULL na separação (operador esqueceu de marcar — caso #24871 ULIANE sep 14942): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Marca rom._banhoEstimado=true.' },
   { v: '2.4', date: '2026-05-09 18:30', changes: 'BUGFIX crítico anchor SEPARAÇÃO (modo Por Romaneio): trocada lógica "exp_ini ±2 dias" pela semanticamente correta "data_romaneio cai DENTRO da janela de expedição (exp_ini ≤ data ≤ exp_fim+2d)". Mesmo bug do monitor v1.8 e RP v2.6: romaneios feitos N dias após o início da expedição não casavam separação e caíam pro fallback 20d, vazando passagens. SQL ampliado pra dFrom-20d e seleciona exp_fim.' },
@@ -591,10 +592,15 @@ function passagensClienteJanela(rom, ins){
     rom._separacao = sep;
     rom._janelaUsada = banhoEstimado ? 'banho-estimado' : 'banho-exato';
     rom._banhoEstimado = banhoEstimado;
+    // Tolerância +24h no fim, LIMITADA pelo banho_ini da próxima sep do cliente
+    const proxSep = (state.separacoes||[]).filter(s => s.cliente_id === rom.cliente_id && s.sep_id !== sep.sep_id && s.banho_ini && new Date(s.banho_ini) > bFim).sort((a,b)=> new Date(a.banho_ini) - new Date(b.banho_ini))[0];
+    const proxIni = proxSep ? new Date(new Date(proxSep.banho_ini).getTime() - 60000) : null;
+    const tolMax = new Date(bFim.getTime() + 24*3600000);
+    const bFimTol = proxIni && proxIni < tolMax ? proxIni : tolMax;
     return ins.filter(p => {
       if (p.cliente_id !== rom.cliente_id) return false;
       const ts = new Date(p.data_full || p.data);
-      return ts >= bIni && ts <= bFim;
+      return ts >= bIni && ts <= bFimTol;
     });
   }
   // 2) Fallback: janela WINDOW_DAYS (lógica antiga, menos precisa)
