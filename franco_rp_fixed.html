@@ -1,0 +1,1134 @@
+<!DOCTYPE html><script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Franco Romaneio Passagem",
+  "schemaVersion": 1,
+  "description": "Dashboard vivo Franco Galvânica · cruza romaneios de serviço com passagens na produção (link automático por cliente+material+milesimos), filtros por dia, cliente, número do serviço, tipo de serviço e material. Carrega dados frescos do PostgreSQL galvanica a cada abertura.",
+  "mcpTools": [
+    "mcp__postgres-aiven__pg_consultar"
+  ],
+  "mcpServerNames": [
+    "postgres-aiven"
+  ]
+}
+</script>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Franco Galvânica · Romaneio × Passagem</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/theme/mermaid.min.css" integrity="sha384-jZvDSsmGB9oGGT/4l9bHXGoAv1OxvG/cFmSo0dZaSqmBgvQTKDBFAMftlXTmMbNW" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/gridjs.umd.js" integrity="sha384-/XXDzxe4FsGiAe50i/u9pY/Vy/uX654MHB1xoc1BJNnH1WXHhqHga9g3q5tF4gj7" crossorigin="anonymous"></script>
+<style>
+:root {
+  color-scheme: light;
+  --bg:#f6f8fb;
+  --bg-grad:linear-gradient(135deg,#f6f8fb 0%,#eef2ff 100%);
+  --surface:#ffffff;
+  --surface-2:#f8fafc;
+  --border:#e6eaf2;
+  --border-2:#dde3ee;
+  --text:#0b1220;
+  --text-2:#475569;
+  --text-3:#94a3b8;
+  --primary:#5b5bf0;
+  --primary-2:#8b5cf6;
+  --cyan:#06b6d4;
+  --teal:#14b8a6;
+  --emerald:#10b981;
+  --orange:#f97316;
+  --pink:#ec4899;
+  --rose:#f43f5e;
+  --amber:#f59e0b;
+  --shadow-sm:0 1px 2px rgba(11,18,32,.06);
+  --shadow:0 4px 16px rgba(11,18,32,.08);
+  --shadow-lg:0 14px 40px rgba(11,18,32,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',Roboto,sans-serif;font-size:13px;line-height:1.45;color:var(--text);background:var(--bg-grad);min-height:100vh}
+.app{max-width:1700px;margin:0 auto;padding:14px 16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:14px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px;flex-wrap:wrap}
+.brand h1{font-size:16px;font-weight:700;letter-spacing:-.2px}
+.brand h1 span{color:var(--primary);font-weight:500}
+.brand small{color:var(--text-3);font-size:11px;margin-left:4px}
+.version-info{font-size:11px;color:var(--text-3);margin-left:8px}
+.version-info a{color:var(--primary);cursor:pointer;text-decoration:none;margin-left:4px}
+.version-info a:hover{text-decoration:underline}
+.version-modal{position:fixed;top:60px;right:20px;width:480px;max-height:70vh;background:#fff;border:1px solid var(--border);border-radius:10px;padding:18px 20px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:100;display:none;overflow-y:auto}
+.version-modal.open{display:block}
+.version-modal h3{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.version-modal h3 span{cursor:pointer;color:var(--text-3);font-weight:400}
+.version-entry{padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.version-entry:last-child{border-bottom:none}
+.version-entry strong{color:var(--primary)}
+.version-entry small{color:var(--text-3);margin-left:6px}
+.version-entry div{color:var(--text-2);margin-top:3px;line-height:1.5}
+.status{font-size:11px;color:var(--text-2);background:var(--surface);border:1px solid var(--border);padding:5px 11px;border-radius:999px;display:inline-flex;align-items:center;gap:6px}
+.status .dot{width:7px;height:7px;border-radius:50%;background:var(--emerald)}
+.status.loading .dot{background:var(--amber);animation:pulse 1.2s ease-in-out infinite}
+.status.error .dot{background:var(--rose)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.filters{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:2px}
+.field.grow{flex:1;min-width:160px}
+.field label{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3)}
+.field input,.field select{font-family:inherit;font-size:12px;padding:6px 9px;border:1px solid var(--border-2);border-radius:5px;background:var(--surface);color:var(--text);outline:none;height:30px}
+.field input:focus,.field select:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(91,91,240,.15)}
+.btn{font-family:inherit;font-size:12px;font-weight:600;padding:6px 14px;border:none;border-radius:5px;cursor:pointer;background:var(--primary);color:#fff;height:30px}
+.btn:hover{opacity:.88}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 10px;border-left:3px solid var(--c1,var(--primary))}
+.kpi-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);font-weight:600}
+.kpi-value{font-size:18px;font-weight:700;letter-spacing:-.3px;color:var(--text);margin-top:2px;line-height:1.15}
+.kpi-sub{font-size:10.5px;color:var(--text-2);margin-top:1px}
+.kpi-sub.up{color:var(--emerald)}
+.kpi-sub.down{color:var(--rose)}
+.kpi.cyan{--c1:#06b6d4}
+.kpi.violet{--c1:#8b5cf6}
+.kpi.emerald{--c1:#10b981}
+.kpi.orange{--c1:#f59e0b}
+.kpi.rose{--c1:#f43f5e}
+.tabs{display:flex;gap:4px;margin-bottom:10px;background:var(--surface);padding:4px;border-radius:7px;border:1px solid var(--border);overflow-x:auto}
+.tab{padding:7px 16px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text-2);transition:all .12s;white-space:nowrap}
+.tab:hover{background:var(--surface-2);color:var(--text)}
+.tab.active{background:var(--primary);color:#fff}
+.content{display:none;animation:fadeIn .25s}
+.content.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:18px;box-shadow:var(--shadow-sm)}
+.card h2{font-size:15px;font-weight:700;letter-spacing:-.2px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card h2 .badge{font-size:11px;font-weight:600;color:var(--text-3);background:var(--surface-2);padding:3px 9px;border-radius:999px;border:1px solid var(--border-2);text-transform:none;letter-spacing:0}
+.day-list{display:flex;flex-direction:column;gap:12px}
+.day-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:box-shadow .2s}
+.day-card:hover{box-shadow:var(--shadow)}
+.day-head{display:grid;grid-template-columns:140px 1fr 1fr 1fr 1fr 1fr 32px;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;background:var(--surface);transition:background .15s}
+.day-head:hover{background:var(--surface-2)}
+.day-card.open .day-head{background:linear-gradient(135deg,rgba(91,91,240,.04),rgba(139,92,246,.04));border-bottom:1px solid var(--border)}
+.day-date{font-weight:700;color:var(--text);font-size:14px}
+.day-date small{display:block;color:var(--text-3);font-size:11px;font-weight:500;margin-top:2px}
+.day-stat{font-size:12px;color:var(--text-2)}
+.day-stat strong{display:block;color:var(--text);font-size:14px;font-weight:600;margin-bottom:2px}
+.chevron{width:24px;height:24px;border-radius:6px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--text-2);font-size:11px;transition:transform .2s,background .15s}
+.day-card.open .chevron{transform:rotate(90deg);background:var(--primary);color:#fff}
+.day-body{padding:16px 18px;background:var(--surface-2);display:none}
+.day-card.open .day-body{display:block}
+.day-body h4{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin:8px 0 6px;font-weight:600;display:flex;align-items:center;gap:6px}
+.mini-table{width:100%;font-size:12px;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden}
+.mini-table th{text-align:left;font-weight:600;color:var(--text-3);padding:7px 10px;border-bottom:1px solid var(--border-2);font-size:11px;text-transform:uppercase;letter-spacing:.4px;background:var(--surface-2)}
+.mini-table td{padding:8px 10px;border-bottom:1px solid var(--border)}
+.mini-table tr:last-child td{border-bottom:none}
+.mini-table tr.match-row{background:rgba(16,185,129,.05)}
+.mini-table tr.no-match{background:rgba(244,63,94,.04)}
+.mini-table tr.tamires-row{background:rgba(245,158,11,.06)}
+.split-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:980px){ .split-grid{grid-template-columns:1fr} }
+.split-pane{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px}
+.split-pane > h5{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border-2);display:flex;align-items:center;gap:6px;justify-content:space-between}
+.split-pane > h5 .pane-tot{color:var(--primary);font-size:12px;font-weight:700}
+.day-footer{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;padding:12px;margin-top:14px;background:#fff;border:1px dashed var(--border-2);border-radius:10px}
+.fpill{padding:8px 12px;border-radius:8px;background:var(--surface-2);border-left:3px solid var(--p,var(--primary))}
+.fpill .fl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);font-weight:600}
+.fpill .fv{font-size:14px;font-weight:700;color:var(--text);margin-top:2px}
+.fpill.banho{--p:#5b5bf0}
+.fpill.alemao{--p:#06b6d4}
+.fpill.cataf{--p:#14b8a6}
+.fpill.tamires{--p:#f59e0b}
+.fpill.outros{--p:#94a3b8}
+.fpill.rod{--p:#8b5cf6}
+.fpill.au{--p:#f97316}
+.fpill.ag{--p:#94a3b8}
+.totalizer{background:linear-gradient(135deg,#fff 0%,#f8f9ff 100%);border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:20px;box-shadow:var(--shadow)}
+.totalizer h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-3);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.totalizer h3::before{content:'Σ';font-size:18px;color:var(--primary)}
+.tot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.tot-pill{padding:14px 16px;border-radius:12px;background:#fff;border:1px solid var(--border);position:relative;overflow:hidden}
+.tot-pill::before{content:'';position:absolute;top:0;left:0;bottom:0;width:4px;background:var(--p,var(--primary))}
+.tot-pill .tl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);font-weight:600;margin-bottom:4px}
+.tot-pill .tv{font-size:18px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
+.tot-pill .tx{font-size:11px;color:var(--text-2);margin-top:3px}
+.tot-pill.banho{--p:#5b5bf0}
+.tot-pill.alemao{--p:#06b6d4}
+.tot-pill.cataf{--p:#14b8a6}
+.tot-pill.tamires{--p:#f59e0b}
+.tot-pill.geral{--p:#10b981}
+.cliente-list,.servico-list{display:flex;flex-direction:column;gap:8px}
+.cli-row,.sv-row{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:box-shadow .15s}
+.cli-row:hover,.sv-row:hover{box-shadow:var(--shadow-sm)}
+.cli-head,.sv-head{display:grid;grid-template-columns:1fr repeat(5,140px) 32px;align-items:center;gap:12px;padding:13px 16px;cursor:pointer}
+.sv-head{grid-template-columns:200px 100px 1fr 110px 110px 140px 32px}
+.cli-name,.sv-num{font-weight:600;color:var(--text)}
+.sv-num{font-size:13px}
+.sv-num strong{color:var(--primary);margin-right:4px}
+.cli-row.open .cli-head,.sv-row.open .sv-head{background:linear-gradient(135deg,rgba(20,184,166,.05),rgba(139,92,246,.05));border-bottom:1px solid var(--border)}
+.cli-body,.sv-body{padding:14px 18px;background:var(--surface-2);display:none}
+.cli-row.open .cli-body,.sv-row.open .sv-body{display:block}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.tag.ok{background:rgba(16,185,129,.12);color:#047857}
+.tag.warn{background:rgba(245,158,11,.14);color:#92400e}
+.tag.danger{background:rgba(244,63,94,.12);color:#9f1239}
+.tag.info{background:rgba(6,182,212,.12);color:#0e7490}
+.tag.violet{background:rgba(139,92,246,.12);color:#6d28d9}
+.tag.gray{background:rgba(148,163,184,.18);color:#475569}
+.tag.match{background:rgba(16,185,129,.12);color:#047857;border:1px solid rgba(16,185,129,.3)}
+.tag.partial{background:rgba(245,158,11,.14);color:#92400e;border:1px solid rgba(245,158,11,.3)}
+.cli-strong{color:var(--text);font-weight:600}
+canvas{max-height:340px}
+.gridjs-wrapper{box-shadow:none!important;border:1px solid var(--border)!important;border-radius:10px!important;overflow:hidden}
+.gridjs-table{font-size:12.5px}
+.gridjs-th{background:var(--surface-2)!important;color:var(--text)!important;font-weight:600!important;padding:11px 12px!important;border-bottom:1px solid var(--border)!important}
+.gridjs-td{padding:9px 12px!important;border-bottom:1px solid var(--border)!important}
+.gridjs-pagination,.gridjs-search{padding:10px 14px!important;background:var(--surface-2)!important;color:var(--text-2)!important}
+.gridjs-search input{background:#fff!important;color:var(--text)!important;border:1px solid var(--border-2)!important}
+.muted{color:var(--text-3)}
+.right{text-align:right}
+.center{text-align:center}
+.empty{text-align:center;color:var(--text-3);padding:40px 20px;font-style:italic}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:14px}
+.summary-pill{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:8px 11px}
+.summary-pill .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);font-weight:600}
+.summary-pill .val{font-size:14px;font-weight:600;color:var(--text);margin-top:1px}
+.match-line{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text-2);margin-top:3px}
+.match-line .arr{color:var(--text-3);font-size:10px}
+.warn-banner{background:#fef3c7;border:1px solid #fde047;color:#92400e;padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:14px;display:none}
+.warn-banner.show{display:block}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="brand">
+    <h1>Franco <span>Galvânica</span> · <small style="display:inline">Romaneio × Passagem</small></h1>
+    <span class="version-info" id="versionInfo">v—</span>
+  </div>
+  <div class="status loading" id="status"><span class="dot"></span><span id="statusText">Carregando…</span></div>
+</header>
+
+<div class="version-modal" id="versionModal">
+  <h3>Histórico de versões <span onclick="document.getElementById('versionModal').classList.remove('open')">×</span></h3>
+  <div id="versionList"></div>
+</div>
+
+<div id="warnBanner" class="warn-banner"></div>
+
+<div class="filters">
+  <div class="field"><label>De</label><input type="date" id="dateFrom"></div>
+  <div class="field"><label>Até</label><input type="date" id="dateTo"></div>
+  <div class="field grow"><label>Cliente</label><input type="text" id="filterCliente" placeholder="nome…"></div>
+  <div class="field"><label>Nº Serviço</label><input type="text" id="filterServico" placeholder="ex: 24880" style="width:110px"></div>
+  <div class="field"><label>Tipo</label><select id="filterTipo"><option value="">Todos</option></select></div>
+  <div class="field"><label>Material</label><select id="filterMaterial"><option value="">Todos</option></select></div>
+  <button class="btn" id="btnReload">Recarregar</button>
+</div>
+
+<div class="kpis">
+  <div class="kpi cyan"><div class="kpi-label">Faturado no período</div><div class="kpi-value" id="kpiValor">—</div><div class="kpi-sub" id="kpiValorSub"></div></div>
+  <div class="kpi violet"><div class="kpi-label">Peso passou na produção</div><div class="kpi-value" id="kpiPass">—</div><div class="kpi-sub" id="kpiPassSub"></div></div>
+  <div class="kpi emerald"><div class="kpi-label">Peso faturado</div><div class="kpi-value" id="kpiFat">—</div><div class="kpi-sub" id="kpiFatSub"></div></div>
+  <div class="kpi orange"><div class="kpi-label">Saldo aberto</div><div class="kpi-value" id="kpiSaldo">—</div><div class="kpi-sub" id="kpiSaldoSub"></div></div>
+  <div class="kpi rose"><div class="kpi-label">Itens linkados</div><div class="kpi-value" id="kpiMatch">—</div><div class="kpi-sub" id="kpiMatchSub"></div></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="diapass">🏭 Diário Passagens</div>
+  <div class="tab" data-tab="diaroma">🧾 Diário Romaneios</div>
+  <div class="tab" data-tab="servico">📋 Por Serviço</div>
+</div>
+
+<div id="content-diapass" class="content active">
+  <div class="card">
+    <h2>Diário de Passagens — só produção <span class="badge" id="diapassCount">—</span></h2>
+    <p class="muted" style="font-size:13px;margin-bottom:14px">Cada linha = um dia. Cada dia mostra todas as passagens (cliente, tipo, material, peso) e um totalizador separando <strong>Banho</strong>, <strong>Verniz Alemão</strong>, <strong>Verniz Cataforético</strong> e <strong>Retrabalho Tamires</strong>.</p>
+    <div class="day-list" id="dayListPass"><div class="empty">Aguardando dados…</div></div>
+    <div class="totalizer" id="totalPass"></div>
+  </div>
+</div>
+
+<div id="content-diaroma" class="content">
+  <div class="card">
+    <h2>Diário de Romaneios × Passagens — lado a lado <span class="badge" id="diaromaCount">—</span></h2>
+    <p class="muted" style="font-size:13px;margin-bottom:14px">Cada dia traz <strong>romaneios à esquerda</strong> (cada item linkado à passagem mais provável: 🟢 forte ≤5% · 🟡 parcial 5-20% · ⚪ sem candidato) e <strong>passagens à direita</strong>.</p>
+    <div class="day-list" id="dayListRoma"><div class="empty">Aguardando dados…</div></div>
+    <div class="totalizer" id="totalRoma"></div>
+  </div>
+</div>
+
+<div id="content-servico" class="content">
+  <div class="card">
+    <h2>Romaneios de serviço × Passagens linkadas <span class="badge" id="svCount">—</span></h2>
+    <p class="muted" style="font-size:13px;margin-bottom:14px">Cada serviço pode ter múltiplos itens. Para cada item, busco a passagem mais provável (mesmo cliente + material + milesimos, data &le; venda, peso similar).</p>
+    <div class="servico-list" id="servicoList"><div class="empty">Aguardando dados…</div></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ============= LOG DE VERSÕES =============
+const VERSIONS = [
+  { v: '2.9', date: '2026-05-10 20:30', changes: 'Tolerância +24h no banho_fim (LIMITADA pelo início da próxima sep do cliente) e detector de duplicatas em sv._passDuplicatas/sv._passDuplicatasPeso. Casos: #24863 (peça escaneada 1m42s após banho_fim) e #24874 (POST duplo).' },
+  { v: '2.8', date: '2026-05-10 19:30', changes: 'Cores da variação corrigidas na função variacao(): positivo (rom > pass) = verde, negativo (rom < pass) = vermelho. Antes usava Math.abs para decidir cor, ignorando o sinal. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
+  { v: '2.7', date: '2026-05-10 02:30', changes: 'Fallback inteligente quando banho_ini é NULL na separação (operador esqueceu de marcar — caso #24871 ULIANE sep 14942): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Marca sv._banhoEstimado=true.' },
+  { v: '2.6', date: '2026-05-09 18:30', changes: 'BUGFIX crítico anchor SEPARAÇÃO: trocada lógica "exp_ini ±2 dias" pela semanticamente correta "data_servico cai DENTRO da janela de expedição (exp_ini ≤ data ≤ exp_fim+2d)". Mesmo bug do monitor v1.8: romaneios feitos N dias após o início da expedição não casavam separação e caíam pro fallback 60d, vazando passagens de outros lotes. SQL de carga ampliado pra dFrom-20d e seleciona exp_fim. Aplicado em todas as tabs (Por Serviço, Diário).' },
+  { v: '2.5', date: '2026-05-09 18:00', changes: 'Continuação do fix v2.3 (que tinha trocado "Mil." por "Milésimos" no header da Por Serviço, mas faltavam outros pontos): verificação exaustiva por grep em todos os 4 artefatos confirmou que nenhum "Mil"/"Mil."/"Milesimos sem acento"/"‰" sobrou em UI ativa. Sem mudanças funcionais.' },
+  { v: '2.4', date: '2026-05-09 17:30', changes: 'matchOsServico reescrita com 4 níveis de fallback (igual validador): (a) parseia "O.S:NNNN" da triagem da separação → OS exata, (b) CAT na obs da OS, (c) OS do cliente até fim da separação, (d) OS mais recente. Adicionado fetch state.triagens. Resolve casos como #24856 (GABRIELY) que estava pegando OS #2896 (mais recente, sem CAT) em vez da correta #12898 (apontada por triagem 13515 "O.S: 12898").' },
+  { v: '2.3', date: '2026-05-09 17:00', changes: 'Substituído símbolo ‰ pela palavra "milésimos" por extenso nos labels (preferência do Roger).' },
+  { v: '2.2', date: '2026-05-09 16:15', changes: 'Aplicado mesmo fix do validador v1.7 e monitor v1.5: cada romaneio agora ancora na sua SEPARAÇÃO específica (cliente + data_inicio_expedicao ≈ data_romaneio ±2d). Janela de passagens vira EXATA banho_ini→banho_fim (timestamp) da separação, eliminando vazamento de outros lotes em produção paralela. Resolve casos como #24878 (ANA BEATRIZ) que mostrava variação artificial de -44.7%. Fallback automático pra janela 60d quando não acha separação. Detecção de separações concorrentes registrada em sv._sepConcorrentes.' },
+  { v: '2.1', date: '2026-05-09 11:45', changes: 'Filtros, KPIs e tabs também compactados (estavam ainda no estilo antigo grande). Tudo agora no padrão visual do Monitor.' },
+  { v: '2.0', date: '2026-05-09 11:30', changes: 'Header compacto (estilo Master Grid). Removidas 3 abas: Por Cliente, Por Tipo, Análise. Adicionado controle de versão visível e log de mudanças clicável.' },
+  { v: '1.5', date: '2026-05-09 04:55', changes: 'Restaurados ícones decorativos (🟢🟡⚪🏭🧾📋). Coluna Status agregada (X/Y match) removida do header do romaneio.' },
+  { v: '1.4', date: '2026-05-09 04:30', changes: 'Removidos temporariamente ícones decorativos (revertido na v1.5).' },
+  { v: '1.3', date: '2026-05-09 04:10', changes: 'Corrigida fórmula de variação: agora (rom-pass)/pass (era pass-rom/rom). Cabeçalho da coluna trocado para Var. % (rom vs pass).' },
+  { v: '1.2', date: '2026-05-09 ~03:00', changes: 'Bug truncamento da MCP corrigido (limit=500, filtro IN clientes). OS associada via cliente+data. Conciliação por bucket material+cor+mil.' },
+  { v: '1.1', date: '2026-05-08 ~22:00', changes: 'Diário Passagens + Diário Romaneios com totalizadores Banho/V.Alemão/V.Cataf/Retrabalho.' },
+  { v: '1.0', date: '2026-05-08 16:00', changes: 'Versão inicial: dashboard vivo cruzando passagens × romaneios com filtros e KPIs.' }
+];
+const CURRENT_VERSION = VERSIONS[0];
+
+const state = { passagens:[], itens:[], passagensExtra:[], itensOS:[], servicos:{}, loading:false, truncated:[] };
+let charts = {};
+
+const fmt = {
+  brl: v => 'R$ ' + (Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),
+  brlK: v => 'R$ ' + (Number(v)/1000||0).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + 'k',
+  num: v => Number(v).toLocaleString('pt-BR'),
+  g: v => (Number(v)||0).toLocaleString('pt-BR',{maximumFractionDigits:0}) + ' g',
+  kg: v => (Number(v)/1000||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' kg',
+  date: s => { if(!s) return ''; const [y,m,d] = s.split('-'); return d+'/'+m+'/'+y; },
+  dateW: s => { if(!s) return ''; const [y,m,d] = s.split('-'); const dt = new Date(+y, +m-1, +d); const dias=['dom','seg','ter','qua','qui','sex','sáb']; return dias[dt.getDay()]+' '+d+'/'+m; }
+};
+
+function setStatus(msg, kind){
+  const el = document.getElementById('status');
+  const txt = document.getElementById('statusText');
+  el.classList.remove('loading','error');
+  if (kind === 'loading') el.classList.add('loading');
+  else if (kind === 'error') el.classList.add('error');
+  txt.textContent = msg;
+}
+
+function setWarnBanner(){
+  const el = document.getElementById('warnBanner');
+  if (!state.truncated.length) { el.classList.remove('show'); el.innerHTML=''; return; }
+  el.classList.add('show');
+  el.innerHTML = '<strong>⚠ Atencao:</strong> uma ou mais consultas atingiram o limite maximo da MCP (500 linhas) e foram truncadas. Reduza o periodo no filtro ou divida a consulta por cliente. Queries afetadas: ' + state.truncated.map(q=>'<code>'+q+'</code>').join(', ');
+}
+
+function parseResult(resultText){
+  if (!resultText || typeof resultText !== 'string') return [];
+  const lines = resultText.split('\n');
+  if (lines.length < 3) return [];
+  const headers = lines[0].split('|').map(h => h.trim());
+  const rows = [];
+  for (let i = 2; i < lines.length; i++){
+    const line = lines[i];
+    if (!line.trim()) continue;
+    if (line.startsWith('Total:') || line.startsWith('Erro')) break;
+    const values = line.split('|').map(v => v.trim());
+    if (values.length === headers.length){
+      const row = {};
+      headers.forEach((h, idx) => {
+        let v = values[idx];
+        if (v === 'NULL' || v === '') v = null;
+        else if (!isNaN(v) && v !== '') v = Number(v);
+        row[h] = v;
+      });
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+async function callDB(sql, label){
+  const limit = 500;
+  const res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit } });
+  let txt = '';
+  if (typeof res === 'string') txt = res;
+  else if (res?.result) txt = res.result;
+  else if (Array.isArray(res?.content)) {
+    for (const c of res.content) if (c.type === 'text' && c.text) txt += c.text;
+    try { const j = JSON.parse(txt); if (j?.result) txt = j.result; } catch(e){}
+  }
+  const m = (txt || '').match(/Total:\s*(\d+)\s*registro/);
+  if (m && parseInt(m[1]) >= limit && label){
+    if (!state.truncated.includes(label)) state.truncated.push(label);
+    console.warn('[callDB] ' + label + ' atingiu limite de ' + limit + ' linhas, truncado.');
+  }
+  return parseResult(txt);
+}
+
+async function loadData(){
+  if (state.loading) return;
+  state.loading = true;
+  state.truncated = [];
+  const dFrom = document.getElementById('dateFrom').value;
+  const dTo = document.getElementById('dateTo').value;
+  if (!dFrom || !dTo) { setStatus('Selecione período', 'error'); state.loading = false; return; }
+  const dToPlus = (() => { const d = new Date(dTo); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })();
+
+  setStatus('Carregando romaneios…', 'loading');
+  try {
+    const sqlIt = `SELECT isv.id, isv.idservico AS num_servico, s.datavenda::text AS data, s.idcliente, c.nome AS cliente, ts.descricao AS tiposerv, m.descricao AS material, cor.descricao AS cor, isv.milesimos, isv.peso, isv.valor, isv.valor_comis, s.valor_com_desconto AS valor_servico FROM itemservico isv JOIN servico s ON s.id=isv.idservico JOIN cliente c ON c.id=s.idcliente JOIN tiposervico ts ON ts.id=isv.idtiposervico JOIN material m ON m.id=isv.idmaterial LEFT JOIN cores cor ON cor.id=isv.idcor WHERE s.datavenda >= '${dFrom}' AND s.datavenda < '${dToPlus}' ORDER BY s.datavenda DESC, isv.idservico DESC, isv.id`;
+    state.itens = await callDB(sqlIt, 'itens-romaneio');
+
+    const clienteIds = [...new Set(state.itens.map(i => i.idcliente).filter(x => x != null))];
+    const inClausePass = clienteIds.length > 0 ? `AND p.cliente_id IN (${clienteIds.join(',')})` : '';
+    const inClauseOs = clienteIds.length > 0 ? `AND os.idcliente IN (${clienteIds.join(',')})` : '';
+    const dFromMatch = (() => { const d = new Date(dFrom); d.setDate(d.getDate()-60); return d.toISOString().slice(0,10); })();
+
+    setStatus('Carregando passagens do periodo…', 'loading');
+    // ATENÇÃO: data_full (timestamp) é necessário pra filtrar por janela exata banho_ini→banho_fim da separação
+    const sqlPass = `SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS data, p.cliente_id, c.nome AS cliente, ts.descricao AS tiposerv, m.descricao AS material, cor.descricao AS cor, p.milesimos, p.peso, p.cor_id FROM passagem_pecas p JOIN cliente c ON c.id=p.cliente_id JOIN tiposervico ts ON ts.id=p.tiposervico_id JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id WHERE p.deleted_at IS NULL AND p.data_servico >= '${dFrom}' AND p.data_servico < '${dToPlus}' ${inClausePass} ORDER BY p.data_servico DESC, p.id DESC`;
+    state.passagens = await callDB(sqlPass, 'passagens-periodo');
+
+    setStatus('Buscando passagens anteriores p/ matching…', 'loading');
+    if (dFromMatch < dFrom){
+      const sqlPassExtra = `SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS data, p.cliente_id, c.nome AS cliente, ts.descricao AS tiposerv, m.descricao AS material, cor.descricao AS cor, p.milesimos, p.peso FROM passagem_pecas p JOIN cliente c ON c.id=p.cliente_id JOIN tiposervico ts ON ts.id=p.tiposervico_id JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id WHERE p.deleted_at IS NULL AND p.data_servico >= '${dFromMatch}' AND p.data_servico < '${dFrom}' ${inClausePass} ORDER BY p.data_servico DESC`;
+      state.passagensExtra = await callDB(sqlPassExtra, 'passagens-matching-60d');
+    } else state.passagensExtra = [];
+
+    // SEPARAÇÕES — buscar pra ancorar cada romaneio na sua separação correta (ao invés de janela 60d)
+    setStatus('Carregando separações para ancorar romaneios…', 'loading');
+    const inClauseSep = clienteIds.length > 0 ? `AND s.cliente_id IN (${clienteIds.join(',')})` : '';
+    const sqlSeps = `SELECT s.id AS sep_id, s.cliente_id, s.catalogacao_id, s.status, s.data_inicio_banho::text AS banho_ini, s.data_fim_banho::text AS banho_fim, s.data_inicio_expedicao::text AS exp_ini, s.data_fim_expedicao::text AS exp_fim, s.data_fim_separacao::text AS fim_sep FROM separacoes s WHERE (s.data_inicio_expedicao::date BETWEEN '${dFrom}'::date - INTERVAL '20 days' AND '${dToPlus}'::date OR s.data_fim_expedicao::date BETWEEN '${dFrom}'::date - INTERVAL '5 days' AND '${dToPlus}'::date OR s.data_fim_separacao::date BETWEEN '${dFrom}'::date - INTERVAL '5 days' AND '${dToPlus}'::date) ${inClauseSep} ORDER BY s.data_inicio_expedicao DESC NULLS LAST`;
+    state.separacoes = await callDB(sqlSeps, 'separacoes');
+
+    // TRIAGENS — fetch pra parsear "O.S:NNNN" da observação (referência reversa pra OS correta)
+    const catIds = [...new Set((state.separacoes||[]).map(s => s.catalogacao_id).filter(x => x != null))];
+    if (catIds.length > 0){
+      setStatus('Carregando triagens (catalogações)…', 'loading');
+      const sqlTri = `SELECT id AS tri_id, idcliente, REPLACE(REPLACE(COALESCE(observacoes,''), CHR(13), ' '), CHR(10), ' ') AS observacoes FROM triagem WHERE id IN (${catIds.join(',')})`;
+      state.triagens = await callDB(sqlTri, 'triagens');
+    } else state.triagens = [];
+
+    setStatus('Carregando OSs (orcamentos previos)…', 'loading');
+    const sqlOs = `SELECT io.id, io.idordem AS id_os, os.numero AS num_os, os.idcliente, os.datavenda::text AS data_os, c.nome AS cliente, ts.descricao AS tiposerv, m.descricao AS material, cor.descricao AS cor, io.milesimos, io.peso FROM itemordem io JOIN ordemservico os ON os.id=io.idordem JOIN cliente c ON c.id=os.idcliente JOIN tiposervico ts ON ts.id=io.idtiposervico JOIN material m ON m.id=io.idmaterial LEFT JOIN cores cor ON cor.id=io.idcor WHERE os.datavenda >= '${dFromMatch}' AND os.datavenda < '${dToPlus}' ${inClauseOs} ORDER BY os.datavenda DESC, io.idordem DESC, io.id`;
+    state.itensOS = await callDB(sqlOs, 'os-items');
+
+    state.servicos = {};
+    state.itens.forEach(it => {
+      const k = it.num_servico;
+      if (!state.servicos[k]) state.servicos[k] = { num:k, data:it.data, cliente:it.cliente, idcliente:it.idcliente, valor_servico:it.valor_servico, itens:[] };
+      state.servicos[k].itens.push(it);
+    });
+
+    setStatus('Linkando romaneios com passagens e OSs…', 'loading');
+    linkServicoPassagem();
+    attachPassagensWindowToServicos();  // PRIMEIRO — define sv._separacao
+    matchOsServico();                    // DEPOIS — usa sv._separacao + state.triagens (4 níveis fallback)
+
+    setStatus(`Atualizado · ${fmt.date(new Date().toISOString().slice(0,10))} ${new Date().toTimeString().slice(0,5)}`, 'ok');
+    setWarnBanner();
+    populateFilters();
+    render();
+  } catch (e) {
+    console.error(e);
+    setStatus('Erro ao carregar: ' + (e?.message||e), 'error');
+  }
+  state.loading = false;
+}
+
+function linkServicoPassagem(){
+  const allPass = [...state.passagens, ...(state.passagensExtra||[])];
+  const idx = new Map();
+  allPass.forEach(p => {
+    p._matchedToItem = null;
+    const k = `${p.cliente_id}|${p.material}|${p.milesimos === null ? '_' : p.milesimos}`;
+    if (!idx.has(k)) idx.set(k, []);
+    idx.get(k).push(p);
+  });
+  const used = new Set();
+  state.itens.forEach(it => {
+    it._match = null; it._matchKind = null; it._matchScore = null;
+    const k = `${it.idcliente}|${it.material}|${it.milesimos === null ? '_' : it.milesimos}`;
+    const cands = idx.get(k) || [];
+    let best = null, bestScore = -Infinity;
+    for (const p of cands){
+      if (used.has(p.id)) continue;
+      const dDiff = (new Date(it.data) - new Date(p.data)) / 86400000;
+      if (dDiff < -5) continue;
+      if (dDiff > 60) continue;
+      const wDiff = Math.abs(p.peso - it.peso) / Math.max(p.peso, it.peso, 1);
+      const score = (1 - Math.min(wDiff,1))*100 - Math.abs(dDiff)*0.5;
+      if (score > bestScore){
+        bestScore = score; best = p;
+      }
+    }
+    if (best){
+      used.add(best.id);
+      it._match = best;
+      it._matchScore = bestScore;
+      best._matchedToItem = it;
+      const wDiff = Math.abs(best.peso - it.peso) / Math.max(best.peso, it.peso, 1);
+      it._matchKind = wDiff < 0.05 ? 'strong' : (wDiff < 0.20 ? 'partial' : 'weak');
+    }
+  });
+}
+
+function populateFilters(){
+  const tipos = [...new Set(state.passagens.map(p=>p.tiposerv).concat(state.itens.map(i=>i.tiposerv)))].sort();
+  const sel = document.getElementById('filterTipo');
+  if (sel.options.length <= 1) tipos.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; sel.appendChild(o); });
+  const mats = [...new Set(state.passagens.map(p=>p.material).concat(state.itens.map(i=>i.material)))].sort();
+  const sm = document.getElementById('filterMaterial');
+  if (sm.options.length <= 1) mats.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; sm.appendChild(o); });
+}
+
+function filtered(){
+  const fc = (document.getElementById('filterCliente').value||'').toLowerCase();
+  const fs = (document.getElementById('filterServico').value||'').trim();
+  const ft = document.getElementById('filterTipo').value;
+  const fm = document.getElementById('filterMaterial').value;
+  const matchPass = p => (!fc || p.cliente.toLowerCase().includes(fc)) && (!ft || p.tiposerv === ft) && (!fm || p.material === fm);
+  const matchIt = i => (!fc || i.cliente.toLowerCase().includes(fc)) && (!fs || String(i.num_servico).includes(fs)) && (!ft || i.tiposerv === ft) && (!fm || i.material === fm);
+  return {
+    passagens: state.passagens.filter(matchPass),
+    itens: state.itens.filter(matchIt)
+  };
+}
+
+function bucket(r){
+  if (r.cliente_id === 33 || r.idcliente === 33) return 'tamires';
+  if (r.material === 'Verniz Alemão - Ultraprotect') return 'alemao';
+  if (r.material === 'Verniz Cataforetico') return 'cataf';
+  if (r.tiposerv === 'Banho') return 'banho';
+  return 'outros';
+}
+
+function isBanhoNobre(material){
+  return ['Dourado','Prateado','Ródio Branco','Ródio Negro','Níveo - Banho Branco'].includes(material);
+}
+function catKey(r){
+  const cor = r.cor || '—';
+  const mil = (r.milesimos == null || r.milesimos === '') ? '—' : r.milesimos;
+  return `${r.material}|${cor}|${mil}`;
+}
+function catLabel(material, cor, mil){
+  const parts = [material];
+  if (cor && cor !== '—') parts.push(cor);
+  if (mil != null && mil !== '—' && mil !== '') parts.push(mil + ' milésimos');
+  return parts.join(' · ');
+}
+function groupByCategory(items){
+  const m = new Map();
+  items.forEach(it => {
+    const k = catKey(it);
+    if (!m.has(k)){
+      m.set(k, {
+        key: k,
+        material: it.material,
+        cor: it.cor || null,
+        mil: (it.milesimos == null || it.milesimos === '') ? null : it.milesimos,
+        peso: 0,
+        count: 0,
+        isBanho: isBanhoNobre(it.material)
+      });
+    }
+    m.get(k).peso += (+it.peso || 0);
+    m.get(k).count += 1;
+  });
+  return m;
+}
+
+function matchOsServico(){
+  // Indexar OSs com seus itens
+  const ordemMap = new Map();
+  const osByCliente = new Map();
+  const osByNumero = new Map();   // numero -> ordem (pra busca por número exato)
+  state.itensOS.forEach(io => {
+    if (!ordemMap.has(io.id_os)){
+      const ordem = { id_os:io.id_os, num_os:io.num_os, idcliente:io.idcliente, data_os:io.data_os, itens:[] };
+      ordemMap.set(io.id_os, ordem);
+      if (!osByCliente.has(io.idcliente)) osByCliente.set(io.idcliente, []);
+      osByCliente.get(io.idcliente).push(ordem);
+      const k = `${io.idcliente}|${io.num_os}`;
+      osByNumero.set(k, ordem);
+    }
+    ordemMap.get(io.id_os).itens.push(io);
+  });
+  // Indexar triagens por id
+  const triById = new Map((state.triagens||[]).map(t => [t.tri_id, t]));
+
+  Object.values(state.servicos).forEach(sv => {
+    sv._os = null;
+    sv._osStrategy = null;
+    const ordens = osByCliente.get(sv.idcliente) || [];
+
+    // NÍVEL (a): triagem da separação tem "O.S:NNNN" na observação → busca direta por numero
+    if (sv._separacao && sv._separacao.catalogacao_id){
+      const tri = triById.get(sv._separacao.catalogacao_id);
+      if (tri && tri.observacoes){
+        const m = tri.observacoes.match(/O\.?S\s*[:\.]\s*(\d+)/i);
+        if (m){
+          const osNum = parseInt(m[1]);
+          const cand = osByNumero.get(`${sv.idcliente}|${osNum}`);
+          if (cand){ sv._os = cand; sv._osStrategy = `(a) via "O.S:${osNum}" na obs da triagem ${tri.tri_id}`; }
+        }
+      }
+    }
+    // NÍVEL (b): OS com "CAT: <triagem_id>" na observação
+    if (!sv._os && sv._separacao && sv._separacao.catalogacao_id){
+      const re = new RegExp(`CAT:\\s*${sv._separacao.catalogacao_id}\\b`,'i');
+      // ordens não tem observacao no estado atual — usar fallback abaixo
+      // (dependeria de fetch de obs; deixa pro fallback c/d)
+    }
+    // NÍVEL (c): OS do cliente cuja datavenda está entre o início do recebimento e fim da separação
+    if (!sv._os && sv._separacao){
+      const fimSep = (sv._separacao.fim_sep || sv.data).slice(0,10);
+      const cands = ordens.filter(o => o.data_os <= fimSep);
+      // mais recente dentre as candidatas
+      let best = null;
+      for (const o of cands){ if (!best || o.data_os > best.data_os) best = o; }
+      if (best){ sv._os = best; sv._osStrategy = `(c) OS do cliente até fim da separação (${fimSep})`; }
+    }
+    // NÍVEL (d): fallback original — OS mais recente do cliente antes do romaneio
+    if (!sv._os){
+      let best = null;
+      for (const o of ordens){
+        if (o.data_os > sv.data) continue;
+        if (!best || o.data_os > best.data_os) best = o;
+      }
+      if (best){ sv._os = best; sv._osStrategy = '(d) OS mais recente do cliente antes do romaneio'; }
+    }
+  });
+}
+
+function attachPassagensWindowToServicos(){
+  const allPass = [...state.passagens, ...(state.passagensExtra || [])];
+  const byCliente = new Map();
+  allPass.forEach(p => {
+    if (!byCliente.has(p.cliente_id)) byCliente.set(p.cliente_id, []);
+    byCliente.get(p.cliente_id).push(p);
+  });
+  Object.values(state.servicos).forEach(sv => {
+    const todas = byCliente.get(sv.idcliente) || [];
+    const ate = new Date(sv.data);
+    // SEPARAÇÃO ÂNCORA — romaneio cai DENTRO da janela de expedição da separação
+    // (exp_ini ≤ data_servico ≤ exp_fim+2d). Mais correto que ±2d do exp_ini.
+    const candSeps = (state.separacoes||[]).filter(s => {
+      if (s.cliente_id !== sv.idcliente || !s.exp_ini) return false;
+      const eIni = new Date(s.exp_ini);
+      const eFim = s.exp_fim ? new Date(s.exp_fim) : new Date(eIni.getTime() + 14*86400000);
+      const tolFim = new Date(eFim.getTime() + 2*86400000);
+      const tolIni = new Date(eIni.getTime() - 86400000);
+      return ate >= tolIni && ate <= tolFim;
+    });
+    sv._separacao = candSeps.sort((a,b) => Math.abs(new Date(a.exp_ini)-ate) - Math.abs(new Date(b.exp_ini)-ate))[0] || null;
+    // Quando banho_ini é NULL (operador esqueceu de marcar), estimar via banho_fim_sep_anterior ou banho_fim - 4d
+    let bIni = null, bFim = null, banhoEstimado = false;
+    if (sv._separacao){
+      bFim = sv._separacao.banho_fim ? new Date(sv._separacao.banho_fim) : null;
+      if (sv._separacao.banho_ini) {
+        bIni = new Date(sv._separacao.banho_ini);
+      } else if (bFim) {
+        const sepAnt = (state.separacoes||[]).filter(s => s.cliente_id === sv.idcliente && s.sep_id !== sv._separacao.sep_id && s.banho_fim && new Date(s.banho_fim) < bFim).sort((a,b)=> new Date(b.banho_fim) - new Date(a.banho_fim))[0];
+        const minIni = new Date(bFim.getTime() - 4*86400000);
+        bIni = sepAnt && new Date(sepAnt.banho_fim) > minIni ? new Date(sepAnt.banho_fim) : minIni;
+        banhoEstimado = true;
+      }
+    }
+    if (sv._separacao && bIni && bFim){
+      // Janela EXATA (ou estimada) banho_ini→banho_fim (timestamp) — não pega lotes paralelos
+      // Tolerância +24h no fim, LIMITADA pelo início do banho da próxima sep do cliente (não vazar)
+      const proxSep = (state.separacoes||[]).filter(s => s.cliente_id === sv.idcliente && s.sep_id !== sv._separacao.sep_id && s.banho_ini && new Date(s.banho_ini) > bFim).sort((a,b)=> new Date(a.banho_ini) - new Date(b.banho_ini))[0];
+      const proxIni = proxSep ? new Date(new Date(proxSep.banho_ini).getTime() - 60000) : null;
+      const tolMax = new Date(bFim.getTime() + 24*3600000);
+      const bFimTol = proxIni && proxIni < tolMax ? proxIni : tolMax;
+      sv._passagensWindow = todas.filter(p => {
+        const ts = new Date(p.data_full || p.data);
+        return ts >= bIni && ts <= bFimTol;
+      });
+      sv._janelaUsada = banhoEstimado ? 'banho-estimado' : 'banho-exato';
+      sv._banhoEstimado = banhoEstimado;
+      // Detectar duplicatas (mesmo material+milésimos+peso+timestamp)
+      const dupGroups = new Map();
+      sv._passagensWindow.forEach(p => {
+        const key = `${p.material}|${p.cor||'_'}|${p.milesimos??'_'}|${p.tiposerv}|${p.peso}|${p.data_full||p.data}`;
+        if (!dupGroups.has(key)) dupGroups.set(key, []);
+        dupGroups.get(key).push(p);
+      });
+      sv._passDuplicatas = [...dupGroups.values()].filter(g => g.length > 1);
+      sv._passDuplicatasPeso = sv._passDuplicatas.reduce((s,g)=>s+(g.length-1)*(+g[0].peso||0), 0);
+      // Detectar separações concorrentes do mesmo cliente sobrepondo a janela
+      const ini1 = new Date(bIni); ini1.setDate(ini1.getDate()-1);
+      const fim1 = new Date(bFim); fim1.setDate(fim1.getDate()+1);
+      sv._sepConcorrentes = (state.separacoes||[]).filter(s => s.cliente_id === sv.idcliente && s.sep_id !== sv._separacao.sep_id && s.banho_ini && s.banho_fim && (new Date(s.banho_ini) <= fim1) && (new Date(s.banho_fim) >= ini1));
+    } else {
+      // Fallback: janela 60d (lógica antiga, menos precisa)
+      const inicio = new Date(ate); inicio.setDate(inicio.getDate() - 60);
+      const limite = new Date(ate); limite.setDate(limite.getDate() + 5);
+      sv._passagensWindow = todas.filter(p => {
+        const pd = new Date(p.data);
+        return pd >= inicio && pd <= limite;
+      });
+      sv._janelaUsada = '60d-fallback';
+      sv._sepConcorrentes = [];
+    }
+  });
+}
+
+function bucketTotals(records){
+  const t = { banho:0, alemao:0, cataf:0, tamires:0, outros:0, total:0, dourado:0, prateado:0, rodio:0, niveo:0 };
+  for (const r of records){
+    const b = bucket(r);
+    const peso = +r.peso || 0;
+    t[b] += peso;
+    t.total += peso;
+    if (r.material === 'Dourado' && (r.cliente_id !== 33 && r.idcliente !== 33)) t.dourado += peso;
+    if (r.material === 'Prateado' && (r.cliente_id !== 33 && r.idcliente !== 33)) t.prateado += peso;
+    if (r.material === 'Ródio Branco' || r.material === 'Ródio Negro') t.rodio += peso;
+    if (r.material === 'Níveo - Banho Branco') t.niveo += peso;
+  }
+  return t;
+}
+
+function bucketAuAg(records){
+  let au=0, ag=0;
+  for (const r of records){
+    const peso = +r.peso || 0; const mil = +r.milesimos || 0;
+    if (r.material === 'Dourado') au += peso*mil/1000;
+    if (r.material === 'Prateado') ag += peso*mil/1000;
+  }
+  return {au, ag};
+}
+
+function render(){
+  const f = filtered();
+  renderKPIs(f);
+  renderDiaPass(f);
+  renderDiaRoma(f);
+  renderServico(f);
+}
+
+function renderKPIs(f){
+  const totalValor = f.itens.reduce((s,i)=>s+(+i.valor||0), 0);
+  const totalFat = f.itens.filter(i=>['Dourado','Prateado','Ródio Branco','Ródio Negro','Níveo - Banho Branco'].includes(i.material)).reduce((s,i)=>s+(+i.peso||0), 0);
+  const totalPass = f.passagens.filter(p=>p.tiposerv==='Banho' && p.cliente_id !== 33).reduce((s,p)=>s+(+p.peso||0), 0);
+  const totalRebanho = f.passagens.filter(p=>p.cliente_id === 33).reduce((s,p)=>s+(+p.peso||0), 0);
+  const saldo = totalPass - totalFat;
+  const matched = f.itens.filter(i=>i._match).length;
+  const totalIts = f.itens.length;
+  document.getElementById('kpiValor').textContent = fmt.brlK(totalValor);
+  document.getElementById('kpiValorSub').textContent = fmt.num(Object.keys(state.servicos).filter(k=>f.itens.some(i=>i.num_servico==k)).length) + ' romaneios';
+  document.getElementById('kpiPass').textContent = fmt.kg(totalPass);
+  document.getElementById('kpiPassSub').textContent = totalRebanho>0 ? `+ ${fmt.g(totalRebanho)} retrabalho` : '';
+  document.getElementById('kpiFat').textContent = fmt.kg(totalFat);
+  document.getElementById('kpiFatSub').textContent = fmt.num(f.itens.length) + ' itens em romaneios';
+  document.getElementById('kpiSaldo').textContent = (saldo>=0?'+':'') + fmt.kg(saldo);
+  document.getElementById('kpiSaldoSub').textContent = saldo>=0 ? 'produção a faturar' : 'estoque anterior faturado';
+  document.getElementById('kpiSaldoSub').className = 'kpi-sub ' + (saldo>=0?'up':'down');
+  document.getElementById('kpiMatch').textContent = totalIts>0 ? Math.round(matched/totalIts*100)+'%' : '—';
+  document.getElementById('kpiMatchSub').textContent = `${matched} de ${totalIts} itens`;
+}
+
+window.toggleDay = (id) => document.querySelector(`[data-day="${id}"]`).classList.toggle('open');
+window.toggleSv = num => document.querySelector(`[data-sv="${num}"]`).classList.toggle('open');
+window.toggleCli = id => document.querySelector(`[data-cli="${id}"]`).classList.toggle('open');
+
+function renderFooterTotals(t, prefix){
+  return `<div class="day-footer">
+    <div class="fpill banho"><div class="fl">🏭 Banho (s/ retrab.)</div><div class="fv">${fmt.g(t.banho)}</div></div>
+    <div class="fpill alemao"><div class="fl">Verniz Alemão</div><div class="fv">${fmt.g(t.alemao)}</div></div>
+    <div class="fpill cataf"><div class="fl">Verniz Cataforético</div><div class="fv">${fmt.g(t.cataf)}</div></div>
+    <div class="fpill tamires"><div class="fl">Retrabalho Tamires</div><div class="fv">${fmt.g(t.tamires)}</div></div>
+    ${t.outros>0?`<div class="fpill outros"><div class="fl">Outros</div><div class="fv">${fmt.g(t.outros)}</div></div>`:''}
+    <div class="fpill"><div class="fl">${prefix||'Total geral'}</div><div class="fv">${fmt.g(t.total)}</div></div>
+  </div>`;
+}
+
+function renderPeriodTotals(records, label, includeAuAg){
+  const t = bucketTotals(records);
+  const aa = includeAuAg ? bucketAuAg(records) : null;
+  return `<h3>${label} · período inteiro</h3>
+    <div class="tot-grid">
+      <div class="tot-pill banho"><div class="tl">🏭 Banho real</div><div class="tv">${fmt.kg(t.banho)}</div><div class="tx">Dourado ${fmt.g(t.dourado)} · Prata ${fmt.g(t.prateado)} · Ródio ${fmt.g(t.rodio)} · Níveo ${fmt.g(t.niveo)}</div></div>
+      <div class="tot-pill alemao"><div class="tl">Verniz Alemão Ultraprotect</div><div class="tv">${fmt.kg(t.alemao)}</div><div class="tx">${t.banho>0 ? ((t.alemao/t.total)*100).toFixed(1)+'% do período' : ''}</div></div>
+      <div class="tot-pill cataf"><div class="tl">Verniz Cataforético</div><div class="tv">${fmt.kg(t.cataf)}</div><div class="tx">${t.banho>0 ? ((t.cataf/t.total)*100).toFixed(1)+'% do período' : ''}</div></div>
+      <div class="tot-pill tamires"><div class="tl">Retrabalho Tamires</div><div class="tv">${fmt.kg(t.tamires)}</div><div class="tx">${t.banho>0 ? ((t.tamires/(t.tamires+t.banho))*100).toFixed(1)+'% do banho' : ''}</div></div>
+      ${aa ? `<div class="tot-pill geral"><div class="tl">Au teórico (passagem)</div><div class="tv">${aa.au.toFixed(2)} g</div></div>
+              <div class="tot-pill geral"><div class="tl">Ag teórico (passagem)</div><div class="tv">${aa.ag.toFixed(2)} g</div></div>` : ''}
+      <div class="tot-pill geral"><div class="tl">Total ${label.toLowerCase()}</div><div class="tv">${fmt.kg(t.total)}</div></div>
+    </div>`;
+}
+
+function renderDiaPass(f){
+  const list = document.getElementById('dayListPass');
+  const days = new Map();
+  f.passagens.forEach(p => {
+    if (!days.has(p.data)) days.set(p.data, { date:p.data, pass:[] });
+    days.get(p.data).pass.push(p);
+  });
+  const arr = [...days.values()].sort((a,b) => b.date.localeCompare(a.date));
+  document.getElementById('diapassCount').textContent = arr.length + ' dias';
+  if (!arr.length){ list.innerHTML = '<div class="empty">Nenhuma passagem no período/filtro</div>'; document.getElementById('totalPass').innerHTML=''; return; }
+  list.innerHTML = arr.map((d,idx) => {
+    const t = bucketTotals(d.pass);
+    const clientes = new Set(d.pass.filter(p=>p.cliente_id!==33).map(p=>p.cliente_id)).size;
+    return `<div class="day-card" data-day="dp-${idx}">
+      <div class="day-head" onclick="toggleDay('dp-${idx}')">
+        <div class="day-date">${fmt.dateW(d.date)}<small>${d.date}</small></div>
+        <div class="day-stat"><strong>${fmt.kg(t.total)}</strong>total</div>
+        <div class="day-stat"><strong>${fmt.kg(t.banho)}</strong>banho</div>
+        <div class="day-stat"><strong>${fmt.g(t.alemao)}</strong>v.alemão</div>
+        <div class="day-stat"><strong>${fmt.g(t.cataf)}</strong>v.cataf</div>
+        <div class="day-stat"><strong>${clientes}</strong>cliente${clientes!==1?'s':''}</div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="day-body">
+        <h4>🏭 Passagens (${d.pass.length})</h4>
+        ${renderPassFull(d.pass)}
+        ${renderFooterTotals(t, 'Total do dia')}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('totalPass').innerHTML = renderPeriodTotals(f.passagens, 'Passagem', true);
+}
+
+function renderPassFull(arr){
+  return `<table class="mini-table"><thead><tr><th>Cliente</th><th>Tipo</th><th>Material</th><th class="center">Milésimos</th><th class="right">Peso</th><th>Status</th></tr></thead><tbody>${
+    arr.sort((a,b)=>(b.peso||0)-(a.peso||0)).map(p=>{
+      const isTamires = p.cliente_id===33;
+      const matched = p._matchedToItem;
+      const status = isTamires ? '<span class="tag warn">retrabalho</span>' :
+                     matched ? `<span class="tag match" title="Romaneio #${matched.num_servico}">✓ #${matched.num_servico}</span>` :
+                     '<span class="tag gray">aberto</span>';
+      return `<tr${isTamires?' class="tamires-row"':''}><td class="cli-strong">${p.cliente}</td><td><span class="tag info">${p.tiposerv}</span></td><td>${p.material}</td><td class="center">${p.milesimos??'—'}</td><td class="right">${fmt.g(p.peso)}</td><td>${status}</td></tr>`;
+    }).join('')
+  }</tbody></table>`;
+}
+
+function renderDiaRoma(f){
+  const list = document.getElementById('dayListRoma');
+  const days = new Map();
+  f.itens.forEach(i => {
+    if (!days.has(i.data)) days.set(i.data, { date:i.data, itens:[] });
+    days.get(i.data).itens.push(i);
+  });
+  const arr = [...days.values()].sort((a,b) => b.date.localeCompare(a.date));
+  document.getElementById('diaromaCount').textContent = arr.length + ' dias';
+  if (!arr.length){ list.innerHTML = '<div class="empty">Nenhum romaneio no período/filtro</div>'; document.getElementById('totalRoma').innerHTML=''; return; }
+  list.innerHTML = arr.map((d,idx) => {
+    const tFat = bucketTotals(d.itens);
+    const svIds = [...new Set(d.itens.map(i=>i.num_servico))];
+    const valor = d.itens.reduce((s,i)=>s+(+i.valor||0),0);
+    return `<div class="day-card" data-day="dr-${idx}">
+      <div class="day-head" style="grid-template-columns:140px 1fr 1fr 1fr 32px" onclick="toggleDay('dr-${idx}')">
+        <div class="day-date">${fmt.dateW(d.date)}<small>${d.date}</small></div>
+        <div class="day-stat"><strong>${svIds.length}</strong>romaneios</div>
+        <div class="day-stat"><strong>${fmt.kg(tFat.total)}</strong>peso faturado</div>
+        <div class="day-stat"><strong>${fmt.brlK(valor)}</strong>total R$</div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="day-body">
+        ${renderRomaneiosOfDay(d.itens)}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('totalRoma').innerHTML = renderPeriodTotals(f.itens, 'Faturado', false);
+}
+
+function renderRomaneiosOfDay(itens){
+  const sv = new Map();
+  itens.forEach(i => {
+    if (!sv.has(i.num_servico)) sv.set(i.num_servico, { num:i.num_servico, cliente:i.cliente, idcliente:i.idcliente, itens:[], total:0, valor:0 });
+    sv.get(i.num_servico).itens.push(i);
+    sv.get(i.num_servico).total += (+i.peso||0);
+    sv.get(i.num_servico).valor += (+i.valor||0);
+  });
+  const arr = [...sv.values()].sort((a,b)=>b.valor - a.valor);
+
+  return arr.map(s => `
+    <div style="margin-bottom:14px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border-2)">
+        <div>
+          <strong style="color:var(--primary);font-size:15px">#${s.num}</strong>
+          <span class="cli-strong" style="margin-left:8px">${s.cliente}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-2)">
+          ${s.itens.length} ${s.itens.length===1?'item':'itens'} ·
+          <strong style="color:var(--text)">${fmt.kg(s.total)}</strong> faturado ·
+          <strong style="color:var(--text)">${fmt.brl(s.valor)}</strong>
+        </div>
+      </div>
+      ${renderSvBody(s.itens)}
+    </div>
+  `).join('');
+}
+
+function renderServico(f){
+  const list = document.getElementById('servicoList');
+  const svIds = [...new Set(f.itens.map(i=>i.num_servico))].sort((a,b)=>b-a);
+  document.getElementById('svCount').textContent = svIds.length + ' romaneios';
+  if (!svIds.length){ list.innerHTML = '<div class="empty">Nenhum romaneio no filtro</div>'; return; }
+  list.innerHTML = svIds.slice(0, 200).map(num => {
+    const sv = state.servicos[num];
+    const itens = sv.itens;
+    const totalPeso = itens.reduce((s,i)=>s+(+i.peso||0),0);
+    const totalVal = itens.reduce((s,i)=>s+(+i.valor||0),0);
+    return `<div class="sv-row" data-sv="${num}">
+      <div class="sv-head" onclick="toggleSv(${num})">
+        <div class="sv-num"><strong>#${num}</strong>${sv.cliente}</div>
+        <div>${fmt.date(sv.data)}</div>
+        <div class="cli-strong">${sv.cliente}</div>
+        <div class="right">${itens.length} itens</div>
+        <div class="right">${fmt.g(totalPeso)}</div>
+        <div class="right"><strong>${fmt.brl(totalVal)}</strong></div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="sv-body">
+        <h4 style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin-bottom:8px;font-weight:600">Itens do romaneio · cliente <strong>${sv.cliente}</strong></h4>
+        ${renderSvBody(itens)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSvBody(itens){
+  const num = itens[0]?.num_servico;
+  const sv = num ? state.servicos[num] : null;
+
+  const osItens = sv?._os?.itens || [];
+  const passWindow = sv?._passagensWindow || [];
+
+  const osMap = groupByCategory(osItens);
+  const passMap = groupByCategory(passWindow);
+  const romMap = groupByCategory(itens);
+
+  const allKeys = new Set([...osMap.keys(), ...passMap.keys(), ...romMap.keys()]);
+
+  const rows = [...allKeys].map(k => {
+    const ref = romMap.get(k) || osMap.get(k) || passMap.get(k);
+    if (!ref) return null;
+    return {
+      key: k,
+      material: ref.material,
+      cor: ref.cor,
+      mil: ref.mil,
+      isBanho: ref.isBanho,
+      label: catLabel(ref.material, ref.cor, ref.mil),
+      pesoOs: osMap.get(k)?.peso || 0,
+      pesoPass: passMap.get(k)?.peso || 0,
+      pesoRom: romMap.get(k)?.peso || 0,
+    };
+  }).filter(Boolean);
+
+  rows.sort((a,b) => (b.isBanho?1:0) - (a.isBanho?1:0) || a.label.localeCompare(b.label));
+
+  const totBanho = rows.filter(r => r.isBanho).reduce((acc, r) => ({
+    os: acc.os + r.pesoOs, pass: acc.pass + r.pesoPass, rom: acc.rom + r.pesoRom
+  }), { os:0, pass:0, rom:0 });
+
+  const totAdic = rows.filter(r => !r.isBanho).reduce((acc, r) => ({
+    os: acc.os + r.pesoOs, pass: acc.pass + r.pesoPass, rom: acc.rom + r.pesoRom
+  }), { os:0, pass:0, rom:0 });
+
+  // FIX 2026-05-09: variacao agora calcula (rom - pass) / pass * 100 — quanto o
+  // ROMANEIO variou em relacao a PASSAGEM (mais natural). Antes era (pass-rom)/rom
+  // que invertia o sinal e confundia. Cor agora baseada em |variacao| pois qualquer
+  // divergencia grande e suspeita, independente do sinal.
+  const variacao = (pass, rom) => {
+    // Positivo (rom > pass) = verde · Negativo (rom < pass) = vermelho · Quase zero = neutro
+    if (rom === 0 || pass === 0) return '<span class="muted">—</span>';
+    const v = (rom - pass) / pass * 100;
+    const cor = Math.abs(v) < 0.5 ? '#5b5b66' : (v > 0 ? '#047857' : '#9f1239');
+    const sinal = v >= 0 ? '+' : '';
+    return `<span style="color:${cor};font-weight:600">${sinal}${v.toFixed(1)}%</span>`;
+  };
+
+  const renderRow = (r) => {
+    const bg = r.isBanho ? '' : 'background:rgba(245,158,11,0.05)';
+    const adicTag = r.isBanho ? '' : ' <small class="muted" style="font-size:10px">· adicional (não soma peso)</small>';
+    return `<tr style="${bg}">
+      <td>${r.label}${adicTag}</td>
+      <td class="center">${r.pesoOs > 0 ? fmt.g(r.pesoOs) : '<span class="muted">—</span>'}</td>
+      <td class="center">${r.pesoPass > 0 ? fmt.g(r.pesoPass) : '<span class="muted">—</span>'}</td>
+      <td class="center"><strong>${fmt.g(r.pesoRom)}</strong></td>
+      <td class="center">${r.isBanho ? variacao(r.pesoPass, r.pesoRom) : '<span class="muted">—</span>'}</td>
+    </tr>`;
+  };
+
+  const osInfo = sv?._os
+    ? `<small class="muted">vs <strong>OS #${sv._os.num_os}</strong> de ${fmt.date(sv._os.data_os)} (mais recente do cliente antes deste romaneio)</small>`
+    : '<small class="muted" style="color:#9f1239">⚠ sem OS encontrada antes desta data para este cliente</small>';
+
+  const banhoTot = rows.some(r => r.isBanho);
+  const adicTot = rows.some(r => !r.isBanho);
+
+  return `
+    <div style="margin-bottom:8px;font-size:11px">
+      ${osInfo} · <small class="muted">passagens: somatório do cliente nos 60 dias antes do romaneio</small>
+    </div>
+    <table class="mini-table">
+      <thead><tr>
+        <th>Categoria</th>
+        <th class="center">OS (g)</th>
+        <th class="center">Passagens (g)</th>
+        <th class="center">Romaneio (g)</th>
+        <th class="center">Var. % (rom vs pass)</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(renderRow).join('')}
+        ${banhoTot ? `<tr style="background:#dbeafe;font-weight:700">
+          <td>Total banho (peso real)</td>
+          <td class="center">${totBanho.os > 0 ? fmt.g(totBanho.os) : '<span class="muted">—</span>'}</td>
+          <td class="center">${totBanho.pass > 0 ? fmt.g(totBanho.pass) : '<span class="muted">—</span>'}</td>
+          <td class="center">${fmt.g(totBanho.rom)}</td>
+          <td class="center">${variacao(totBanho.pass, totBanho.rom)}</td>
+        </tr>` : ''}
+        ${adicTot ? `<tr style="background:rgba(245,158,11,0.10);font-weight:700">
+          <td>Total adicionais</td>
+          <td class="center">${totAdic.os > 0 ? fmt.g(totAdic.os) : '<span class="muted">—</span>'}</td>
+          <td class="center">${totAdic.pass > 0 ? fmt.g(totAdic.pass) : '<span class="muted">—</span>'}</td>
+          <td class="center">${fmt.g(totAdic.rom)}</td>
+          <td class="center"><span class="muted">—</span></td>
+        </tr>` : ''}
+      </tbody>
+    </table>`;
+}
+
+function renderCliente(f){
+  const list = document.getElementById('clienteList');
+  const m = new Map();
+  f.passagens.forEach(p => {
+    const k = p.cliente_id;
+    if (!m.has(k)) m.set(k, { id:k, nome:p.cliente, pass:0, fat:0, valor:0, items:[], passes:[] });
+    if (p.cliente_id !== 33) m.get(k).pass += (+p.peso||0);
+    m.get(k).passes.push(p);
+  });
+  f.itens.forEach(i => {
+    const k = i.idcliente;
+    if (!m.has(k)) m.set(k, { id:k, nome:i.cliente, pass:0, fat:0, valor:0, items:[], passes:[] });
+    if (['Dourado','Prateado','Ródio Branco','Ródio Negro','Níveo - Banho Branco'].includes(i.material)) m.get(k).fat += (+i.peso||0);
+    m.get(k).valor += (+i.valor||0);
+    m.get(k).items.push(i);
+  });
+  const arr = [...m.values()].sort((a,b) => b.valor - a.valor);
+  document.getElementById('cliCount').textContent = arr.length + ' clientes';
+  if (!arr.length){ list.innerHTML = '<div class="empty">Sem clientes no filtro</div>'; return; }
+  list.innerHTML = arr.slice(0, 200).map(c => {
+    const saldo = c.pass - c.fat;
+    const tag = c.id === 33 ? '<span class="tag warn">retrabalho</span>' :
+                Math.abs(saldo) < 100 ? '<span class="tag ok">balanceado</span>' :
+                saldo > 0 ? `<span class="tag warn">+${fmt.g(saldo)} aberto</span>` :
+                `<span class="tag info">${fmt.g(saldo)} antecipado</span>`;
+    return `<div class="cli-row" data-cli="${c.id}">
+      <div class="cli-head" onclick="toggleCli(${c.id})">
+        <div class="cli-name">${c.nome} <small class="muted" style="font-weight:400;margin-left:6px">#${c.id}</small></div>
+        <div class="right">${fmt.g(c.pass)}<small class="muted" style="display:block">passagem</small></div>
+        <div class="right">${fmt.g(c.fat)}<small class="muted" style="display:block">faturado</small></div>
+        <div class="right"><strong>${fmt.brl(c.valor)}</strong><small class="muted" style="display:block">${c.items.length} itens</small></div>
+        <div>${tag}</div>
+        <div class="right">${new Set(c.items.map(i=>i.num_servico)).size}<small class="muted" style="display:block">romaneios</small></div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="cli-body">
+        ${c.passes.length ? `<h4>🏭 Passagens (${c.passes.length})</h4>${renderPassFull(c.passes)}` : ''}
+        ${c.items.length ? `<h4 style="margin-top:14px">🧾 Itens faturados (${c.items.length}) em ${new Set(c.items.map(i=>i.num_servico)).size} romaneios</h4>${renderClienteItens(c.items)}` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderClienteItens(arr){
+  return `<table class="mini-table"><thead><tr><th>Romaneio</th><th>Data</th><th>Tipo</th><th>Material</th><th class="center">Milésimos</th><th class="right">Peso</th><th class="right">Valor</th><th>Match</th></tr></thead><tbody>${
+    arr.map(i => {
+      let matchTag = '<span class="tag gray">⚪ sem candidato</span>';
+      if (i._match){
+        const lbl = i._matchKind === 'strong' ? '🟢' : (i._matchKind === 'partial' ? '🟡' : '⚠');
+        const cls = i._matchKind === 'strong' ? 'match' : (i._matchKind === 'partial' ? 'partial' : 'warn');
+        matchTag = `<span class="tag ${cls}">${lbl} ${fmt.date(i._match.data)} · ${fmt.g(i._match.peso)}</span>`;
+      }
+      return `<tr><td><strong style="color:var(--primary)">#${i.num_servico}</strong></td><td>${fmt.date(i.data)}</td><td><span class="tag violet">${i.tiposerv}</span></td><td>${i.material}</td><td class="center">${i.milesimos??'—'}</td><td class="right">${fmt.g(i.peso)}</td><td class="right">${fmt.brl(i.valor)}</td><td>${matchTag}</td></tr>`;
+    }).join('')
+  }</tbody></table>`;
+}
+
+function renderTipo(f){
+  const tipos = {};
+  f.itens.forEach(i => {
+    if (!tipos[i.tiposerv]) tipos[i.tiposerv] = { tipo:i.tiposerv, peso:0, valor:0, qtd:0, pass:0 };
+    tipos[i.tiposerv].peso += (+i.peso||0);
+    tipos[i.tiposerv].valor += (+i.valor||0);
+    tipos[i.tiposerv].qtd += 1;
+  });
+  f.passagens.forEach(p => {
+    if (!tipos[p.tiposerv]) tipos[p.tiposerv] = { tipo:p.tiposerv, peso:0, valor:0, qtd:0, pass:0 };
+    tipos[p.tiposerv].pass += (+p.peso||0);
+  });
+  const arr = Object.values(tipos).sort((a,b)=>b.valor - a.valor);
+  document.getElementById('tipoSummary').innerHTML = arr.map(t => `<div class="summary-pill"><div class="lbl">${t.tipo}</div><div class="val">${fmt.brlK(t.valor)}</div><div class="lbl muted" style="text-transform:none;letter-spacing:0;margin-top:3px">${fmt.kg(t.peso)} fat · ${fmt.kg(t.pass)} pass</div></div>`).join('');
+  if (charts.tipo) charts.tipo.destroy();
+  charts.tipo = new Chart(document.getElementById('chartTipo'), {
+    type:'bar',
+    data:{ labels: arr.map(t=>t.tipo),
+      datasets:[
+        {label:'R$ faturado', data:arr.map(t=>t.valor), backgroundColor:'#5b5bf0', borderRadius:6},
+        {label:'Peso faturado (g)', data:arr.map(t=>t.peso), yAxisID:'y1', backgroundColor:'#06b6d4', borderRadius:6},
+        {label:'Peso passagem (g)', data:arr.map(t=>t.pass), yAxisID:'y1', backgroundColor:'#f97316', borderRadius:6}
+      ]},
+    options:{ responsive:true, plugins:{legend:{position:'top'}},
+      scales:{ y:{ ticks:{callback:v=>'R$ '+(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:0})+'k'}}, y1:{ position:'right', ticks:{callback:v=>(v/1000).toFixed(0)+' kg'}, grid:{drawOnChartArea:false}}}}
+  });
+  const matMap = {};
+  f.itens.forEach(i => {
+    const k = `${i.material}|${i.milesimos??'—'}`;
+    if (!matMap[k]) matMap[k] = { material:i.material, mil:i.milesimos, peso:0, valor:0, qtd:0 };
+    matMap[k].peso += (+i.peso||0);
+    matMap[k].valor += (+i.valor||0);
+    matMap[k].qtd += 1;
+  });
+  const matArr = Object.values(matMap).sort((a,b)=>b.valor-a.valor);
+  if (window.matGrid) window.matGrid.destroy();
+  window.matGrid = new gridjs.Grid({
+    columns:[
+      { name:'Material' },
+      { name:'Milesimos', formatter:c=>c??'—' },
+      { name:'Itens', formatter:c=>fmt.num(c) },
+      { name:'Peso', formatter:c=>fmt.g(c) },
+      { name:'Valor', formatter:c=>fmt.brl(c) }
+    ],
+    data: matArr.map(m=>[m.material, m.mil, m.qtd, m.peso, m.valor]),
+    sort:true, search:true, pagination:{enabled:true, limit:15}
+  }).render(document.getElementById('materialTable'));
+}
+
+function renderCharts(f){
+  const dias = new Map();
+  f.passagens.forEach(p => {
+    if (!dias.has(p.data)) dias.set(p.data, {data:p.data, pass:0, fat:0, valor:0});
+    if (p.cliente_id !== 33 && p.tiposerv === 'Banho') dias.get(p.data).pass += (+p.peso||0);
+  });
+  f.itens.forEach(i => {
+    if (!dias.has(i.data)) dias.set(i.data, {data:i.data, pass:0, fat:0, valor:0});
+    if (['Dourado','Prateado','Ródio Branco','Ródio Negro','Níveo - Banho Branco'].includes(i.material)) dias.get(i.data).fat += (+i.peso||0);
+    dias.get(i.data).valor += (+i.valor||0);
+  });
+  const arr = [...dias.values()].sort((a,b)=>a.data.localeCompare(b.data));
+  const labels = arr.map(d=>fmt.dateW(d.data));
+  if (charts.dia) charts.dia.destroy();
+  charts.dia = new Chart(document.getElementById('chartDia'), {
+    type:'bar',
+    data:{ labels, datasets:[
+      {label:'Passagem (kg)', data:arr.map(d=>d.pass/1000), backgroundColor:'rgba(91,91,240,.7)', borderRadius:5},
+      {label:'Faturado (kg)', data:arr.map(d=>d.fat/1000), backgroundColor:'rgba(20,184,166,.7)', borderRadius:5}
+    ]},
+    options:{ responsive:true, plugins:{legend:{position:'top'}}, scales:{ y:{ticks:{callback:v=>v+' kg'}}, x:{ticks:{maxRotation:60,minRotation:60,font:{size:10}}}}}
+  });
+  if (charts.rec) charts.rec.destroy();
+  charts.rec = new Chart(document.getElementById('chartReceita'), {
+    type:'line',
+    data:{ labels, datasets:[
+      {label:'R$ por dia', data:arr.map(d=>d.valor), borderColor:'#8b5cf6', backgroundColor:'rgba(139,92,246,.12)', fill:true, tension:.35, borderWidth:2, pointRadius:3, pointHoverRadius:6}
+    ]},
+    options:{ responsive:true, plugins:{legend:{position:'top'}}, scales:{ y:{ticks:{callback:v=>'R$ '+(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:0})+'k'}}, x:{ticks:{maxRotation:60,minRotation:60,font:{size:10}}}}}
+  });
+  const cli = {};
+  f.itens.forEach(i => { if (!cli[i.idcliente]) cli[i.idcliente] = {nome:i.cliente, valor:0}; cli[i.idcliente].valor += (+i.valor||0); });
+  const top = Object.values(cli).sort((a,b)=>b.valor-a.valor).slice(0,15);
+  if (charts.topcli) charts.topcli.destroy();
+  charts.topcli = new Chart(document.getElementById('chartTopCli'), {
+    type:'bar',
+    data:{ labels: top.map(c=>c.nome.length>30?c.nome.slice(0,30)+'…':c.nome), datasets:[{label:'R$', data:top.map(c=>c.valor), backgroundColor:'rgba(91,91,240,.75)', borderRadius:6}]},
+    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{callback:v=>'R$ '+(v/1000).toLocaleString('p

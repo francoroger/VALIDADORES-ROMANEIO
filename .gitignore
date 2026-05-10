@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Sensitive
+.env
+.env.local
+*.key
+credentials.json
+
+# Build
+node_modules/
+dist/
+build/
+
+# Logs
+*.log

@@ -1,0 +1,872 @@
+<!DOCTYPE html><script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Franco Validador de Romaneio",
+  "schemaVersion": 1,
+  "description": "Validação detalhada de qualquer romaneio: fluxo dos 7 documentos (Recebimento → OS → Catalogação → Separação → Banho → Romaneio → Expedição), conciliação OS × Passagem × Romaneio por bucket (material+cor+milesimos), fórmula triádica de preço item a item, itens detalhados e alertas automáticos. Recebe número do romaneio via URL (?rom=NNN ou hash #NNN) ou input manual. Substitui o romaneio-24749-validacao (deprecated).",
+  "mcpTools": [
+    "mcp__postgres-aiven__pg_consultar"
+  ],
+  "mcpServerNames": ["postgres-aiven"]
+}
+</script>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Franco Galvânica · Validador de Romaneio</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f4f6fa;--surface:#ffffff;--surface-2:#eef1f6;
+  --border:#dde2eb;--border-2:#cdd4df;
+  --text:#0d1424;--text-2:#4a5266;--text-3:#8089a0;
+  --primary:#1f5fc6;--primary-2:#0e478f;
+  --good:#107a4b;--good-bg:#e3f4eb;
+  --warn:#a06010;--warn-bg:#fcf2dc;
+  --bad:#a82828;--bad-bg:#fbe5e2;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',Roboto,sans-serif;font-size:13px;line-height:1.45;color:var(--text);background:var(--bg);min-height:100vh}
+.app{padding:14px 16px;max-width:1500px;margin:0 auto}
+
+header{display:flex;justify-content:space-between;align-items:center;gap:14px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px;flex-wrap:wrap}
+.brand h1{font-size:16px;font-weight:700;letter-spacing:-.2px}
+.brand h1 span{color:var(--primary);font-weight:500}
+.brand small{color:var(--text-3);font-size:11px;margin-left:4px}
+.version-info{font-size:11px;color:var(--text-3);margin-left:8px}
+.version-info a{color:var(--primary);cursor:pointer;text-decoration:none;margin-left:4px}
+.version-info a:hover{text-decoration:underline}
+.version-modal{position:fixed;top:60px;right:20px;width:480px;max-height:70vh;background:#fff;border:1px solid var(--border);border-radius:10px;padding:18px 20px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:100;display:none;overflow-y:auto}
+.version-modal.open{display:block}
+.version-modal h3{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.version-modal h3 span{cursor:pointer;color:var(--text-3);font-weight:400}
+.version-entry{padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.version-entry:last-child{border-bottom:none}
+.version-entry strong{color:var(--primary)}
+.version-entry small{color:var(--text-3);margin-left:6px}
+.version-entry div{color:var(--text-2);margin-top:3px;line-height:1.5}
+.status{font-size:11px;color:var(--text-2);background:var(--surface);border:1px solid var(--border);padding:5px 11px;border-radius:999px;display:inline-flex;align-items:center;gap:6px}
+.status .dot{width:7px;height:7px;border-radius:50%;background:var(--good)}
+.status.loading .dot{background:var(--warn);animation:pulse 1.2s infinite}
+.status.error .dot{background:var(--bad)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* SELECTOR */
+.bar{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:2px}
+.field.grow{flex:1;min-width:200px}
+.field label{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3)}
+.field input{font-family:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--border-2);border-radius:5px;background:var(--surface);color:var(--text);outline:none;height:32px}
+.field input:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(31,95,198,.18)}
+.btn{font-family:inherit;font-size:12px;font-weight:600;padding:6px 18px;border:none;border-radius:5px;cursor:pointer;background:var(--primary);color:#fff;height:32px}
+.btn:hover{background:var(--primary-2)}
+
+/* ROMANEIO HEADER (when loaded) */
+.rom-header{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-2) 100%);color:#fff;border-radius:10px;padding:16px 20px;margin-bottom:12px;display:none}
+.rom-header.show{display:block}
+.rom-header h2{font-size:22px;font-weight:700;margin-bottom:4px;letter-spacing:-.5px}
+.rom-header h2 small{font-weight:400;opacity:.8;margin-left:8px;font-size:13px}
+.rom-header .info{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-top:10px;font-size:13px}
+.rom-header .info div{padding:6px 0}
+.rom-header .info div small{display:block;font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.rom-header .info div strong{font-size:15px;font-weight:700}
+
+/* SECTIONS */
+.section{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.section h2{font-size:14px;font-weight:700;padding:12px 18px;background:var(--surface-2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.section h2 .num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:700}
+.section h2 .meta{margin-left:auto;font-size:12px;color:var(--text-3);font-weight:400}
+.section-body{padding:14px 18px}
+
+/* TIMELINE OF 7 DOCS */
+.timeline{display:flex;flex-direction:column;gap:0}
+.tl-item{display:grid;grid-template-columns:24px 110px 1fr auto;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);position:relative}
+.tl-item:last-child{border-bottom:none}
+.tl-item .step{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--surface-2);color:var(--text-2);font-size:11px;font-weight:700;border:1px solid var(--border-2)}
+.tl-item.found .step{background:var(--good);color:#fff;border-color:var(--good)}
+.tl-item.missing .step{background:var(--bad-bg);color:var(--bad);border-color:var(--bad)}
+.tl-item.partial .step{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+.tl-item .when{font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.tl-item .when strong{display:block;color:var(--text);font-size:13px;font-weight:700}
+.tl-item .label{font-size:13px;color:var(--text)}
+.tl-item .label strong{display:block;font-weight:700;font-size:13px;margin-bottom:2px}
+.tl-item .label small{color:var(--text-3);font-size:11px}
+.tl-item .info-extra{font-size:11.5px;color:var(--text-2);margin-top:4px;line-height:1.5}
+.tl-item .delta{font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums;text-align:right}
+.tl-item.missing .label{color:var(--bad)}
+
+/* CONCILIATION TABLE */
+.conc-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.conc-table th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-2);padding:8px 10px;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.conc-table th.right{text-align:right}
+.conc-table th.left{text-align:left}
+.conc-table th.center{text-align:center}
+.conc-table td{padding:9px 10px;border-bottom:1px solid var(--border);font-size:12.5px;text-align:center}
+.conc-table td.left{text-align:left}
+.conc-table td.right{text-align:right}
+.conc-table tr.adicional{background:rgba(245,158,11,.05)}
+.conc-table tr.total-row{background:var(--surface-2);font-weight:700}
+.conc-table tr.total-row td{border-top:2px solid var(--border-2);padding-top:11px}
+.tag-mat{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:3px;background:#dcfce7;color:#166534;border:1px solid #86efac}
+.tag-cor{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;margin:0 4px}
+.tag-mil{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:3px;background:#eef2ff;color:#3b3bdb;border:1px solid #c7d2fe}
+.varok{color:var(--good);font-weight:700}
+.varwarn{color:var(--warn);font-weight:700}
+.varbad{color:var(--bad);font-weight:700}
+.dim{color:var(--text-3)}
+
+/* FORMULA */
+.formula{font-family:ui-monospace,'SF Mono',Consolas,monospace;font-size:12.5px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:14px 18px;margin-bottom:10px}
+.formula-item{margin-bottom:14px}
+.formula-item:last-child{margin-bottom:0}
+.formula-item .item-head{font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--text)}
+.formula-line{display:grid;grid-template-columns:20px 1fr auto auto;gap:10px;align-items:baseline;padding:3px 0;color:var(--text-2)}
+.formula-line .ind{color:var(--primary);font-weight:700}
+.formula-line .label{color:var(--text-2)}
+.formula-line .calc{font-family:ui-monospace,'SF Mono',Consolas,monospace;color:var(--text-3);font-size:11.5px}
+.formula-line .val{font-weight:700;color:var(--text);text-align:right;font-variant-numeric:tabular-nums}
+.formula-total{margin-top:6px;padding:7px 10px;background:#fff;border:1px solid var(--border);border-radius:5px;display:flex;justify-content:space-between;font-size:13px}
+.formula-total strong{color:var(--text)}
+.formula-total .check.ok{color:var(--good)}
+.formula-total .check.bad{color:var(--bad)}
+
+/* ITEM TABLE */
+.item-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:12.5px}
+.item-table th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-2);padding:8px 10px;background:var(--surface-2);border-bottom:1px solid var(--border);text-align:left}
+.item-table th.right{text-align:right}
+.item-table th.center{text-align:center}
+.item-table td{padding:8px 10px;border-bottom:1px solid var(--border)}
+.item-table td.right{text-align:right}
+.item-table td.center{text-align:center}
+.item-table tr.adicional{background:rgba(245,158,11,.05)}
+.item-table tr.desconto{background:rgba(244,63,94,.04);color:var(--text-2)}
+
+/* ALERTAS */
+.alertas{list-style:none;margin:0;padding:0}
+.alertas li{padding:10px 14px;margin-bottom:6px;border-radius:6px;font-size:12.5px;border-left:3px solid var(--c,var(--primary))}
+.alertas li.ok{background:var(--good-bg);color:#0a5634;--c:var(--good)}
+.alertas li.warn{background:var(--warn-bg);color:#7a4509;--c:var(--warn)}
+.alertas li.bad{background:var(--bad-bg);color:#7a1c1c;--c:var(--bad)}
+.alertas li.info{background:var(--surface-2);color:var(--text-2);--c:var(--text-3)}
+
+/* RECENT LIST */
+.recent{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.recent h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.recent h3 .ct{color:var(--primary);font-weight:600}
+.recent-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;max-height:320px;overflow-y:auto}
+.recent-item{display:grid;grid-template-columns:60px 70px 1fr auto;gap:8px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-variant-numeric:tabular-nums;align-items:center;transition:all .12s}
+.recent-item:hover{background:var(--surface-2);border-color:var(--primary)}
+.recent-item .num{color:var(--primary);font-weight:700}
+.recent-item .data{color:var(--text-2);font-size:11.5px}
+.recent-item .cli{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recent-item .val{color:var(--text-2);font-weight:600}
+
+/* HELPERS */
+.empty{padding:30px 20px;text-align:center;color:var(--text-3);font-style:italic}
+.spinner-line{display:flex;align-items:center;gap:8px;color:var(--text-3);font-size:12px;padding:8px 0}
+.spinner-line::before{content:'';width:14px;height:14px;border:2px solid var(--border-2);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.help-text{font-size:11.5px;color:var(--text-3);font-style:italic;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="brand">
+    <h1>Franco <span>Galvânica</span> · <small style="display:inline">Validador de Romaneio</small></h1>
+    <span class="version-info" id="versionInfo">v—</span>
+  </div>
+  <div class="status" id="status"><span class="dot"></span><span id="statusText">Pronto</span></div>
+</header>
+
+<div class="version-modal" id="versionModal">
+  <h3>Histórico de versões <span onclick="document.getElementById('versionModal').classList.remove('open')">×</span></h3>
+  <div id="versionList"></div>
+</div>
+
+<!-- Selector -->
+<div class="bar">
+  <div class="field grow">
+    <label>Número do Romaneio</label>
+    <input type="number" id="romInput" placeholder="ex: 24821" autofocus>
+  </div>
+  <button class="btn" id="btnLoad">Validar</button>
+</div>
+
+<!-- Romaneios recentes (carregados ao abrir o artefato) -->
+<div class="recent" id="recentBox">
+  <h3>Romaneios dos últimos 30 dias <span class="ct" id="recentCount">carregando…</span></h3>
+  <div class="recent-list" id="recentList"></div>
+</div>
+
+<!-- Romaneio Header (visível quando carregado) -->
+<div class="rom-header" id="romHeader"></div>
+
+<!-- Section ① Fluxo dos 7 Documentos -->
+<div class="section" id="sec1" style="display:none">
+  <h2><span class="num">①</span> Fluxo dos 7 Documentos <span class="meta" id="sec1Meta"></span></h2>
+  <div class="section-body">
+    <div class="timeline" id="timelineList"></div>
+  </div>
+</div>
+
+<!-- Section ② Conciliação -->
+<div class="section" id="sec2" style="display:none">
+  <h2><span class="num">②</span> Conciliação por Bucket · OS · Passagem · Romaneio <span class="meta" id="sec2Meta"></span></h2>
+  <div class="section-body" id="concContent"></div>
+</div>
+
+<!-- Section ③ Fórmula triádica -->
+<div class="section" id="sec3" style="display:none">
+  <h2><span class="num">③</span> Fórmula Triádica · cálculo item a item <span class="meta" id="sec3Meta"></span></h2>
+  <div class="section-body" id="formulaContent"></div>
+</div>
+
+<!-- Section ④ Itens detalhados -->
+<div class="section" id="sec4" style="display:none">
+  <h2><span class="num">④</span> Itens detalhados do Romaneio <span class="meta" id="sec4Meta"></span></h2>
+  <div class="section-body" id="itensContent"></div>
+</div>
+
+<!-- Section ⑤ Alertas -->
+<div class="section" id="sec5" style="display:none">
+  <h2><span class="num">⑤</span> Alertas e observações automáticas <span class="meta" id="sec5Meta"></span></h2>
+  <div class="section-body">
+    <ul class="alertas" id="alertasList"></ul>
+  </div>
+</div>
+
+</div>
+
+<script>
+// =============== VERSÕES ===============
+const VERSIONS = [
+  { v: '2.4', date: '2026-05-10 20:30', changes: 'DUPLO FIX: (1) Tolerância +24h no banho_fim (LIMITADA pelo banho_ini da próxima sep do cliente — não vaza pra próximo lote). Operadores às vezes escaneiam peças no dia seguinte ao "fim banho". Caso #24863 LAYLA: peça 68672 (376g) escaneada 1m42s depois — agora entra. (2) DETECTOR DE DUPLICATAS na seção ⑤: agrupa passagens com mesmo material+milésimos+peso+data_servico+created_at e alerta quando há 2+ idênticas (caso #24874 LETÍCIA: 4 registros no mesmo created_at = POST duplo na API). NÃO deduplica auto — só alerta com lista de IDs e peso potencialmente inflado.' },
+  { v: '2.3', date: '2026-05-10 19:30', changes: 'Cores da variação corrigidas: positivo (rom > pass) = verde, negativo (rom < pass) = vermelho. Antes estava por módulo (|v|>15=vermelho independente do sinal), confundindo. Threshold neutro para |v|<0.5%. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
+  { v: '2.2', date: '2026-05-10 14:30', changes: 'BUGFIX crítico: query de detecção de separações concorrentes usava tstzrange() e quebrava com erro "range lower bound must be less than or equal to range upper bound" quando alguma sep tinha banho_ini > banho_fim (dados ruins no banco — existem ~10 separações antigas com isso). Substituído por comparação direta com LEAST/GREATEST que é tolerante. Também adicionado guard: só roda a query se banhoIni e banhoFim estão definidos.' },
+  { v: '2.1', date: '2026-05-10 02:30', changes: 'Fallback inteligente quando banho_ini é NULL na separação (operador esqueceu de marcar — caso #24871 ULIANE sep 14942): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Faz uma query extra pra achar a sep anterior. Antes usava cat_fim/rec_fim que era muito amplo e englobava lotes anteriores. Marca state.banhoEstimado=true.' },
+  { v: '2.0', date: '2026-05-09 18:30', changes: 'BUGFIX crítico anchor SEPARAÇÃO: trocada lógica "exp_ini ±2 dias" pela semanticamente correta "romaneio cai DENTRO da janela de expedição (exp_ini ≤ data_rom ≤ exp_fim+2d)". Caso #24855 (NP SOARES) tinha exp_ini=04-30 e romaneio=05-04 (4 dias depois, dentro do período de expedição 04-30→05-07) — antes não casava e caía pro fallback de 60 dias, vazando 4180g de Prateado 70 milésimos de outros lotes (variação artificial -95.3%). Agora casa corretamente com sep 14887 e variação real é +2.0%.' },
+  { v: '1.9', date: '2026-05-09 18:00', changes: 'Continuação do fix v1.8 (que ainda tinha headers escapados): "Bucket · Material · Cor · Milesimos" e cabeçalho "Milesimos" da tabela de itens passaram a usar acento ("Milésimos"). Verificação exaustiva via grep em todos os 4 artefatos. Memória atualizada com checklist de processo (processo_aplicar_correcao_ui.md) pra não repetir esse esquecimento.' },
+  { v: '1.8', date: '2026-05-09 17:00', changes: 'Substituído símbolo ‰ (per mille) pela palavra "milésimos" por extenso em todos os labels e fórmulas — não fazia parte da nomenclatura do Roger. Exemplo: "Madrid · 5 milésimos" em vez de "Madrid · ‰5".' },
+  { v: '1.7', date: '2026-05-09 15:30', changes: 'BUGFIX crítico: janela de passagens trocada de "data ±1 dia tolerância" para timestamp EXATO entre banho_inicio e banho_fim. Correção do caso #24878 (ANA BEATRIZ) que mostrava variação artificial de -44.7% porque a tolerância de ±1d englobava passagens da Sep concorrente 14939 (em galvanização paralela). Agora ranges sobrepostos não vazam. PLUS detecção automática de separações concorrentes do mesmo cliente: alerta na seção ⑤ quando há outras separações com banho sobrepondo a janela atual (alerta amarelo).' },
+  { v: '1.6', date: '2026-05-09 15:00', changes: 'Sanitização ampliada: adicionado REPLACE CHR(13)/(10) também nas queries de triagem.observacoes, recebimento_pecas.obs e entregas_motoboy.observacoes (eram potenciais bugs latentes mesmo antes não terem se manifestado). Memória da sessão atualizada com lição aprendida.' },
+  { v: '1.5', date: '2026-05-09 14:30', changes: 'BUG CRÍTICO RESOLVIDO: queries com observacao contendo \\r\\n quebravam o parseResult silenciosamente (split por \\n descartava as linhas). Agora as queries fazem REPLACE(REPLACE(observacao, CHR(13), \" \"), CHR(10), \" \") sanitizando antes de retornar. Validado #24870 (KARINA): OS 12960 era invisível por causa disso. Também: guard contra duplo loadRomaneio (clique + hashchange disparavam juntos, poluindo state.osDebug com SQLs duplicadas).' },
+  { v: '1.4', date: '2026-05-09 14:00', changes: 'BUGFIX + DEBUG: lógica de OS reescrita pra TENTAR TODOS os 4 níveis em sequência (antes era um if/else if que só rodava 1 nível). Quando OS não é encontrada, mostra debug expandível com: conteúdo de triagem.observacoes, resultado do regex, osNum extraído e SQL de cada nível tentado. Permite identificar exatamente onde quebra.' },
+  { v: '1.3', date: '2026-05-09 13:30', changes: 'Mostra no timeline qual estratégia de fallback foi usada para encontrar a OS (a/b/c/d) — ajuda a entender por que aquela OS específica foi escolhida. Mudança visual também serve como prova de que o artefato carregou a versão nova (não está em cache).' },
+  { v: '1.2', date: '2026-05-09 13:15', changes: 'Topologia kanban totalmente mapeada (FKs reais validadas com 24884 e 24876). Mudanças críticas: (1) PASSAGENS agora filtradas pela janela banho_inicio→banho_fim da separação em vez de 60 dias arbitrários — corrige variação artificial de -71% que aparecia em #24876 ao misturar lotes anteriores. (2) RECEBIMENTOS via tabela link separacoes_recebimentos (N:N — pode ter vários por lote). (3) OS com fallback ampliado: nível c) busca por datavenda entre min(recebimento) e fim_separacao (pode ser semanas entre recebimento e OS aprovada).' },
+  { v: '1.1', date: '2026-05-09 12:30', changes: 'Lista de romaneios dos últimos 30 dias pré-carregada ao abrir (clica e abre direto). Nova lógica de matching: SEPARAÇÃO vira âncora (busca por data_inicio_expedicao ≈ data_romaneio), TRIAGEM via separacao.catalogacao_id, OS via parseamento de "O.S:NNNN" da triagem.observacoes (referência reversa) — agora encontra fluxo completo mesmo quando OS sem CAT na observação. Validado com romaneio 24884 (ARIANY).' },
+  { v: '1.0', date: '2026-05-09 12:00', changes: 'Versão inicial: validador genérico de qualquer romaneio. Recebe nº via URL (?rom=NNN ou hash) ou input. 5 seções: ① Fluxo dos 7 Documentos, ② Conciliação por Bucket, ③ Fórmula Triádica, ④ Itens detalhados, ⑤ Alertas automáticos. Substitui o romaneio-24749-validacao (deprecated).' }
+];
+const CURRENT_VERSION = VERSIONS[0];
+
+const state = { rom:null, items:[], os:null, osItems:[], triagem:null, recebimentos:[], separacao:null, passagens:[], entregas:[] };
+
+const fmt = {
+  brl: v => 'R$ ' + (Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),
+  brlK: v => 'R$ ' + (Number(v)/1000||0).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + 'k',
+  num: v => (Number(v)||0).toLocaleString('pt-BR'),
+  g: v => (Number(v)||0).toLocaleString('pt-BR',{maximumFractionDigits:0}) + ' g',
+  gSig: v => { const n=Number(v)||0; return (n>0?'+':'') + n.toLocaleString('pt-BR',{maximumFractionDigits:0}) + ' g'; },
+  kg: v => (Number(v)/1000||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' kg',
+  pct: v => { const n=Number(v); if(!isFinite(n)) return '—'; return (n>=0?'+':'') + n.toFixed(1) + '%'; },
+  date: s => { if(!s) return ''; const [y,m,d] = String(s).split('-'); return d+'/'+m+'/'+y.slice(2); },
+  dateF: s => { if(!s) return ''; const [y,m,d] = String(s).split('-'); return d+'/'+m+'/'+y; }
+};
+
+function setStatus(msg, kind){
+  const el = document.getElementById('status'); const txt = document.getElementById('statusText');
+  el.classList.remove('loading','error');
+  if (kind==='loading') el.classList.add('loading');
+  else if (kind==='error') el.classList.add('error');
+  txt.textContent = msg;
+}
+
+function parseResult(t){
+  if (!t || typeof t !== 'string') return [];
+  const lines = t.split('\n'); if (lines.length < 3) return [];
+  const headers = lines[0].split('|').map(h => h.trim());
+  const rows = [];
+  for (let i = 2; i < lines.length; i++){
+    const line = lines[i]; if (!line.trim()) continue;
+    if (line.startsWith('Total:') || line.startsWith('Erro')) break;
+    const values = line.split('|').map(v => v.trim());
+    if (values.length === headers.length){
+      const row = {};
+      headers.forEach((h, idx) => {
+        let v = values[idx];
+        if (v === 'NULL' || v === '') v = null;
+        else if (!isNaN(v) && v !== '') v = Number(v);
+        row[h] = v;
+      });
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+async function callDB(sql){
+  let res;
+  try { res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit: 500 } }); }
+  catch(e){ throw new Error('Falha MCP: ' + (e?.message||e)); }
+  let txt = '';
+  if (typeof res === 'string') txt = res;
+  else if (res?.result) txt = res.result;
+  else if (Array.isArray(res?.content)){
+    for (const c of res.content) if (c.type==='text' && c.text) txt += c.text;
+    try { const j = JSON.parse(txt); if (j?.result) txt = j.result; } catch(e){}
+  } else if (res?.content?.[0]?.text){
+    txt = res.content[0].text;
+    try { const j = JSON.parse(txt); if (j?.result) txt = j.result; } catch(e){}
+  }
+  if (!txt) throw new Error('Resposta vazia do banco');
+  if (txt.startsWith('Bloqueado:') || txt.startsWith('Erro') || txt.startsWith('error')) throw new Error(txt.split('\n')[0]);
+  return parseResult(txt);
+}
+
+// =============== LOAD ===============
+async function loadRomaneio(romNum){
+  if (!romNum || romNum < 1) { setStatus('Digite um número válido', 'error'); return; }
+  // Guard contra chamada dupla (clique + hashchange dispararem juntos)
+  if (state.loading === romNum) return;
+  state.loading = romNum;
+  setStatus('Carregando romaneio…', 'loading');
+
+  // Limpar state
+  state.rom = null; state.items = []; state.os = null; state.osItems = [];
+  state.triagem = null; state.recebimentos = []; state.separacao = null;
+  state.passagens = []; state.entregas = []; state.osDebug = null; state.osStrategy = null;
+  state.separacoesConcorrentes = [];
+
+  try {
+    // Batch 1: dados do romaneio + itens
+    const sqlRom = `SELECT s.id, s.idcliente, c.nome AS cliente, s.datavenda::text AS data, s.valor_com_desconto AS valor_total, s.descricao, s.total_entregas_motoboy, s.idstatuspag, sp.descricao AS statuspag FROM servico s JOIN cliente c ON c.id=s.idcliente LEFT JOIN statuspag sp ON sp.id=s.idstatuspag WHERE s.id = ${romNum}`;
+    const sqlItens = `SELECT isv.id, isv.idmaterial, m.descricao AS material, isv.idcor, COALESCE(cor.descricao,'—') AS cor, isv.idtiposervico, ts.descricao AS tiposerv, isv.milesimos, isv.peso, isv.valor, isv.vlr_serv_kg, isv.vlr_adic_ml_kg, isv.material_valorg, isv.mil_ini, isv.fator, isv.tipo_valor, isv.valor_comis FROM itemservico isv JOIN material m ON m.id=isv.idmaterial LEFT JOIN cores cor ON cor.id=isv.idcor JOIN tiposervico ts ON ts.id=isv.idtiposervico WHERE isv.idservico = ${romNum} ORDER BY isv.id`;
+    const [romRows, itens] = await Promise.all([callDB(sqlRom), callDB(sqlItens)]);
+    if (!romRows.length) { setStatus(`Romaneio #${romNum} não encontrado`, 'error'); hideAllSections(); return; }
+    state.rom = romRows[0]; state.items = itens;
+
+    // Batch 2: SEPARAÇÃO como âncora + entregas (motoboy via FK formal)
+    setStatus('Buscando separação (âncora do kanban)…', 'loading');
+    const cli = state.rom.idcliente;
+    const dt = state.rom.data;
+
+    // SEPARAÇÃO ÂNCORA — romaneio cai DENTRO da janela de expedição da separação
+    // (data_inicio_expedicao ≤ data_romaneio ≤ data_fim_expedicao + 2 dias). Mais semantically correct que ±2d do exp_ini.
+    const sqlSep = `SELECT s.id, s.catalogacao_id, s.retrabalho_id, s.status, s.created_at::text AS data_criacao, s.data_inicio_recebimento::text AS rec_ini, s.data_fim_recebimento::text AS rec_fim, s.data_inicio_catalogacao::text AS cat_ini, s.data_fim_catalogacao::text AS cat_fim, s.data_inicio_preparacao::text AS prep_ini, s.data_fim_preparacao::text AS prep_fim, s.data_inicio_banho::text AS banho_ini, s.data_fim_banho::text AS banho_fim, s.data_inicio_revisao::text AS rev_ini, s.data_fim_revisao::text AS rev_fim, s.data_inicio_expedicao::text AS exp_ini, s.data_fim_expedicao::text AS exp_fim, s.data_fim_separacao::text AS fim_sep FROM separacoes s WHERE s.cliente_id = ${cli} AND s.data_inicio_expedicao IS NOT NULL AND s.data_inicio_expedicao::date - INTERVAL '1 day' <= '${dt}'::date AND '${dt}'::date <= COALESCE(s.data_fim_expedicao, s.data_inicio_expedicao + INTERVAL '14 days')::date + INTERVAL '2 days' ORDER BY ABS(EXTRACT(EPOCH FROM (s.data_inicio_expedicao - '${dt}'::date))) ASC NULLS LAST LIMIT 1`;
+    const sqlEntr = `SELECT em.id, em.data_entrega::text AS data, em.hora_entrega::text AS hora, em.valor, REPLACE(REPLACE(COALESCE(em.observacoes,''), CHR(13), ' '), CHR(10), ' ') AS observacoes FROM entregas_motoboy em JOIN servico_entrega se ON se.identrega = em.id WHERE se.idservico = ${romNum}`;
+    const [sepRows, entregas] = await Promise.all([callDB(sqlSep), callDB(sqlEntr)]);
+    state.separacao = sepRows[0] || null;
+    state.entregas = entregas;
+
+    // Batch 3 — Recebimentos (via tabela link), Triagem (via FK), Passagens (via janela do banho)
+    setStatus('Buscando recebimentos, triagem e passagens da janela exata…', 'loading');
+    const sep = state.separacao;
+    const promises3 = [];
+    let idxReceb = -1, idxTri = -1, idxPass = -1;
+
+    if (sep){
+      // RECEBIMENTOS via tabela link N:N (FK formal — cobre lote inteiro mesmo se vários recebimentos antigos)
+      const sqlReceb = `SELECT rp.id, rp.data_receb::text AS data, rp.hora_receb::text AS hora, rp.idfornec, rp.nome_fornec, rp.pesototal, REPLACE(REPLACE(COALESCE(rp.obs,''), CHR(13), ' '), CHR(10), ' ') AS obs, rp.status, rp.idresp, rp.nome_resp FROM separacoes_recebimentos sr JOIN recebimento_pecas rp ON rp.id = sr.recebimento_id WHERE sr.separacao_id = ${sep.id} ORDER BY rp.data_receb`;
+      idxReceb = promises3.length;
+      promises3.push(callDB(sqlReceb));
+
+      // TRIAGEM via FK direta
+      if (sep.catalogacao_id){
+        const sqlTri = `SELECT id, datacad::text AS data, valor_total, valor_cotacao, REPLACE(REPLACE(COALESCE(observacoes,''), CHR(13), ' '), CHR(10), ' ') AS observacoes, status, datafim::text AS data_fim FROM triagem WHERE id = ${sep.catalogacao_id}`;
+        idxTri = promises3.length;
+        promises3.push(callDB(sqlTri));
+      }
+
+      // PASSAGENS via janela EXATA banho_inicio → banho_fim (timestamp, sem tolerância de ±1d)
+      // Quando banho_ini é NULL (operador esqueceu), estimar:
+      //   max(banho_fim_sep_anterior, banho_fim - 4d). Marca state.banhoEstimado=true pra UI alertar.
+      let banhoIni = sep.banho_ini;
+      const banhoFim = sep.banho_fim || sep.exp_ini || dt;
+      state.banhoEstimado = false;
+      if (!banhoIni && sep.banho_fim){
+        const sqlPrevBanho = `SELECT data_fim_banho::text AS prev_fim FROM separacoes WHERE cliente_id = ${cli} AND id <> ${sep.id} AND data_fim_banho IS NOT NULL AND data_fim_banho < '${sep.banho_fim}'::timestamp ORDER BY data_fim_banho DESC LIMIT 1`;
+        const prevRows = await callDB(sqlPrevBanho);
+        const prevFim = (prevRows[0] && prevRows[0].prev_fim) ? new Date(prevRows[0].prev_fim) : null;
+        const fim = new Date(sep.banho_fim);
+        const minIni = new Date(fim.getTime() - 4*86400000);
+        const inferido = prevFim && prevFim > minIni ? prevFim : minIni;
+        banhoIni = inferido.toISOString();
+        state.banhoEstimado = true;
+      }
+      if (banhoIni && banhoFim){
+        // Tolerância +24h no fim, LIMITADA pelo banho_ini da próxima sep do cliente (não vazar pra próximo lote).
+        // Operador costuma escanear peças no dia seguinte ao "fim banho" — caso #24863 LAYLA (1m42s) e outros.
+        const sqlPass = `WITH limite AS (
+  SELECT LEAST(
+    '${banhoFim}'::timestamp + INTERVAL '24 hours',
+    COALESCE((SELECT data_inicio_banho - INTERVAL '1 minute' FROM separacoes WHERE cliente_id=${cli} AND id<>${sep.id} AND data_inicio_banho > '${banhoFim}'::timestamp ORDER BY data_inicio_banho LIMIT 1), '${banhoFim}'::timestamp + INTERVAL '24 hours')
+  ) AS fim_tol
+)
+SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS data, p.material_id, m.descricao AS material, p.cor_id, COALESCE(cor.descricao,'—') AS cor, p.milesimos, p.peso, p.tiposervico_id, ts.descricao AS tiposerv, p.created_at::text AS created_at FROM passagem_pecas p JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id JOIN tiposervico ts ON ts.id=p.tiposervico_id, limite WHERE p.deleted_at IS NULL AND p.cliente_id = ${cli} AND p.data_servico >= '${banhoIni}'::timestamp AND p.data_servico <= limite.fim_tol ORDER BY p.data_servico DESC`;
+        idxPass = promises3.length;
+        promises3.push(callDB(sqlPass));
+      }
+
+      // DETECTAR separações concorrentes do mesmo cliente que sobrepõem a janela atual de banho.
+      // Uso comparação direta (não tstzrange) porque algumas separações têm banho_ini > banho_fim (dados ruins).
+      // Equivalente: ranges se sobrepõem quando rangeA.start <= rangeB.end AND rangeA.end >= rangeB.start.
+      // Só roda se banhoIni e banhoFim são válidos (timestamps parseáveis).
+      if (banhoIni && banhoFim){
+        const sqlConcorrentes = `SELECT s.id, s.catalogacao_id, s.status, s.data_inicio_banho::text AS banho_ini, s.data_fim_banho::text AS banho_fim FROM separacoes s WHERE s.cliente_id = ${cli} AND s.id <> ${sep.id} AND s.data_inicio_banho IS NOT NULL AND s.data_fim_banho IS NOT NULL AND LEAST(s.data_inicio_banho, s.data_fim_banho) <= '${banhoFim}'::timestamp + INTERVAL '1 day' AND GREATEST(s.data_inicio_banho, s.data_fim_banho) >= '${banhoIni}'::timestamp - INTERVAL '1 day' ORDER BY s.data_inicio_banho`;
+        promises3.push(callDB(sqlConcorrentes));
+        const idxConcorrentes = promises3.length - 1;
+        state._idxConcorrentes = idxConcorrentes;
+      }
+    } else {
+      // Sem separação: fallback velho — passagens 60 dias
+      const sqlPassFallback = `SELECT p.id, p.data_servico::date::text AS data, p.material_id, m.descricao AS material, p.cor_id, COALESCE(cor.descricao,'—') AS cor, p.milesimos, p.peso, p.tiposervico_id, ts.descricao AS tiposerv FROM passagem_pecas p JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id JOIN tiposervico ts ON ts.id=p.tiposervico_id WHERE p.deleted_at IS NULL AND p.cliente_id = ${cli} AND p.data_servico::date BETWEEN '${dt}'::date - INTERVAL '60 days' AND '${dt}'::date + INTERVAL '5 days' ORDER BY p.data_servico DESC`;
+      idxPass = promises3.length;
+      promises3.push(callDB(sqlPassFallback));
+    }
+
+    const results3 = await Promise.all(promises3);
+    state.recebimentos = idxReceb >= 0 ? results3[idxReceb] : [];
+    state.triagem = idxTri >= 0 ? (results3[idxTri][0] || null) : null;
+    state.passagens = idxPass >= 0 ? results3[idxPass] : [];
+    state.separacoesConcorrentes = state._idxConcorrentes >= 0 ? (results3[state._idxConcorrentes] || []) : [];
+    delete state._idxConcorrentes;
+
+    // Batch 4 — OS com fallback de 4 níveis (com TODOS os níveis tentados em sequência)
+    setStatus('Buscando OS associada (4 níveis de fallback)…', 'loading');
+    state.osDebug = { triObs: null, regexMatch: null, osNumExtraido: null, niveisTentados: [] };
+    state.os = null;
+    state.osStrategy = null;
+
+    if (state.triagem){
+      state.osDebug.triObs = state.triagem.observacoes;
+      const m = (state.triagem.observacoes || '').match(/O\.?S\s*[:\.]\s*(\d+)/i);
+      state.osDebug.regexMatch = m ? JSON.stringify(m) : 'sem match';
+      if (m) state.osDebug.osNumExtraido = parseInt(m[1]);
+    }
+
+    // NÍVEL (a): OS via "O.S:NNNN" da observacao da triagem
+    if (state.osDebug.osNumExtraido){
+      const sqlA = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.idcliente = ${cli} AND o.numero = ${state.osDebug.osNumExtraido} LIMIT 1`;
+      state.osDebug.niveisTentados.push({n:'a', sql:sqlA});
+      const r = await callDB(sqlA);
+      if (r[0]){ state.os = r[0]; state.osStrategy = `(a) via "O.S:${state.osDebug.osNumExtraido}" na obs da triagem ${state.triagem.id}`; }
+    }
+    // NÍVEL (b): OS com "CAT: <triagem_id>" na observação
+    if (!state.os && state.triagem){
+      const sqlB = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.idcliente = ${cli} AND o.observacao ~* 'CAT:\\s*${state.triagem.id}\\b' ORDER BY o.datavenda DESC LIMIT 1`;
+      state.osDebug.niveisTentados.push({n:'b', sql:sqlB});
+      const r = await callDB(sqlB);
+      if (r[0]){ state.os = r[0]; state.osStrategy = `(b) via "CAT: ${state.triagem.id}" na observação da OS`; }
+    }
+    // NÍVEL (c): OS do cliente entre 1º recebimento e fim da separação
+    if (!state.os && sep && state.recebimentos.length){
+      const minRec = state.recebimentos[0].data;
+      const fimSep = (sep.fim_sep || dt).slice(0,10);
+      const sqlC = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.idcliente = ${cli} AND o.datavenda BETWEEN '${minRec}' AND '${fimSep}' ORDER BY o.datavenda DESC LIMIT 1`;
+      state.osDebug.niveisTentados.push({n:'c', sql:sqlC});
+      const r = await callDB(sqlC);
+      if (r[0]){ state.os = r[0]; state.osStrategy = `(c) OS do cliente entre 1º recebimento (${fmt.date(minRec)}) e fim da separação (${fmt.date(fimSep)})`; }
+    }
+    // NÍVEL (d): OS mais recente do cliente antes do romaneio
+    if (!state.os){
+      const sqlD = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.idcliente = ${cli} AND o.datavenda <= '${dt}' ORDER BY o.datavenda DESC, o.id DESC LIMIT 1`;
+      state.osDebug.niveisTentados.push({n:'d', sql:sqlD});
+      const r = await callDB(sqlD);
+      if (r[0]){ state.os = r[0]; state.osStrategy = `(d) OS mais recente do cliente antes do romaneio (fallback)`; }
+    }
+
+    // Batch 5 — itens da OS
+    if (state.os){
+      const sqlOsItens = `SELECT io.id, io.idmaterial, m.descricao AS material, io.idcor, COALESCE(cor.descricao,'—') AS cor, io.idtiposervico, ts.descricao AS tiposerv, io.milesimos, io.peso, io.valor FROM itemordem io JOIN material m ON m.id=io.idmaterial LEFT JOIN cores cor ON cor.id=io.idcor JOIN tiposervico ts ON ts.id=io.idtiposervico WHERE io.idordem = ${state.os.id} ORDER BY io.id`;
+      state.osItems = await callDB(sqlOsItens);
+    }
+
+    setStatus(`Romaneio #${romNum} carregado · ${new Date().toTimeString().slice(0,5)}`, 'ok');
+    renderAll();
+  } catch(e){
+    console.error(e); setStatus('Erro: ' + (e?.message||e), 'error');
+  } finally {
+    state.loading = null;
+  }
+}
+
+function hideAllSections(){
+  ['romHeader','sec1','sec2','sec3','sec4','sec5'].forEach(id => {
+    const el = document.getElementById(id);
+    if (id==='romHeader') el.classList.remove('show'); else el.style.display='none';
+  });
+}
+
+// =============== RENDER ===============
+const ADIC_MATS = ['Verniz Alemão - Ultraprotect','Verniz Cataforetico','Caneta Rd Branco','Caneta Rd Negro/Dourado','Adicional Acessórios'];
+const ADIC_TIPOS = ['Verniz','Acessórios','Pontos de Ródio'];
+const DESC_TIPOS = ['Desconto - Rebanho','Desconto de Pedras','Tarraxa'];
+function isAdicional(material, tiposerv){ return ADIC_MATS.includes(material) || ADIC_TIPOS.includes(tiposerv); }
+function isDesconto(tiposerv){ return DESC_TIPOS.includes(tiposerv); }
+function bucketKey(r){ return `${r.material}|${r.cor||'—'}|${r.milesimos??'—'}`; }
+function bucketLabel(material, cor, mil){
+  return `<span class="tag-mat">${material}</span><span class="tag-cor">${cor||'—'}</span><span class="tag-mil">${mil??'—'} milésimos</span>`;
+}
+
+function renderAll(){
+  renderRomHeader();
+  renderTimeline();
+  renderConciliacao();
+  renderFormula();
+  renderItens();
+  renderAlertas();
+}
+
+// HEADER do romaneio
+function renderRomHeader(){
+  const r = state.rom; const its = state.items;
+  const banho = its.filter(i => !isAdicional(i.material, i.tiposerv) && !isDesconto(i.tiposerv)).reduce((s,i)=>s+(+i.peso||0),0);
+  const adic = its.filter(i => isAdicional(i.material, i.tiposerv)).reduce((s,i)=>s+(+i.peso||0),0);
+  const valor = its.reduce((s,i)=>s+(+i.valor||0),0);
+  const el = document.getElementById('romHeader');
+  el.innerHTML = `
+    <h2>Romaneio #${r.id}<small>${fmt.dateF(r.data)}</small></h2>
+    <div style="font-size:14px;font-weight:600">${r.cliente}</div>
+    <div class="info">
+      <div><small>Itens</small><strong>${its.length}</strong></div>
+      <div><small>Peso de banho</small><strong>${fmt.g(banho)}</strong></div>
+      <div><small>Peso adicionais</small><strong>${adic ? fmt.g(adic) : '—'}</strong></div>
+      <div><small>Valor total</small><strong>${fmt.brl(valor)}</strong></div>
+      <div><small>Status pagamento</small><strong>${r.statuspag || '—'}</strong></div>
+    </div>
+  `;
+  el.classList.add('show');
+}
+
+// SEÇÃO ① — TIMELINE 7 DOCS
+function renderTimeline(){
+  const r = state.rom;
+  const dRom = new Date(r.data);
+  const fmtDelta = (d) => {
+    if (!d) return '';
+    const dias = Math.round((dRom - new Date(d))/86400000);
+    if (dias === 0) return '<span class="dim">mesmo dia</span>';
+    if (dias > 0) return `<span class="dim">${dias}d antes</span>`;
+    return `<span class="dim">${-dias}d depois</span>`;
+  };
+
+  const passagensAgrupadas = {};
+  state.passagens.forEach(p => {
+    if (!passagensAgrupadas[p.data]) passagensAgrupadas[p.data] = { count:0, peso:0 };
+    passagensAgrupadas[p.data].count++;
+    passagensAgrupadas[p.data].peso += +p.peso || 0;
+  });
+  const passDias = Object.keys(passagensAgrupadas).sort();
+  const passTotal = state.passagens.reduce((s,p)=>s+(+p.peso||0),0);
+  const passNoBanho = state.passagens.filter(p => p.tiposerv === 'Banho').reduce((s,p)=>s+(+p.peso||0),0);
+
+  const docs = [
+    {
+      step: 1, label: 'Recebimento',
+      found: state.recebimentos.length > 0,
+      data: state.recebimentos.length ? state.recebimentos[state.recebimentos.length-1].data : null,
+      info: state.recebimentos.length ? state.recebimentos.map(rc => `${fmt.dateF(rc.data)} · ${fmt.g(rc.pesototal)}${rc.nome_fornec ? ' · origem: '+rc.nome_fornec : ''}`).join('<br>') : '<span class="dim">nenhum recebimento nos 60 dias antes do romaneio</span>'
+    },
+    {
+      step: 2, label: 'OS · Ordem de Serviço',
+      found: !!state.os,
+      data: state.os ? state.os.data : null,
+      info: state.os ? `<strong>OS #${state.os.numero}</strong> · ${fmt.dateF(state.os.data)} · ${fmt.g(state.os.pesototal||0)}${state.osStrategy ? '<br><small style="color:var(--primary);font-weight:600">📌 estratégia: '+state.osStrategy+'</small>' : ''}${state.os.observacao ? '<br><small>'+(state.os.observacao || '').replace(/</g,'&lt;').replace(/\n/g,' ').slice(0,180)+'</small>' : ''}` : `<div style="color:var(--bad)">nenhuma OS encontrada para este cliente em nenhum dos 4 níveis</div>${state.osDebug ? '<details style="margin-top:8px;font-size:11px;color:var(--text-2)"><summary style="cursor:pointer;color:var(--primary);font-weight:600">🔍 debug — clique pra expandir</summary><div style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:10px;margin-top:6px;font-family:ui-monospace,monospace;white-space:pre-wrap;word-break:break-all">triagem.observacoes = '+(JSON.stringify(state.osDebug.triObs)||'null')+'\\nregex match = '+(state.osDebug.regexMatch||'—')+'\\nosNum extraído = '+(state.osDebug.osNumExtraido||'null')+'\\n\\nNíveis tentados:\\n'+state.osDebug.niveisTentados.map(t => '['+t.n+'] '+t.sql).join('\\n\\n')+'</div></details>' : ''}`
+    },
+    {
+      step: 3, label: 'Catalogação · Triagem',
+      found: !!state.triagem,
+      data: state.triagem ? state.triagem.data : null,
+      info: state.triagem ? `Triagem <strong>#${state.triagem.id}</strong> · ${fmt.dateF(state.triagem.data)} · valor total ${fmt.brl(state.triagem.valor_total||0)}${state.triagem.valor_cotacao ? ' · cotação ' + fmt.brl(state.triagem.valor_cotacao) : ''}` : (state.os ? '<span class="dim">OS sem referência "CAT: NNNN" na observação — vínculo manual no Delphi</span>' : '<span class="dim">não disponível (depende da OS)</span>')
+    },
+    {
+      step: 4, label: 'Separação',
+      found: !!state.separacao,
+      data: state.separacao ? (state.separacao.data_criacao||'').slice(0,10) : null,
+      info: state.separacao ? `Separação <strong>#${state.separacao.id}</strong> · status ${state.separacao.status || '—'}${state.separacao.banho_ini ? '<br>Banho: ' + (state.separacao.banho_ini||'').slice(0,10) + (state.separacao.banho_fim ? ' até ' + state.separacao.banho_fim.slice(0,10) : '') : ''}` : '<span class="dim">não encontrada (ligada via catalogacao_id)</span>'
+    },
+    {
+      step: 5, label: 'Passagens (banho)',
+      found: state.passagens.length > 0,
+      partial: state.passagens.length > 0 && passDias.length === 1,
+      data: passDias.length ? passDias[passDias.length-1] : null,
+      info: state.passagens.length ? `${state.passagens.length} ${state.passagens.length===1?'peça':'peças'} em ${passDias.length} ${passDias.length===1?'dia':'dias'} · ${fmt.g(passTotal)} total${passNoBanho !== passTotal ? '<br>Sendo: '+fmt.g(passNoBanho)+' tipo Banho · '+fmt.g(passTotal-passNoBanho)+' adicionais' : ''}<br><small>Datas: ${passDias.map(d => fmt.date(d)).join(', ')}</small>` : '<span class="dim">nenhuma passagem registrada nos 60 dias antes do romaneio</span>'
+    },
+    {
+      step: 6, label: 'Romaneio (faturamento)',
+      found: true,
+      data: r.data,
+      info: `Romaneio <strong>#${r.id}</strong> · ${state.items.length} ${state.items.length===1?'item':'itens'} · ${fmt.brl(r.valor_total||0)}<br>Status pagamento: <strong>${r.statuspag || '—'}</strong>`
+    },
+    {
+      step: 7, label: 'Expedição · Entrega',
+      found: state.entregas.length > 0,
+      data: state.entregas.length ? state.entregas[0].data : null,
+      info: state.entregas.length ? state.entregas.map(e => `${fmt.dateF(e.data)} ${e.hora || ''} · ${fmt.brl(e.valor||0)}${e.observacoes ? ' · '+e.observacoes : ''}`).join('<br>') : '<span class="dim">sem registro de entrega via motoboy</span>'
+    }
+  ];
+
+  document.getElementById('timelineList').innerHTML = docs.map(d => `
+    <div class="tl-item ${d.found ? (d.partial ? 'partial' : 'found') : 'missing'}">
+      <div class="step">${d.step}</div>
+      <div class="when">${d.data ? `<strong>${fmt.dateF(d.data)}</strong>` : '<span class="dim">—</span>'}<small>${d.data ? fmtDelta(d.data) : ''}</small></div>
+      <div class="label"><strong>${d.label}</strong><div class="info-extra">${d.info}</div></div>
+      <div class="delta"></div>
+    </div>
+  `).join('');
+
+  document.getElementById('sec1Meta').textContent = `${docs.filter(d=>d.found).length}/7 documentos encontrados`;
+  document.getElementById('sec1').style.display = '';
+}
+
+// SEÇÃO ② — CONCILIAÇÃO POR BUCKET
+function renderConciliacao(){
+  // Agregar OS, Passagem, Romaneio por bucket
+  const buckets = new Map();
+  const ensure = (k, src) => {
+    if (!buckets.has(k)) buckets.set(k, { key:k, material:src.material, cor:src.cor, mil:src.milesimos, isAdic:isAdicional(src.material, src.tiposerv), os:0, pass:0, rom:0 });
+    return buckets.get(k);
+  };
+  state.osItems.forEach(i => { if (!isDesconto(i.tiposerv)) ensure(bucketKey(i), i).os += +i.peso||0; });
+  state.passagens.forEach(p => { ensure(bucketKey(p), p).pass += +p.peso||0; });
+  state.items.forEach(i => { if (!isDesconto(i.tiposerv)) ensure(bucketKey(i), i).rom += +i.peso||0; });
+  const arr = [...buckets.values()].sort((a,b) => (a.isAdic?1:0) - (b.isAdic?1:0) || (b.os+b.pass+b.rom) - (a.os+a.pass+a.rom));
+
+  const variacao = (pass, rom) => {
+    if (!pass || !rom) return null;
+    return (rom - pass) / pass * 100;
+  };
+  const colorVar = v => {
+    // Positivo (rom > pass) = verde · Negativo (rom < pass) = vermelho · Quase zero = neutro
+    if (v === null) return '';
+    if (Math.abs(v) < 0.5) return '';
+    return v > 0 ? 'varok' : 'varbad';
+  };
+
+  const banho = arr.filter(b => !b.isAdic);
+  const adic = arr.filter(b => b.isAdic);
+  const tBanhoOs = banho.reduce((s,b)=>s+b.os,0);
+  const tBanhoPa = banho.reduce((s,b)=>s+b.pass,0);
+  const tBanhoRo = banho.reduce((s,b)=>s+b.rom,0);
+  const tAdicOs = adic.reduce((s,b)=>s+b.os,0);
+  const tAdicPa = adic.reduce((s,b)=>s+b.pass,0);
+  const tAdicRo = adic.reduce((s,b)=>s+b.rom,0);
+
+  const renderRow = (b) => {
+    const v = variacao(b.pass, b.rom);
+    const cls = colorVar(v);
+    const tag = b.isAdic ? ' adicional' : '';
+    return `<tr class="${b.isAdic?'adicional':''}">
+      <td class="left">${bucketLabel(b.material, b.cor, b.mil)}${b.isAdic ? ' <small class="dim">· adicional (não soma peso)</small>' : ''}</td>
+      <td>${b.os ? fmt.g(b.os) : '<span class="dim">—</span>'}</td>
+      <td>${b.pass ? fmt.g(b.pass) : '<span class="dim">—</span>'}</td>
+      <td><strong>${b.rom ? fmt.g(b.rom) : '—'}</strong></td>
+      <td class="${cls}">${v===null ? '<span class="dim">—</span>' : fmt.pct(v)}</td>
+    </tr>`;
+  };
+
+  let html = `<table class="conc-table">
+    <thead><tr>
+      <th class="left">Bucket · Material · Cor · Milésimos</th>
+      <th>OS</th>
+      <th>Passagem</th>
+      <th>Romaneio</th>
+      <th>Variação % (Romaneio vs Passagem)</th>
+    </tr></thead>
+    <tbody>
+      ${banho.map(renderRow).join('')}
+      ${banho.length ? `<tr class="total-row">
+        <td class="left">Total banho (peso real)</td>
+        <td>${tBanhoOs ? fmt.g(tBanhoOs) : '<span class="dim">—</span>'}</td>
+        <td>${tBanhoPa ? fmt.g(tBanhoPa) : '<span class="dim">—</span>'}</td>
+        <td>${fmt.g(tBanhoRo)}</td>
+        <td class="${colorVar(variacao(tBanhoPa, tBanhoRo))}">${variacao(tBanhoPa, tBanhoRo)===null ? '—' : fmt.pct(variacao(tBanhoPa, tBanhoRo))}</td>
+      </tr>` : ''}
+      ${adic.map(renderRow).join('')}
+      ${adic.length ? `<tr class="total-row" style="background:rgba(245,158,11,.08)">
+        <td class="left">Total adicionais</td>
+        <td>${tAdicOs ? fmt.g(tAdicOs) : '<span class="dim">—</span>'}</td>
+        <td>${tAdicPa ? fmt.g(tAdicPa) : '<span class="dim">—</span>'}</td>
+        <td>${tAdicRo ? fmt.g(tAdicRo) : '<span class="dim">—</span>'}</td>
+        <td><span class="dim">—</span></td>
+      </tr>` : ''}
+    </tbody>
+  </table>
+  <div class="help-text">OS = Ordem de Serviço (mais recente do cliente antes deste romaneio) · Passagem = somatório de passagens do mesmo cliente nos 60 dias antes do romaneio · Variação calculada apenas para banho (adicionais não somam no peso total).</div>`;
+
+  document.getElementById('concContent').innerHTML = html;
+  document.getElementById('sec2Meta').textContent = `${arr.length} buckets`;
+  document.getElementById('sec2').style.display = '';
+}
+
+// SEÇÃO ③ — FÓRMULA TRIÁDICA
+function renderFormula(){
+  const banho = state.items.filter(i => !isAdicional(i.material, i.tiposerv) && !isDesconto(i.tiposerv));
+  if (!banho.length){
+    document.getElementById('formulaContent').innerHTML = '<div class="empty">Sem itens de banho neste romaneio</div>';
+    document.getElementById('sec3Meta').textContent = '—';
+    document.getElementById('sec3').style.display = '';
+    return;
+  }
+  const items = banho.map((i, idx) => {
+    const peso = +i.peso || 0;
+    const mil = +i.milesimos || 0;
+    const milIni = +i.mil_ini || 0;
+    const vlrServ = +i.vlr_serv_kg || 0;
+    const vlrAdic = +i.vlr_adic_ml_kg || 0;
+    const cot = +i.material_valorg || 0;
+    const compServ = vlrServ * peso / 1000;
+    const compAdic = vlrAdic * (mil - milIni) * peso / 1000;
+    const compMat = cot * mil * peso / 1000;
+    const total = compServ + compAdic + compMat;
+    const stored = +i.valor || 0;
+    const diff = Math.abs(total - stored);
+    return { idx, i, peso, mil, milIni, vlrServ, vlrAdic, cot, compServ, compAdic, compMat, total, stored, diff };
+  });
+
+  const html = items.map(it => `
+    <div class="formula-item">
+      <div class="item-head">Item ${it.idx + 1} · ${bucketLabel(it.i.material, it.i.cor, it.i.mil)} · ${fmt.g(it.peso)}${it.i.tipo_valor ? ' <small class="dim" style="font-weight:400;margin-left:6px">tipo_valor: '+it.i.tipo_valor+'</small>' : ''}</div>
+      <div class="formula">
+        <div class="formula-line"><span class="ind">①</span><span class="label">Componente serviço</span><span class="calc">${fmt.brl(it.vlrServ).replace('R$ ','R$')}/kg × ${it.peso}g/1000</span><span class="val">${fmt.brl(it.compServ)}</span></div>
+        <div class="formula-line"><span class="ind">②</span><span class="label">Componente adicional</span><span class="calc">${fmt.brl(it.vlrAdic).replace('R$ ','R$')}/(kg·milésimo) × (${it.mil}−${it.milIni}) milésimos × ${it.peso}g/1000</span><span class="val">${fmt.brl(it.compAdic)}</span></div>
+        <div class="formula-line"><span class="ind">③</span><span class="label">Componente material (cotação × milésimos)</span><span class="calc">${fmt.brl(it.cot).replace('R$ ','R$')}/g × ${it.mil} milésimos × ${it.peso}g/1000</span><span class="val">${fmt.brl(it.compMat)}</span></div>
+      </div>
+      <div class="formula-total">
+        <strong>Total calculado:</strong>
+        <span><strong>${fmt.brl(it.total)}</strong> · armazenado <strong>${fmt.brl(it.stored)}</strong> <span class="check ${it.diff < 0.01 ? 'ok' : 'bad'}">${it.diff < 0.01 ? '✓ confere' : '✗ diferença ' + fmt.brl(it.diff)}</span></span>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('formulaContent').innerHTML = html + `<div class="help-text">Fórmula: <strong>valor = (vlr_serv_kg × peso/1000) + (vlr_adic_ml_kg × (milesimos − mil_ini) × peso/1000) + (cotação × milesimos × peso/1000)</strong>. Os valores vêm da própria linha do itemservico (snapshot no momento do romaneio).</div>`;
+  document.getElementById('sec3Meta').textContent = `${items.length} ${items.length===1?'item':'itens'} de banho`;
+  document.getElementById('sec3').style.display = '';
+}
+
+// SEÇÃO ④ — ITENS DETALHADOS
+function renderItens(){
+  const its = state.items;
+  const html = `<table class="item-table">
+    <thead><tr>
+      <th>#</th><th>Tipo de Serviço</th><th>Material</th><th>Cor</th><th class="center">Milésimos</th>
+      <th class="right">Peso</th><th class="right">vlr_serv_kg</th><th class="right">vlr_adic</th>
+      <th class="right">cotação/g</th><th class="right">Valor</th>
+    </tr></thead>
+    <tbody>${its.map((i, idx) => {
+      const cls = isDesconto(i.tiposerv) ? 'desconto' : (isAdicional(i.material, i.tiposerv) ? 'adicional' : '');
+      return `<tr class="${cls}">
+        <td>${idx+1}</td>
+        <td>${i.tiposerv}</td>
+        <td>${i.material}</td>
+        <td>${i.cor||'—'}</td>
+        <td class="center">${i.milesimos??'—'}</td>
+        <td class="right"><strong>${fmt.g(i.peso)}</strong></td>
+        <td class="right">${i.vlr_serv_kg ? fmt.brl(i.vlr_serv_kg) : '<span class="dim">—</span>'}</td>
+        <td class="right">${i.vlr_adic_ml_kg ? fmt.brl(i.vlr_adic_ml_kg) : '<span class="dim">—</span>'}</td>
+        <td class="right">${i.material_valorg ? fmt.brl(i.material_valorg) : '<span class="dim">—</span>'}</td>
+        <td class="right"><strong>${fmt.brl(i.valor)}</strong></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+  document.getElementById('itensContent').innerHTML = html;
+  document.getElementById('sec4Meta').textContent = `${its.length} itens`;
+  document.getElementById('sec4').style.display = '';
+}
+
+// SEÇÃO ⑤ — ALERTAS
+function renderAlertas(){
+  const alertas = [];
+  const its = state.items;
+  const valorTotal = its.reduce((s,i)=>s+(+i.valor||0),0);
+
+  // Estorno?
+  const vPos = its.filter(i => +i.valor > 0).reduce((s,i)=>s+(+i.valor||0),0);
+  const vNeg = its.filter(i => +i.valor < 0).reduce((s,i)=>s+(+i.valor||0),0);
+  if (vNeg < -10 && Math.abs(vPos + vNeg) < 1.0){
+    alertas.push({k:'bad', msg:'<strong>Romaneio estornado:</strong> soma dos valores ≈ R$ 0,00 com itens negativos pareando os positivos. Provavelmente orçamento cancelado ou estorno contábil.'});
+  }
+
+  // Conferência fórmula triádica
+  const banho = its.filter(i => !isAdicional(i.material, i.tiposerv) && !isDesconto(i.tiposerv));
+  let formulaErrors = 0;
+  banho.forEach(i => {
+    const peso = +i.peso || 0; const mil = +i.milesimos || 0; const milIni = +i.mil_ini || 0;
+    const t = (+i.vlr_serv_kg||0)*peso/1000 + (+i.vlr_adic_ml_kg||0)*(mil-milIni)*peso/1000 + (+i.material_valorg||0)*mil*peso/1000;
+    if (Math.abs(t - (+i.valor||0)) > 0.01) formulaErrors++;
+  });
+  if (formulaErrors > 0){
+    alertas.push({k:'warn', msg:`<strong>${formulaErrors} ${formulaErrors===1?'item não confere':'itens não conferem'}</strong> com a fórmula triádica recalculada. Pode ser arredondamento ou regra especial — checar seção ③.`});
+  } else if (banho.length){
+    alertas.push({k:'ok', msg:`Todos os ${banho.length} itens de banho conferem com a fórmula triádica recalculada.`});
+  }
+
+  // Variação total banho
+  const bMap = new Map();
+  state.items.forEach(i => { if (!isAdicional(i.material,i.tiposerv) && !isDesconto(i.tiposerv)){ const k=bucketKey(i); if(!bMap.has(k)) bMap.set(k,{rom:0,pass:0}); bMap.get(k).rom += +i.peso||0; }});
+  state.passagens.forEach(p => { const k=bucketKey(p); if(!bMap.has(k)) bMap.set(k,{rom:0,pass:0}); bMap.get(k).pass += +p.peso||0; });
+  let totalRom=0, totalPass=0;
+  bMap.forEach(b => { totalRom+=b.rom; totalPass+=b.pass; });
+  if (totalPass > 0){
+    const v = (totalRom - totalPass) / totalPass * 100;
+    const a = Math.abs(v);
+    if (a > 15) alertas.push({k:'bad', msg:`<strong>Variação total alta:</strong> ${fmt.pct(v)} (${fmt.gSig(totalRom-totalPass)}). Investigar se faltou registrar passagens ou se houve erro de pesagem.`});
+    else if (a > 5) alertas.push({k:'warn', msg:`<strong>Variação total média:</strong> ${fmt.pct(v)} (${fmt.gSig(totalRom-totalPass)}). Aceitável mas vale checar.`});
+    else alertas.push({k:'ok', msg:`<strong>Variação total ${fmt.pct(v)}</strong> (${fmt.gSig(totalRom-totalPass)}) — dentro do esperado por embalagem/fios.`});
+  } else {
+    alertas.push({k:'warn', msg:'<strong>Sem passagens registradas</strong> nos 60 dias antes do romaneio. Não é possível conciliar peso. Possíveis causas: passagem antiga (>60d), passagem registrada noutro cliente, ou bug de lançamento.'});
+  }
+
+  // SEPARAÇÕES CONCORRENTES (mesmo cliente, banho sobrepondo a janela atual)
+  if (state.separacoesConcorrentes && state.separacoesConcorrentes.length > 0){
+    const concList = state.separacoesConcorrentes.map(s => `Sep #${s.id} (cat ${s.catalogacao_id||'—'}, status ${s.status||'—'}) banho ${s.banho_ini ? fmt.date(s.banho_ini.slice(0,10)) : '—'} → ${s.banho_fim ? fmt.date(s.banho_fim.slice(0,10)) : '—'}`).join('<br>');
+    alertas.push({k:'warn', msg:`<strong>⚠ ${state.separacoesConcorrentes.length} ${state.separacoesConcorrentes.length===1?'separação concorrente detectada':'separações concorrentes detectadas'}</strong> do mesmo cliente com banho sobrepondo a janela desta separação. Pode haver passagens de outros lotes interferindo na conciliação. Concorrentes:<br><small style="font-family:ui-monospace,monospace">${concList}</small>`});
+  }
+
+  // DUPLICATAS NA PASSAGEM — agrupar por (material, milésimos, tiposervico, peso, data_servico, created_at exato)
+  // Casos com 2+ registros idênticos no mesmo created_at são quase sempre POST duplo na API.
+  if (state.passagens && state.passagens.length > 0){
+    const dupGroups = new Map();
+    state.passagens.forEach(p => {
+      const key = `${p.material_id}|${p.cor_id||'_'}|${p.milesimos??'_'}|${p.tiposervico_id}|${p.peso}|${p.data_full}|${(p.created_at||'').slice(0,19)}`;
+      if (!dupGroups.has(key)) dupGroups.set(key, []);
+      dupGroups.get(key).push(p);
+    });
+    const dups = [...dupGroups.values()].filter(g => g.length > 1);
+    if (dups.length > 0){
+      const totalDup = dups.reduce((s,g)=>s+(g.length-1)*(+g[0].peso||0), 0);
+      const dupList = dups.map(g => `<li>${g.length}× ${g[0].material} ${g[0].cor||'—'} ${g[0].milesimos??'—'} milésimos · ${fmt.g(g[0].peso)} · IDs ${g.map(p=>p.id).join(', ')} · created_at ${(g[0].created_at||'').slice(0,19)}</li>`).join('');
+      alertas.push({k:'warn', msg:`<strong>⚠ ${dups.length} ${dups.length===1?'grupo de passagens duplicadas detectado':'grupos de passagens duplicadas detectados'}</strong> (mesmo material, peso, milésimos, timestamp e created_at). Provável POST duplo na API — total potencialmente inflado em <strong>${fmt.g(totalDup)}</strong>.<br><ul style="margin-top:6px;padding-left:18px;font-family:ui-monospace,monospace;font-size:11px">${dupList}</ul>`});
+    }
+  }
+
+  // OS sem CAT
+  if (state.os && !state.os.observacao?.match(/CAT:\s*\d+/i)){
+    alertas.push({k:'info', msg:`OS #${state.os.numero} <strong>sem referência "CAT: NNNN"</strong> na observação — vínculo com triagem não identificado automaticamente.`});
+  }
+  // Sem OS
+  if (!state.os){
+    alertas.push({k:'warn', msg:'<strong>Sem OS encontrada</strong> antes desta data para este cliente. Romaneio sem orçamento prévio (raro mas possível).'});
+  }
+
+  // Verniz Cataforético sem passagem (regra do negócio)
+  const temCataf = state.items.some(i => i.material === 'Verniz Cataforetico');
+  const passCataf = state.passagens.some(p => p.material === 'Verniz Cataforetico');
+  if (temCataf && !passCataf){
+    alertas.push({k:'info', msg:'<strong>Verniz Cataforético no romaneio sem passagem registrada</strong> — regra do negócio: o cataforético é interno ("CATAFORÉTICO NA FRANCO") e o operador frequentemente não lança a passagem. Não é erro.'});
+  }
+
+  // Pagamento
+  if (state.rom.statuspag && /pendente|aberto/i.test(state.rom.statuspag)){
+    alertas.push({k:'info', msg:`Status de pagamento: <strong>${state.rom.statuspag}</strong>. Conferir saldo no cadastro do cliente.`});
+  }
+
+  document.getElementById('alertasList').innerHTML = alertas.map(a => `<li class="${a.k}">${a.msg}</li>`).join('');
+  document.getElementById('sec5Meta').textContent = `${alertas.length} ${alertas.length===1?'alerta':'alertas'}`;
+  document.getElementById('sec5').style.display = '';
+}
+
+// =============== LISTA DE ROMANEIOS RECENTES ===============
+async function loadRecent(){
+  const sql = `SELECT s.id, s.datavenda::text AS data, c.nome AS cliente, s.valor_com_desco

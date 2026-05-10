@@ -1,0 +1,12 @@
+- [Projeto Franco — modernização](projeto_franco_modernizacao.md) — Contexto, escopo e decisão de stack (Laravel 11 API + React Vite TS + Tailwind/shadcn, strangler fig)
+- [Arquitetura de bancos e MCPs](arquitetura_bancos_mcps.md) — 3 Postgres + 2 Firebird, qual MCP usar quando, fluxo backup local→Aiven
+- [Regras de negócio Franco](regras_negocio_franco.md) — Fórmula triádica de preço, fluxo de 7 documentos, idiossincrasias do schema a corrigir no novo
+- [Regra peso total em romaneios e triagens](regra_peso_total_romaneio.md) — Vernizes/Acessórios/Ródio caneta NÃO somam no peso; só banhos principais
+- [Artefatos e arquivos de referência](artefatos_e_arquivos_referencia.md) — Onde estão dashboard, plano de modernização, scripts, fontes Delphi/Laravel
+- [Preferências de estilo do Roger](preferencias_estilo_roger.md) — Tabelas (não cards), centralizar valores, sem ícones decorativos, OS×Pass×Rom como tripla
+- [Versionamento e timestamp em artefatos](versionamento_artefatos.md) — Todo artefato deve ter v1.X + timestamp + log de mudanças clicável; header compacto
+- [Topologia kanban e ligações OS/Romaneio](topologia_kanban_franco.md) — FKs e heurísticas validadas pra ligar Recebimento↔Separação↔Triagem↔OS↔Romaneio↔Passagens
+- [Bug parseResult observacao com quebra de linha](bug_parseresult_observacao_quebralinha.md) — Sanitizar com REPLACE(CHR(13))(CHR(10)) toda query que retorna observacao/observacoes/obs
+- [Processo para aplicar correção de UI](processo_aplicar_correcao_ui.md) — Checklist obrigatório (grep exaustivo em todos artefatos antes de dizer "pronto")
+- [Anchor romaneio↔separação correto](anchor_separacao_romaneio.md) — Use "data_rom DENTRO de exp_ini..exp_fim+2d", NÃO "±2d do exp_ini" (caso #24855 provou)
+- [Duplicatas em passagem_pecas](duplicatas_passagem_pecas.md) — Sistema às vezes faz POST duplo (mesmo created_at), inflando variação. Detectar e alertar, não deduplicar auto
