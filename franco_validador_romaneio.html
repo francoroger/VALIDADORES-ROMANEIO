@@ -244,6 +244,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
+  { v: '2.5', date: '2026-05-10 22:00', changes: 'BUGFIX limite MCP: limit=500 estava truncando passagens em períodos com >500 registros (caso real: 1453 passagens em abril). Aumentado pra limit=5000. Sintoma: muitos romaneios marcados "SEM PASS." indevidamente.' },
   { v: '2.4', date: '2026-05-10 21:00', changes: 'Tolerância +24h no banho_fim (LIMITADA pelo banho_ini da próxima sep do cliente — não vaza pra próximo lote). Operadores escaneiam peças no dia seguinte ao "fim banho" — caso #24863 LAYLA peça 1m42s depois. PLUS detector de duplicatas com alerta visual na seção ⑤: agrupa passagens por material+cor+milésimos+tiposerv+peso+data+created_at e mostra IDs duplicados quando há POST duplo na API (caso #24874 LETÍCIA: 4 IDs iguais no mesmo segundo, inflavam variação artificialmente).' },
   { v: '2.3', date: '2026-05-10 19:30', changes: 'Cores da variação corrigidas: positivo (rom > pass) = verde, negativo (rom < pass) = vermelho. Antes estava por módulo (|v|>15=vermelho independente do sinal), confundindo. Threshold neutro para |v|<0.5%. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
   { v: '2.2', date: '2026-05-10 14:30', changes: 'BUGFIX crítico: query de detecção de separações concorrentes usava tstzrange() e quebrava com erro "range lower bound must be less than or equal to range upper bound" quando alguma sep tinha banho_ini > banho_fim (dados ruins no banco — existem ~10 separações antigas com isso). Substituído por comparação direta com LEAST/GREATEST que é tolerante. Também adicionado guard: só roda a query se banhoIni e banhoFim estão definidos.' },
@@ -309,7 +310,7 @@ function parseResult(t){
 
 async function callDB(sql){
   let res;
-  try { res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit: 500 } }); }
+  try { res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit: 5000 } }); }
   catch(e){ throw new Error('Falha MCP: ' + (e?.message||e)); }
   let txt = '';
   if (typeof res === 'string') txt = res;

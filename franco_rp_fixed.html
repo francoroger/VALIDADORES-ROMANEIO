@@ -268,6 +268,7 @@ canvas{max-height:340px}
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '3.0', date: '2026-05-10 22:00', changes: 'BUGFIX limite MCP: limit=500 estava truncando passagens. Aumentado pra 5000.' },
   { v: '2.9', date: '2026-05-10 21:00', changes: 'Tolerância +24h no banho_fim (LIMITADA pela próxima sep) e detector de duplicatas em sv._passDuplicatas. Casos: #24863 e #24874.' },
   { v: '2.8', date: '2026-05-10 19:30', changes: 'Cores da variação corrigidas na função variacao(): positivo (rom > pass) = verde, negativo (rom < pass) = vermelho. Antes usava Math.abs para decidir cor, ignorando o sinal. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
   { v: '2.7', date: '2026-05-10 02:30', changes: 'Fallback inteligente quando banho_ini é NULL na separação (operador esqueceu de marcar — caso #24871 ULIANE sep 14942): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Marca sv._banhoEstimado=true.' },
@@ -342,7 +343,7 @@ function parseResult(resultText){
 }
 
 async function callDB(sql, label){
-  const limit = 500;
+  const limit = 5000;
   const res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit } });
   let txt = '';
   if (typeof res === 'string') txt = res;

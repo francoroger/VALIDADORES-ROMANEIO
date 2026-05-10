@@ -210,6 +210,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '2.8', date: '2026-05-10 22:00', changes: 'BUGFIX limite MCP: query estava sem limit explícito (default 100 do MCP). Adicionado limit=5000.' },
   { v: '2.7', date: '2026-05-10 21:00', changes: 'Tolerância +24h no banho_fim (LIMITADA pela próxima sep). Caso #24863 LAYLA: peça escaneada 1m42s após banho_fim agora entra na janela.' },
   { v: '2.6', date: '2026-05-10 19:30', changes: 'Cores da variação: nova função fmt.pctColor() aplicada em todas as 7 ocorrências (KPI + tabelas + cards). Positivo (rom > pass) = verde, negativo (rom < pass) = vermelho, |v|<0.5 = neutro. Classes CSS .var-pos/.var-neg/.var-neut adicionadas. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
   { v: '2.5', date: '2026-05-10 02:30', changes: 'Fallback inteligente quando banho_ini é NULL na separação (operador esqueceu de marcar — caso #24871 ULIANE sep 14942): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Marca rom._banhoEstimado=true.' },
@@ -268,7 +269,7 @@ function parseResult(t){
 
 async function callDB(sql){
   let res;
-  try { res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql } }); }
+  try { res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit: 5000 } }); }
   catch (e) { throw new Error('Falha MCP: ' + (e?.message||e)); }
   let txt = '';
   if (typeof res === 'string') txt = res;
