@@ -210,6 +210,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '2.9', date: '2026-05-10 22:45', changes: 'BUGFIX limit cap MCP: cap é 500 (limit=5000 dava erro de validação). Implementada paginação callDBAll.' },
   { v: '2.8', date: '2026-05-10 22:00', changes: 'BUGFIX limite MCP: query estava sem limit explícito (default 100 do MCP). Adicionado limit=5000.' },
   { v: '2.7', date: '2026-05-10 21:00', changes: 'Tolerância +24h no banho_fim (LIMITADA pela próxima sep). Caso #24863 LAYLA: peça escaneada 1m42s após banho_fim agora entra na janela.' },
   { v: '2.6', date: '2026-05-10 19:30', changes: 'Cores da variação: nova função fmt.pctColor() aplicada em todas as 7 ocorrências (KPI + tabelas + cards). Positivo (rom > pass) = verde, negativo (rom < pass) = vermelho, |v|<0.5 = neutro. Classes CSS .var-pos/.var-neg/.var-neut adicionadas. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
@@ -267,9 +268,23 @@ function parseResult(t){
   return rows;
 }
 
+// PAGINAÇÃO: MCP cap de limit=500. Para >500 rows usar callDBAll.
+async function callDBAll(sqlBase, label){
+  const PAGE = 500;
+  let all = [], offset = 0;
+  while (offset < 100000) {
+    const sql = sqlBase.replace(/(\s*ORDER BY [^;]+?)?\s*$/, (m, ord) => (ord||'') + ` LIMIT ${PAGE} OFFSET ${offset}`);
+    const rows = await callDB(sql, label);
+    all = all.concat(rows);
+    if (rows.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
+}
+
 async function callDB(sql){
   let res;
-  try { res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit: 5000 } }); }
+  try { res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit: 500 } }); }
   catch (e) { throw new Error('Falha MCP: ' + (e?.message||e)); }
   let txt = '';
   if (typeof res === 'string') txt = res;
@@ -295,7 +310,7 @@ async function loadAll(){
   const sqlS = `SELECT 'out'::text AS dir, isv.id, NULL::text AS data_full, s.datavenda::text AS data, s.idcliente AS cliente_id, c.nome AS cliente, ts.descricao AS tiposerv, m.descricao AS material, COALESCE(cor.descricao,'—') AS cor, isv.milesimos, isv.peso, isv.idservico AS romaneio FROM itemservico isv JOIN servico s ON s.id=isv.idservico JOIN cliente c ON c.id=s.idcliente JOIN tiposervico ts ON ts.id=isv.idtiposervico JOIN material m ON m.id=isv.idmaterial LEFT JOIN cores cor ON cor.id=isv.idcor WHERE s.datavenda >= '${dFrom}' AND s.datavenda < '${dToPlus}'`;
   const sql = `WITH movs AS (${sqlP} UNION ALL ${sqlS}) SELECT * FROM movs ORDER BY data DESC, dir ASC`;
   try {
-    state.mov = await callDB(sql);
+    state.mov = await callDBAll(sql);
     if (!state.mov.length){ setStatus('Sem movimentos no período', 'error'); }
     else { setStatus(`${state.mov.length.toLocaleString('pt-BR')} movimentos · ${new Date().toTimeString().slice(0,5)}`, 'ok'); }
     // SEPARAÇÕES — buscar pra ancorar romaneios na sua janela exata banho_ini→banho_fim
@@ -303,7 +318,7 @@ async function loadAll(){
     if (cliIds.length){
       const inClauseS = `AND s.cliente_id IN (${cliIds.join(',')})`;
       const sqlSeps = `SELECT s.id AS sep_id, s.cliente_id, s.catalogacao_id, s.status, s.data_inicio_banho::text AS banho_ini, s.data_fim_banho::text AS banho_fim, s.data_inicio_expedicao::text AS exp_ini, s.data_fim_expedicao::text AS exp_fim FROM separacoes s WHERE (s.data_inicio_expedicao::date BETWEEN '${dFrom}'::date - INTERVAL '20 days' AND '${dToPlus}'::date OR s.data_fim_expedicao::date BETWEEN '${dFrom}'::date - INTERVAL '5 days' AND '${dToPlus}'::date) ${inClauseS} ORDER BY s.data_inicio_expedicao DESC NULLS LAST`;
-      try { state.separacoes = await callDB(sqlSeps); } catch(e){ state.separacoes = []; }
+      try { state.separacoes = await callDBAll(sqlSeps); } catch(e){ state.separacoes = []; }
     } else state.separacoes = [];
   } catch(e){
     console.error(e); setStatus('Erro: ' + (e?.message||e), 'error'); return;

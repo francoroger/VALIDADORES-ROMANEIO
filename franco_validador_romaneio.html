@@ -244,6 +244,8 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
+  { v: '2.7', date: '2026-05-10 22:45', changes: 'BUGFIX limit cap: descobri que MCP pg_consultar tem cap PYDANTIC de limit<=500 (rejeita 5000 com 1 validation error). Revertido pra 500 e implementada PAGINAÇÃO automática via callDBAll: faz queries com OFFSET ate esvaziar. Resolve sintoma de SEM PASS em massa quando passagens passam de 500 (ex: 1453 em abril).' },
+  { v: '2.6', date: '2026-05-10 22:30', changes: 'BUGFIX alerta "Variação total alta": estava somando passagens DE TODOS OS TIPOS (banho + adicionais) e comparando com peso de banho do romaneio. Resultado: alerta -27% indevido em romaneios com vernizes (caso #24857 GOIANILDE: pass banho 760g + verniz 304g = 1064g comparado com rom banho 774g → -27.3%, mas a variação real é só +1.8%). Agora a soma de passagens também filtra !isAdicional, igual já fazia com items.' },
   { v: '2.5', date: '2026-05-10 22:00', changes: 'BUGFIX limite MCP: limit=500 estava truncando passagens em períodos com >500 registros (caso real: 1453 passagens em abril). Aumentado pra limit=5000. Sintoma: muitos romaneios marcados "SEM PASS." indevidamente.' },
   { v: '2.4', date: '2026-05-10 21:00', changes: 'Tolerância +24h no banho_fim (LIMITADA pelo banho_ini da próxima sep do cliente — não vaza pra próximo lote). Operadores escaneiam peças no dia seguinte ao "fim banho" — caso #24863 LAYLA peça 1m42s depois. PLUS detector de duplicatas com alerta visual na seção ⑤: agrupa passagens por material+cor+milésimos+tiposerv+peso+data+created_at e mostra IDs duplicados quando há POST duplo na API (caso #24874 LETÍCIA: 4 IDs iguais no mesmo segundo, inflavam variação artificialmente).' },
   { v: '2.3', date: '2026-05-10 19:30', changes: 'Cores da variação corrigidas: positivo (rom > pass) = verde, negativo (rom < pass) = vermelho. Antes estava por módulo (|v|>15=vermelho independente do sinal), confundindo. Threshold neutro para |v|<0.5%. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
@@ -308,9 +310,23 @@ function parseResult(t){
   return rows;
 }
 
+// PAGINAÇÃO: MCP cap de limit=500. Para >500 rows usar callDBAll.
+async function callDBAll(sqlBase, label){
+  const PAGE = 500;
+  let all = [], offset = 0;
+  while (offset < 100000) {
+    const sql = sqlBase.replace(/(\s*ORDER BY [^;]+?)?\s*$/, (m, ord) => (ord||'') + ` LIMIT ${PAGE} OFFSET ${offset}`);
+    const rows = await callDB(sql, label);
+    all = all.concat(rows);
+    if (rows.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
+}
+
 async function callDB(sql){
   let res;
-  try { res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit: 5000 } }); }
+  try { res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit: 500 } }); }
   catch(e){ throw new Error('Falha MCP: ' + (e?.message||e)); }
   let txt = '';
   if (typeof res === 'string') txt = res;
@@ -408,7 +424,7 @@ async function loadRomaneio(romNum){
 )
 SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS data, p.material_id, m.descricao AS material, p.cor_id, COALESCE(cor.descricao,'—') AS cor, p.milesimos, p.peso, p.tiposervico_id, ts.descricao AS tiposerv, p.created_at::text AS created_at FROM passagem_pecas p JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id JOIN tiposervico ts ON ts.id=p.tiposervico_id, limite WHERE p.deleted_at IS NULL AND p.cliente_id = ${cli} AND p.data_servico >= '${banhoIni}'::timestamp AND p.data_servico <= limite.fim_tol ORDER BY p.data_servico DESC`;
         idxPass = promises3.length;
-        promises3.push(callDB(sqlPass));
+        promises3.push(callDBAll(sqlPass));
       }
 
       // DETECTAR separações concorrentes do mesmo cliente que sobrepõem a janela atual de banho.
@@ -425,7 +441,7 @@ SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS da
       // Sem separação: fallback velho — passagens 60 dias
       const sqlPassFallback = `SELECT p.id, p.data_servico::date::text AS data, p.material_id, m.descricao AS material, p.cor_id, COALESCE(cor.descricao,'—') AS cor, p.milesimos, p.peso, p.tiposervico_id, ts.descricao AS tiposerv FROM passagem_pecas p JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id JOIN tiposervico ts ON ts.id=p.tiposervico_id WHERE p.deleted_at IS NULL AND p.cliente_id = ${cli} AND p.data_servico::date BETWEEN '${dt}'::date - INTERVAL '60 days' AND '${dt}'::date + INTERVAL '5 days' ORDER BY p.data_servico DESC`;
       idxPass = promises3.length;
-      promises3.push(callDB(sqlPassFallback));
+      promises3.push(callDBAll(sqlPassFallback));
     }
 
     const results3 = await Promise.all(promises3);
@@ -805,10 +821,10 @@ function renderAlertas(){
     alertas.push({k:'ok', msg:`Todos os ${banho.length} itens de banho conferem com a fórmula triádica recalculada.`});
   }
 
-  // Variação total banho
+  // Variação total banho — só itens/passagens de BANHO (vernizes e adicionais não somam no peso)
   const bMap = new Map();
   state.items.forEach(i => { if (!isAdicional(i.material,i.tiposerv) && !isDesconto(i.tiposerv)){ const k=bucketKey(i); if(!bMap.has(k)) bMap.set(k,{rom:0,pass:0}); bMap.get(k).rom += +i.peso||0; }});
-  state.passagens.forEach(p => { const k=bucketKey(p); if(!bMap.has(k)) bMap.set(k,{rom:0,pass:0}); bMap.get(k).pass += +p.peso||0; });
+  state.passagens.forEach(p => { if (!isAdicional(p.material,p.tiposerv)){ const k=bucketKey(p); if(!bMap.has(k)) bMap.set(k,{rom:0,pass:0}); bMap.get(k).pass += +p.peso||0; }});
   let totalRom=0, totalPass=0;
   bMap.forEach(b => { totalRom+=b.rom; totalPass+=b.pass; });
   if (totalPass > 0){
@@ -874,7 +890,7 @@ function renderAlertas(){
 async function loadRecent(){
   const sql = `SELECT s.id, s.datavenda::text AS data, c.nome AS cliente, s.valor_com_desconto AS valor FROM servico s JOIN cliente c ON c.id=s.idcliente WHERE s.datavenda >= CURRENT_DATE - INTERVAL '30 days' ORDER BY s.datavenda DESC, s.id DESC LIMIT 200`;
   try {
-    const rows = await callDB(sql);
+    const rows = await callDBAll(sql);
     document.getElementById('recentCount').textContent = `${rows.length} ${rows.length===1?'romaneio':'romaneios'}`;
     document.getElementById('recentList').innerHTML = rows.map(r => `<div class="recent-item" onclick="loadFromRecent(${r.id})"><span class="num">#${r.id}</span><span class="data">${fmt.date(r.data)}</span><span class="cli" title="${r.cliente}">${r.cliente}</span><span class="val">${fmt.brl(r.valor||0)}</span></div>`).join('');
   } catch(e){
