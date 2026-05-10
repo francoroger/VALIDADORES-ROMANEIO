@@ -938,34 +938,3 @@ if (initRom){
 </script>
 </body>
 </html>
-
-recentBox').style.display = 'none';
-  }
-};
-document.getElementById('romInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('btnLoad').click();
-});
-
-window.addEventListener('hashchange', () => {
-  const m = (window.location.hash || '').match(/rom=(\d+)/);
-  if (m){
-    document.getElementById('romInput').value = m[1];
-    loadRomaneio(parseInt(m[1]));
-  }
-});
-
-// Auto-load se URL tiver hash ou query string
-const params = new URLSearchParams(window.location.search);
-const hashMatch = (window.location.hash || '').match(/rom=(\d+)/);
-const initRom = params.get('rom') || (hashMatch ? hashMatch[1] : null);
-if (initRom){
-  document.getElementById('romInput').value = initRom;
-  loadRomaneio(parseInt(initRom));
-  document.getElementById('recentBox').style.display = 'none';
-} else {
-  // Sem rom específico — pré-carrega lista dos últimos 30 dias
-  loadRecent();
-}
-</script>
-</body>
-</html>
