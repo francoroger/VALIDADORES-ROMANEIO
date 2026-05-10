@@ -2,11 +2,13 @@
 {
   "name": "Franco Extrato Cliente",
   "schemaVersion": 1,
-  "description": "Conciliação Passagem × Romaneio Franco Galvânica · 4 modos (Conciliação por Bucket, Diário Resumido, Por Romaneio, Resumo Cliente). Anchor por separação com janela exata de banho.",
+  "description": "Opção A · Extrato do Cliente — visual estilo extrato bancário. Escolhe um cliente, vê passagens (entradas ↑) e itens de romaneio (saídas ↓) em ordem cronológica com saldo corrente. Saldo por material+milesimos, gráfico do saldo no tempo, filtros simples. Dados vivos do PostgreSQL Aiven.",
   "mcpTools": [
     "mcp__postgres-aiven__pg_consultar"
   ],
-  "mcpServerNames": ["postgres-aiven"]
+  "mcpServerNames": [
+    "postgres-aiven"
+  ]
 }
 </script>
 <html lang="pt-BR">
@@ -208,7 +210,6 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
-  { v: '2.7', date: '2026-05-10 20:30', changes: 'Tolerância +24h no banho_fim (LIMITADA pelo início da próxima sep do cliente — não vaza pra próximo lote). Caso #24863 (peça escaneada 1m42s após banho_fim ficava de fora).' },
   { v: '2.6', date: '2026-05-10 19:30', changes: 'Cores da variação: nova função fmt.pctColor() aplicada em todas as 7 ocorrências (KPI + tabelas + cards). Positivo (rom > pass) = verde, negativo (rom < pass) = vermelho, |v|<0.5 = neutro. Classes CSS .var-pos/.var-neg/.var-neut adicionadas. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
   { v: '2.5', date: '2026-05-10 02:30', changes: 'Fallback inteligente quando banho_ini é NULL na separação (operador esqueceu de marcar — caso #24871 ULIANE sep 14942): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Marca rom._banhoEstimado=true.' },
   { v: '2.4', date: '2026-05-09 18:30', changes: 'BUGFIX crítico anchor SEPARAÇÃO (modo Por Romaneio): trocada lógica "exp_ini ±2 dias" pela semanticamente correta "data_romaneio cai DENTRO da janela de expedição (exp_ini ≤ data ≤ exp_fim+2d)". Mesmo bug do monitor v1.8 e RP v2.6: romaneios feitos N dias após o início da expedição não casavam separação e caíam pro fallback 20d, vazando passagens. SQL ampliado pra dFrom-20d e seleciona exp_fim.' },
@@ -590,15 +591,10 @@ function passagensClienteJanela(rom, ins){
     rom._separacao = sep;
     rom._janelaUsada = banhoEstimado ? 'banho-estimado' : 'banho-exato';
     rom._banhoEstimado = banhoEstimado;
-    // Tolerância +24h no fim, LIMITADA pelo início do banho da próxima sep do cliente (não vazar)
-    const proxSep = (state.separacoes||[]).filter(s => s.cliente_id === rom.cliente_id && s.sep_id !== sep.sep_id && s.banho_ini && new Date(s.banho_ini) > bFim).sort((a,b)=> new Date(a.banho_ini) - new Date(b.banho_ini))[0];
-    const proxIni = proxSep ? new Date(new Date(proxSep.banho_ini).getTime() - 60000) : null;
-    const tolMax = new Date(bFim.getTime() + 24*3600000);
-    const bFimTol = proxIni && proxIni < tolMax ? proxIni : tolMax;
     return ins.filter(p => {
       if (p.cliente_id !== rom.cliente_id) return false;
       const ts = new Date(p.data_full || p.data);
-      return ts >= bIni && ts <= bFimTol;
+      return ts >= bIni && ts <= bFim;
     });
   }
   // 2) Fallback: janela WINDOW_DAYS (lógica antiga, menos precisa)
@@ -790,4 +786,35 @@ window.toggleVersionLog = () => {
   m.classList.toggle('open');
 };
 document.addEventListener('click', e => {
-  const m
+  const m = document.getElementById('versionModal');
+  if (m.classList.contains('open') && !m.contains(e.target) && !e.target.closest('.version-info')){ m.classList.remove('open'); }
+});
+
+// =============== INIT ===============
+const today = new Date();
+const past = new Date(); past.setDate(past.getDate()-180);
+document.getElementById('dFrom').value = past.toISOString().slice(0,10);
+document.getElementById('dTo').value = today.toISOString().slice(0,10);
+
+document.querySelectorAll('#modeBar button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#modeBar button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    state.mode = b.dataset.mode;
+    state.expanded.clear();
+    render();
+  });
+});
+['fCli','fMat','fCor','fMil','fSv'].forEach(id => document.getElementById(id).addEventListener('input', () => { state.expanded.clear(); render(); }));
+
+document.getElementById('btnReload').onclick = loadAll;
+document.getElementById('btnClear').onclick = () => {
+  ['fCli','fMat','fCor','fMil','fSv'].forEach(id => { document.getElementById(id).value = ''; });
+  state.expanded.clear();
+  render();
+};
+
+loadAll();
+</script>
+</body>
+</html>

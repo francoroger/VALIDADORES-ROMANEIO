@@ -2,11 +2,13 @@
 {
   "name": "Franco Monitor Romaneios",
   "schemaVersion": 1,
-  "description": "Monitor vivo de romaneios Franco Galvânica · cruza romaneios saindo com OS associada e passagens da produção, com conciliação por bucket (material+cor+milésimos), variação Pass→Rom, status automático e detecção de estornos. Ancora cada romaneio na sua separação específica via janela de expedição.",
+  "description": "Monitor ao vivo de romaneios — lista todos os romaneios saindo no período com OS associada (60d antes), Passagens (20d antes), Δ tempo entre etapas, R$, e checagem de pesos por bucket (material+cor+milesimos) com tripla OS×Pass×Rom igual ao apresentado no chat. Status automático (conciliado/var. média/var. alta/sem pass/sem OS). Filtros por cliente, número, status. Default mês corrente. Banco Aiven.",
   "mcpTools": [
     "mcp__postgres-aiven__pg_consultar"
   ],
-  "mcpServerNames": ["postgres-aiven"]
+  "mcpServerNames": [
+    "postgres-aiven"
+  ]
 }
 </script>
 <html lang="pt-BR">
@@ -202,7 +204,6 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
-  { v: '2.1', date: '2026-05-10 20:30', changes: 'Tolerância +24h no banho_fim (LIMITADA pelo início da próxima sep do cliente — não vaza pra próximo lote) e detector de duplicatas em rom.passDuplicatas/rom.passDuplicatasPeso. Casos: #24863 LAYLA peça escaneada 1m42s após banho_fim; #24874 LETÍCIA POST duplo inflava passagem. Detector ainda não exibe alerta na UI principal — só armazenado no state.' },
   { v: '2.0', date: '2026-05-10 19:30', changes: 'Cores da variação corrigidas: positivo (rom > pass) = verde, negativo (rom < pass) = vermelho. Antes era por módulo (|v|>15=vermelho independente do sinal), confundia. Aplicado em 3 lugares: linha principal de romaneio, bucket-table expandido, total expandido. Threshold neutro para |v|<0.5%.' },
   { v: '1.9', date: '2026-05-10 02:30', changes: 'DUPLO BUGFIX: (1) Removidas 4 ocorrências de ‰ que escaparam nas correções anteriores — header "Material · Cor · ‰" da bucket-table e cell template "‰${b.mil}" (produzindo "‰50") + mesmo padrão na adic-table. Erro de processo: o grep anterior buscava só headers inline e perdeu strings concatenadas em JS (`html += ´<table>...‰...´`) e template literals com ‰ junto. Memória de processo (processo_aplicar_correcao_ui.md) atualizada com regex novos. (2) Fallback inteligente quando banho_ini é NULL na separação (caso #24871 ULIANE sep 14942 onde operador esqueceu de marcar): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Marca banhoEstimado=true pra futuro alerta na UI.' },
   { v: '1.8', date: '2026-05-09 18:30', changes: 'BUGFIX crítico anchor SEPARAÇÃO: trocada lógica "exp_ini ±2 dias" pela semanticamente correta "romaneio cai DENTRO da janela de expedição (exp_ini ≤ data_rom ≤ exp_fim+2d)". Caso #24855 (NP SOARES) tinha exp_ini=04-30 e romaneio=05-04 (4 dias depois, dentro de 04-30→05-07) — antes não casava e caía pro fallback de 60d vazando 4180g de Prateado 70 milésimos. SQL de carga também ampliado: agora busca exp_ini de dFrom-20d a dTo+5d (antes só -5d). Adiciona seleção de exp_fim. Validado nos 5 casos previamente corretos (#24856, #24870, #24876, #24878, #24884).' },
@@ -400,29 +401,14 @@ function buildModel(){
       }
     }
     if (rom.separacao && bIni && bFim){
-      // Tolerância +24h no fim, mas LIMITADA pelo início do banho da próxima sep do cliente (evita vazar)
-      // (caso #24863 LAYLA: peça 1m42s depois; mas operadores às vezes pesam só no dia seguinte)
-      const proxSep = (state.seps||[]).filter(s => s.cliente_id === rom.cliente_id && s.sep_id !== rom.separacao.sep_id && s.banho_ini && new Date(s.banho_ini) > bFim).sort((a,b)=> new Date(a.banho_ini) - new Date(b.banho_ini))[0];
-      const proxIni = proxSep ? new Date(new Date(proxSep.banho_ini).getTime() - 60000) : null;
-      const tolMax = new Date(bFim.getTime() + 24*3600000);
-      const bFimTol = proxIni && proxIni < tolMax ? proxIni : tolMax;
       rom.passagens = state.passes.filter(p => {
         if (p.cliente_id !== rom.cliente_id) return false;
         const ts = new Date(p.data_full || p.data);
-        return ts >= bIni && ts <= bFimTol;
+        return ts >= bIni && ts <= bFim;
       });
       rom.passEhAntiga = false;
       rom.passJanelaUsada = banhoEstimado ? 'banho-estimado' : 'banho-exato';
       rom.banhoEstimado = banhoEstimado;
-      // Detectar duplicatas
-      const dupGroups = new Map();
-      rom.passagens.forEach(p => {
-        const key = `${p.material}|${p.cor||'_'}|${p.milesimos??'_'}|${p.tiposerv}|${p.peso}|${p.data_full||p.data}`;
-        if (!dupGroups.has(key)) dupGroups.set(key, []);
-        dupGroups.get(key).push(p);
-      });
-      rom.passDuplicatas = [...dupGroups.values()].filter(g => g.length > 1);
-      rom.passDuplicatasPeso = rom.passDuplicatas.reduce((s,g)=>s+(g.length-1)*(+g[0].peso||0), 0);
       rom.banhoIniUsado = bIni.toISOString();
       rom.banhoFimUsado = bFim.toISOString();
       // Detectar separações concorrentes do mesmo cliente sobrepondo a janela ±1d
@@ -656,4 +642,44 @@ function renderExpand(r){
   }
 
   // OS observação
-  if
+  if (r.os && r.os.observacao){
+    html += `<div class="section-label">Observação da OS #${r.os.numero}</div>`;
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:11.5px;color:var(--text-2);white-space:pre-wrap;font-family:ui-monospace,'SF Mono',Consolas,monospace">${r.os.observacao}</div>`;
+  }
+
+  html += '</div>';
+  return html;
+}
+
+// Renderiza info de versão
+document.getElementById('versionInfo').innerHTML = `v${CURRENT_VERSION.v} · editado ${CURRENT_VERSION.date} · <a onclick="toggleVersionLog()">histórico</a>`;
+window.toggleVersionLog = () => {
+  const m = document.getElementById('versionModal');
+  if (!m.classList.contains('open')){
+    document.getElementById('versionList').innerHTML = VERSIONS.map(v => `<div class="version-entry"><strong>v${v.v}</strong><small>${v.date}</small><div>${v.changes}</div></div>`).join('');
+  }
+  m.classList.toggle('open');
+};
+document.addEventListener('click', e => {
+  const m = document.getElementById('versionModal');
+  if (m.classList.contains('open') && !m.contains(e.target) && !e.target.closest('.version-info')){ m.classList.remove('open'); }
+});
+
+// =============== INIT ===============
+const today = new Date();
+const past = new Date(today.getFullYear(), today.getMonth(), 1); // primeiro dia do mês corrente
+document.getElementById('dFrom').value = past.toISOString().slice(0,10);
+document.getElementById('dTo').value = today.toISOString().slice(0,10);
+
+['fCli','fRom','fStatus'].forEach(id => document.getElementById(id).addEventListener('input', () => render()));
+document.getElementById('btnReload').onclick = loadAll;
+document.getElementById('btnClear').onclick = () => {
+  ['fCli','fRom'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fStatus').value = '';
+  render();
+};
+
+loadAll();
+</script>
+</body>
+</html>

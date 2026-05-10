@@ -1,12 +1,14 @@
 <!DOCTYPE html><script type="application/json" id="cowork-artifact-meta">
 {
-  "name": "Franco Validador de Romaneio",
+  "name": "Franco Validador Romaneio",
   "schemaVersion": 1,
-  "description": "Validação detalhada de qualquer romaneio: fluxo dos 7 documentos (Recebimento → OS → Catalogação → Separação → Banho → Romaneio → Expedição), conciliação OS × Passagem × Romaneio por bucket (material+cor+milesimos), fórmula triádica de preço item a item, itens detalhados e alertas automáticos. Recebe número do romaneio via URL (?rom=NNN ou hash #NNN) ou input manual. Substitui o romaneio-24749-validacao (deprecated).",
+  "description": "Validador genérico de qualquer romaneio. Recebe número via URL (?rom=NNN ou #rom=NNN) ou input manual. 5 seções: ① Fluxo dos 7 Documentos (Recebimento → OS → Catalogação → Separação → Banho → Romaneio → Expedição) com Δ dias entre etapas; ② Conciliação por Bucket (material + cor + milesimos) com colunas OS · Passagem · Romaneio · Variação%; ③ Fórmula Triádica calculada item a item com check contra valor armazenado; ④ Itens detalhados completos; ⑤ Alertas automáticos (estorno, variação alta, sem OS, Cataforético interno, pagamento pendente). Substitui romaneio-24749-validacao (deprecated). Banco Aiven.",
   "mcpTools": [
     "mcp__postgres-aiven__pg_consultar"
   ],
-  "mcpServerNames": ["postgres-aiven"]
+  "mcpServerNames": [
+    "postgres-aiven"
+  ]
 }
 </script>
 <html lang="pt-BR">
@@ -242,7 +244,6 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
-  { v: '2.4', date: '2026-05-10 20:30', changes: 'DUPLO FIX: (1) Tolerância +24h no banho_fim (LIMITADA pelo banho_ini da próxima sep do cliente — não vaza pra próximo lote). Operadores às vezes escaneiam peças no dia seguinte ao "fim banho". Caso #24863 LAYLA: peça 68672 (376g) escaneada 1m42s depois — agora entra. (2) DETECTOR DE DUPLICATAS na seção ⑤: agrupa passagens com mesmo material+milésimos+peso+data_servico+created_at e alerta quando há 2+ idênticas (caso #24874 LETÍCIA: 4 registros no mesmo created_at = POST duplo na API). NÃO deduplica auto — só alerta com lista de IDs e peso potencialmente inflado.' },
   { v: '2.3', date: '2026-05-10 19:30', changes: 'Cores da variação corrigidas: positivo (rom > pass) = verde, negativo (rom < pass) = vermelho. Antes estava por módulo (|v|>15=vermelho independente do sinal), confundindo. Threshold neutro para |v|<0.5%. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
   { v: '2.2', date: '2026-05-10 14:30', changes: 'BUGFIX crítico: query de detecção de separações concorrentes usava tstzrange() e quebrava com erro "range lower bound must be less than or equal to range upper bound" quando alguma sep tinha banho_ini > banho_fim (dados ruins no banco — existem ~10 separações antigas com isso). Substituído por comparação direta com LEAST/GREATEST que é tolerante. Também adicionado guard: só roda a query se banhoIni e banhoFim estão definidos.' },
   { v: '2.1', date: '2026-05-10 02:30', changes: 'Fallback inteligente quando banho_ini é NULL na separação (operador esqueceu de marcar — caso #24871 ULIANE sep 14942): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Faz uma query extra pra achar a sep anterior. Antes usava cat_fim/rec_fim que era muito amplo e englobava lotes anteriores. Marca state.banhoEstimado=true.' },
@@ -395,15 +396,7 @@ async function loadRomaneio(romNum){
         state.banhoEstimado = true;
       }
       if (banhoIni && banhoFim){
-        // Tolerância +24h no fim, LIMITADA pelo banho_ini da próxima sep do cliente (não vazar pra próximo lote).
-        // Operador costuma escanear peças no dia seguinte ao "fim banho" — caso #24863 LAYLA (1m42s) e outros.
-        const sqlPass = `WITH limite AS (
-  SELECT LEAST(
-    '${banhoFim}'::timestamp + INTERVAL '24 hours',
-    COALESCE((SELECT data_inicio_banho - INTERVAL '1 minute' FROM separacoes WHERE cliente_id=${cli} AND id<>${sep.id} AND data_inicio_banho > '${banhoFim}'::timestamp ORDER BY data_inicio_banho LIMIT 1), '${banhoFim}'::timestamp + INTERVAL '24 hours')
-  ) AS fim_tol
-)
-SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS data, p.material_id, m.descricao AS material, p.cor_id, COALESCE(cor.descricao,'—') AS cor, p.milesimos, p.peso, p.tiposervico_id, ts.descricao AS tiposerv, p.created_at::text AS created_at FROM passagem_pecas p JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id JOIN tiposervico ts ON ts.id=p.tiposervico_id, limite WHERE p.deleted_at IS NULL AND p.cliente_id = ${cli} AND p.data_servico >= '${banhoIni}'::timestamp AND p.data_servico <= limite.fim_tol ORDER BY p.data_servico DESC`;
+        const sqlPass = `SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS data, p.material_id, m.descricao AS material, p.cor_id, COALESCE(cor.descricao,'—') AS cor, p.milesimos, p.peso, p.tiposervico_id, ts.descricao AS tiposerv FROM passagem_pecas p JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id JOIN tiposervico ts ON ts.id=p.tiposervico_id WHERE p.deleted_at IS NULL AND p.cliente_id = ${cli} AND p.data_servico >= '${banhoIni}'::timestamp AND p.data_servico <= '${banhoFim}'::timestamp ORDER BY p.data_servico DESC`;
         idxPass = promises3.length;
         promises3.push(callDB(sqlPass));
       }
@@ -824,23 +817,6 @@ function renderAlertas(){
     alertas.push({k:'warn', msg:`<strong>⚠ ${state.separacoesConcorrentes.length} ${state.separacoesConcorrentes.length===1?'separação concorrente detectada':'separações concorrentes detectadas'}</strong> do mesmo cliente com banho sobrepondo a janela desta separação. Pode haver passagens de outros lotes interferindo na conciliação. Concorrentes:<br><small style="font-family:ui-monospace,monospace">${concList}</small>`});
   }
 
-  // DUPLICATAS NA PASSAGEM — agrupar por (material, milésimos, tiposervico, peso, data_servico, created_at exato)
-  // Casos com 2+ registros idênticos no mesmo created_at são quase sempre POST duplo na API.
-  if (state.passagens && state.passagens.length > 0){
-    const dupGroups = new Map();
-    state.passagens.forEach(p => {
-      const key = `${p.material_id}|${p.cor_id||'_'}|${p.milesimos??'_'}|${p.tiposervico_id}|${p.peso}|${p.data_full}|${(p.created_at||'').slice(0,19)}`;
-      if (!dupGroups.has(key)) dupGroups.set(key, []);
-      dupGroups.get(key).push(p);
-    });
-    const dups = [...dupGroups.values()].filter(g => g.length > 1);
-    if (dups.length > 0){
-      const totalDup = dups.reduce((s,g)=>s+(g.length-1)*(+g[0].peso||0), 0);
-      const dupList = dups.map(g => `<li>${g.length}× ${g[0].material} ${g[0].cor||'—'} ${g[0].milesimos??'—'} milésimos · ${fmt.g(g[0].peso)} · IDs ${g.map(p=>p.id).join(', ')} · created_at ${(g[0].created_at||'').slice(0,19)}</li>`).join('');
-      alertas.push({k:'warn', msg:`<strong>⚠ ${dups.length} ${dups.length===1?'grupo de passagens duplicadas detectado':'grupos de passagens duplicadas detectados'}</strong> (mesmo material, peso, milésimos, timestamp e created_at). Provável POST duplo na API — total potencialmente inflado em <strong>${fmt.g(totalDup)}</strong>.<br><ul style="margin-top:6px;padding-left:18px;font-family:ui-monospace,monospace;font-size:11px">${dupList}</ul>`});
-    }
-  }
-
   // OS sem CAT
   if (state.os && !state.os.observacao?.match(/CAT:\s*\d+/i)){
     alertas.push({k:'info', msg:`OS #${state.os.numero} <strong>sem referência "CAT: NNNN"</strong> na observação — vínculo com triagem não identificado automaticamente.`});
@@ -869,4 +845,101 @@ function renderAlertas(){
 
 // =============== LISTA DE ROMANEIOS RECENTES ===============
 async function loadRecent(){
-  const sql = `SELECT s.id, s.datavenda::text AS data, c.nome AS cliente, s.valor_com_desco
+  const sql = `SELECT s.id, s.datavenda::text AS data, c.nome AS cliente, s.valor_com_desconto AS valor FROM servico s JOIN cliente c ON c.id=s.idcliente WHERE s.datavenda >= CURRENT_DATE - INTERVAL '30 days' ORDER BY s.datavenda DESC, s.id DESC LIMIT 200`;
+  try {
+    const rows = await callDB(sql);
+    document.getElementById('recentCount').textContent = `${rows.length} ${rows.length===1?'romaneio':'romaneios'}`;
+    document.getElementById('recentList').innerHTML = rows.map(r => `<div class="recent-item" onclick="loadFromRecent(${r.id})"><span class="num">#${r.id}</span><span class="data">${fmt.date(r.data)}</span><span class="cli" title="${r.cliente}">${r.cliente}</span><span class="val">${fmt.brl(r.valor||0)}</span></div>`).join('');
+  } catch(e){
+    document.getElementById('recentCount').textContent = 'erro';
+    document.getElementById('recentList').innerHTML = '<div class="empty">Erro ao carregar lista: ' + (e?.message||e) + '</div>';
+  }
+}
+window.loadFromRecent = (num) => {
+  document.getElementById('romInput').value = num;
+  window.location.hash = 'rom=' + num;
+  loadRomaneio(num);
+  // Esconde a lista quando carrega um romaneio (deixa mais espaço pro detalhe)
+  document.getElementById('recentBox').style.display = 'none';
+};
+
+// =============== INIT ===============
+document.getElementById('versionInfo').innerHTML = `v${CURRENT_VERSION.v} · editado ${CURRENT_VERSION.date} · <a onclick="toggleVersionLog()">histórico</a>`;
+window.toggleVersionLog = () => {
+  const m = document.getElementById('versionModal');
+  if (!m.classList.contains('open')){
+    document.getElementById('versionList').innerHTML = VERSIONS.map(v => `<div class="version-entry"><strong>v${v.v}</strong><small>${v.date}</small><div>${v.changes}</div></div>`).join('');
+  }
+  m.classList.toggle('open');
+};
+document.addEventListener('click', e => {
+  const m = document.getElementById('versionModal');
+  if (m.classList.contains('open') && !m.contains(e.target) && !e.target.closest('.version-info')){ m.classList.remove('open'); }
+});
+
+document.getElementById('btnLoad').onclick = () => {
+  const num = parseInt(document.getElementById('romInput').value);
+  if (num){
+    window.location.hash = 'rom=' + num;
+    loadRomaneio(num);
+    document.getElementById('recentBox').style.display = 'none';
+  }
+};
+document.getElementById('romInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btnLoad').click();
+});
+
+window.addEventListener('hashchange', () => {
+  const m = (window.location.hash || '').match(/rom=(\d+)/);
+  if (m){
+    document.getElementById('romInput').value = m[1];
+    loadRomaneio(parseInt(m[1]));
+  }
+});
+
+// Auto-load se URL tiver hash ou query string
+const params = new URLSearchParams(window.location.search);
+const hashMatch = (window.location.hash || '').match(/rom=(\d+)/);
+const initRom = params.get('rom') || (hashMatch ? hashMatch[1] : null);
+if (initRom){
+  document.getElementById('romInput').value = initRom;
+  loadRomaneio(parseInt(initRom));
+  document.getElementById('recentBox').style.display = 'none';
+} else {
+  // Sem rom específico — pré-carrega lista dos últimos 30 dias
+  loadRecent();
+}
+</script>
+</body>
+</html>
+
+recentBox').style.display = 'none';
+  }
+};
+document.getElementById('romInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btnLoad').click();
+});
+
+window.addEventListener('hashchange', () => {
+  const m = (window.location.hash || '').match(/rom=(\d+)/);
+  if (m){
+    document.getElementById('romInput').value = m[1];
+    loadRomaneio(parseInt(m[1]));
+  }
+});
+
+// Auto-load se URL tiver hash ou query string
+const params = new URLSearchParams(window.location.search);
+const hashMatch = (window.location.hash || '').match(/rom=(\d+)/);
+const initRom = params.get('rom') || (hashMatch ? hashMatch[1] : null);
+if (initRom){
+  document.getElementById('romInput').value = initRom;
+  loadRomaneio(parseInt(initRom));
+  document.getElementById('recentBox').style.display = 'none';
+} else {
+  // Sem rom específico — pré-carrega lista dos últimos 30 dias
+  loadRecent();
+}
+</script>
+</body>
+</html>

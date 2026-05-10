@@ -268,7 +268,6 @@ canvas{max-height:340px}
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
-  { v: '2.9', date: '2026-05-10 20:30', changes: 'Tolerância +24h no banho_fim (LIMITADA pelo início da próxima sep do cliente) e detector de duplicatas em sv._passDuplicatas/sv._passDuplicatasPeso. Casos: #24863 (peça escaneada 1m42s após banho_fim) e #24874 (POST duplo).' },
   { v: '2.8', date: '2026-05-10 19:30', changes: 'Cores da variação corrigidas na função variacao(): positivo (rom > pass) = verde, negativo (rom < pass) = vermelho. Antes usava Math.abs para decidir cor, ignorando o sinal. PLUS restauração: arquivo HTML havia sido truncado antes do fim do script — restaurado fim completo.' },
   { v: '2.7', date: '2026-05-10 02:30', changes: 'Fallback inteligente quando banho_ini é NULL na separação (operador esqueceu de marcar — caso #24871 ULIANE sep 14942): banho_ini estimado = max(banho_fim_da_sep_anterior, banho_fim - 4d). Marca sv._banhoEstimado=true.' },
   { v: '2.6', date: '2026-05-09 18:30', changes: 'BUGFIX crítico anchor SEPARAÇÃO: trocada lógica "exp_ini ±2 dias" pela semanticamente correta "data_servico cai DENTRO da janela de expedição (exp_ini ≤ data ≤ exp_fim+2d)". Mesmo bug do monitor v1.8: romaneios feitos N dias após o início da expedição não casavam separação e caíam pro fallback 60d, vazando passagens de outros lotes. SQL de carga ampliado pra dFrom-20d e seleciona exp_fim. Aplicado em todas as tabs (Por Serviço, Diário).' },
@@ -631,26 +630,12 @@ function attachPassagensWindowToServicos(){
     }
     if (sv._separacao && bIni && bFim){
       // Janela EXATA (ou estimada) banho_ini→banho_fim (timestamp) — não pega lotes paralelos
-      // Tolerância +24h no fim, LIMITADA pelo início do banho da próxima sep do cliente (não vazar)
-      const proxSep = (state.separacoes||[]).filter(s => s.cliente_id === sv.idcliente && s.sep_id !== sv._separacao.sep_id && s.banho_ini && new Date(s.banho_ini) > bFim).sort((a,b)=> new Date(a.banho_ini) - new Date(b.banho_ini))[0];
-      const proxIni = proxSep ? new Date(new Date(proxSep.banho_ini).getTime() - 60000) : null;
-      const tolMax = new Date(bFim.getTime() + 24*3600000);
-      const bFimTol = proxIni && proxIni < tolMax ? proxIni : tolMax;
       sv._passagensWindow = todas.filter(p => {
         const ts = new Date(p.data_full || p.data);
-        return ts >= bIni && ts <= bFimTol;
+        return ts >= bIni && ts <= bFim;
       });
       sv._janelaUsada = banhoEstimado ? 'banho-estimado' : 'banho-exato';
       sv._banhoEstimado = banhoEstimado;
-      // Detectar duplicatas (mesmo material+milésimos+peso+timestamp)
-      const dupGroups = new Map();
-      sv._passagensWindow.forEach(p => {
-        const key = `${p.material}|${p.cor||'_'}|${p.milesimos??'_'}|${p.tiposerv}|${p.peso}|${p.data_full||p.data}`;
-        if (!dupGroups.has(key)) dupGroups.set(key, []);
-        dupGroups.get(key).push(p);
-      });
-      sv._passDuplicatas = [...dupGroups.values()].filter(g => g.length > 1);
-      sv._passDuplicatasPeso = sv._passDuplicatas.reduce((s,g)=>s+(g.length-1)*(+g[0].peso||0), 0);
       // Detectar separações concorrentes do mesmo cliente sobrepondo a janela
       const ini1 = new Date(bIni); ini1.setDate(ini1.getDate()-1);
       const fim1 = new Date(bFim); fim1.setDate(fim1.getDate()+1);
@@ -1131,4 +1116,50 @@ function renderCharts(f){
   charts.topcli = new Chart(document.getElementById('chartTopCli'), {
     type:'bar',
     data:{ labels: top.map(c=>c.nome.length>30?c.nome.slice(0,30)+'…':c.nome), datasets:[{label:'R$', data:top.map(c=>c.valor), backgroundColor:'rgba(91,91,240,.75)', borderRadius:6}]},
-    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{callback:v=>'R$ '+(v/1000).toLocaleString('p
+    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{callback:v=>'R$ '+(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:0})+'k'}}}}
+  });
+}
+
+// Renderiza info de versão
+document.getElementById('versionInfo').innerHTML = `v${CURRENT_VERSION.v} · editado ${CURRENT_VERSION.date.replace(' ', ' ')} · <a onclick="toggleVersionLog()">histórico</a>`;
+window.toggleVersionLog = () => {
+  const m = document.getElementById('versionModal');
+  if (!m.classList.contains('open')){
+    document.getElementById('versionList').innerHTML = VERSIONS.map(v => `<div class="version-entry"><strong>v${v.v}</strong><small>${v.date}</small><div>${v.changes}</div></div>`).join('');
+  }
+  m.classList.toggle('open');
+};
+// Fecha modal ao clicar fora
+document.addEventListener('click', e => {
+  const m = document.getElementById('versionModal');
+  if (m.classList.contains('open') && !m.contains(e.target) && !e.target.closest('.version-info')){ m.classList.remove('open'); }
+});
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.content').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('content-'+t.dataset.tab).classList.add('active');
+  };
+});
+['filterCliente','filterServico','filterTipo','filterMaterial'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => render());
+});
+document.getElementById('btnReload').onclick = loadData;
+
+const today = new Date();
+const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+document.getElementById('dateFrom').value = firstOfMonth.toISOString().slice(0,10);
+document.getElementById('dateTo').value = today.toISOString().slice(0,10);
+
+loadData();
+</script>
+</body>
+</html>
+= today.toISOString().slice(0,10);
+
+loadData();
+</script>
+</body>
+</html>
