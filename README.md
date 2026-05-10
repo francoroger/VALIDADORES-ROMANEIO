@@ -2,16 +2,15 @@
 
 > Conjunto de **artefatos web vivos** para validação e conciliação de romaneios da **Franco Galvânica/Folheados** — empresa de banho ouro/prata.
 
-Os 4 artefatos rodam dentro do **Cowork** (Claude desktop) e fazem queries diretas ao PostgreSQL na Aiven (espelho do banco local de produção).
+Os 3 artefatos rodam dentro do **Cowork** (Claude desktop) e fazem queries diretas ao PostgreSQL na Aiven (espelho do banco local de produção).
 
 ## Estado atual
 
 | Artefato | Versão | Linhas | Função |
 |---|---:|---:|---|
-| **Validador de Romaneio** | v2.7 | ~940 | Análise detalhada de 1 romaneio (5 seções: 7 documentos, conciliação por bucket, fórmula triádica, itens, alertas) |
+| **Validador de Romaneio** | v2.8 | ~1020 | Análise detalhada de 1 romaneio (5 seções: 7 documentos, conciliação por bucket, fórmula triádica retrátil, itens, alertas) |
 | **Monitor de Romaneios** | v2.4 | ~720 | Lista todos romaneios de um período com KPIs e variação Pass→Rom |
 | **Romaneio × Passagem** | v3.1 | ~1.180 | Comparativo Por Serviço / Diário com filtros |
-| **Extrato Cliente** | v2.9 | ~830 | 4 modos: Conciliação por Bucket, Diário, Por Romaneio, Resumo Cliente |
 
 ## Conteúdo
 

@@ -2,6 +2,15 @@
 
 Histórico consolidado das versões dos 4 artefatos. Cada artefato também mantém seu próprio array `VERSIONS` em JS (clicável no header).
 
+## 2026-05-10 (noite)
+
+### Refactor validador + descontinuado Extrato Cliente
+
+**Validador v2.8** · descontinuado: **Extrato Cliente** (removido do projeto e do Cowork)
+
+- 🗑 **Removido Extrato Cliente** do projeto. Funções consolidadas no Validador (1 romaneio) e Monitor (visão diária).
+- 🎨 **Validador v2.8** — refactor UI: timeline ordenada cronologicamente, filtros cliente/data na lista 30d, loader visível durante carregamento, fórmula triádica retrátil, header do romaneio redesenhado (sem peso adicionais, sem status pagamento, cor mais sutil).
+
 ## 2026-05-10
 
 ### Tarde — Sessão 2 (paginação MCP, fix variação total, recuperação de truncamento)

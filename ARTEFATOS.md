@@ -1,6 +1,6 @@
 # Artefatos
 
-## Visão dos 4 artefatos
+## Visão dos 3 artefatos
 
 ### 1. Validador de Romaneio · `franco_validador_romaneio.html`
 
@@ -53,22 +53,8 @@
 
 **Função-chave:** `matchOsServico` com 4 níveis de fallback (a/b/c/d) para encontrar a OS correta de cada romaneio.
 
-### 4. Extrato Cliente · `extrato_cliente.html`
 
-**Objetivo:** múltiplas visões de um cliente ou período.
-
-**4 modos:**
-
-| Modo | Pra quê |
-|---|---|
-| **Conciliação por Bucket** | Cliente+material+cor+milésimos com Pass vs Rom |
-| **Diário Resumido** | Agrupado por dia |
-| **Por Romaneio** | Cada romaneio com janela de passagens (banho exato + 24h) |
-| **Resumo Cliente** | Total agregado por cliente no período |
-
-**Filtros:** período, cliente, material, cor, milésimos, romaneio (número).
-
-## Convenções comuns aos 4
+## Convenções comuns aos 3
 
 - **Versionamento:** array `VERSIONS` em JS no topo, log clicável no header compacto via modal
 - **Cor da variação:** positivo (rom>pass) verde, negativo vermelho, |v|<0.5% neutro

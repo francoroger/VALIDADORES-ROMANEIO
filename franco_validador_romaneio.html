@@ -64,18 +64,25 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 .btn:hover{background:var(--primary-2)}
 
 /* ROMANEIO HEADER (when loaded) */
-.rom-header{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-2) 100%);color:#fff;border-radius:10px;padding:16px 20px;margin-bottom:12px;display:none}
+.rom-header{background:var(--surface);color:var(--text);border-left:4px solid var(--primary);border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:12px;display:none}
 .rom-header.show{display:block}
-.rom-header h2{font-size:22px;font-weight:700;margin-bottom:4px;letter-spacing:-.5px}
-.rom-header h2 small{font-weight:400;opacity:.8;margin-left:8px;font-size:13px}
-.rom-header .info{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-top:10px;font-size:13px}
-.rom-header .info div{padding:6px 0}
-.rom-header .info div small{display:block;font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
-.rom-header .info div strong{font-size:15px;font-weight:700}
+.rom-header h2{font-size:20px;font-weight:700;margin-bottom:2px;letter-spacing:-.4px;color:var(--text)}
+.rom-header h2 small{font-weight:400;color:var(--text-3);margin-left:8px;font-size:13px}
+.rom-header .cli{font-size:13.5px;font-weight:600;color:var(--text-2);margin-bottom:8px}
+.rom-header .info{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:6px;font-size:13px}
+.rom-header .info div{padding:0}
+.rom-header .info div small{display:block;font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;font-weight:600}
+.rom-header .info div strong{font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
 
 /* SECTIONS */
 .section{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
 .section h2{font-size:14px;font-weight:700;padding:12px 18px;background:var(--surface-2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.section.collapsible h2{cursor:pointer;user-select:none}
+.section.collapsible h2:hover{background:#e8edf3}
+.section.collapsible .chev{margin-left:auto;transition:transform .15s;color:var(--text-3)}
+.section.collapsible.collapsed .chev{transform:rotate(-90deg)}
+.section.collapsible.collapsed .section-body{display:none}
+.section.collapsible.collapsed h2{border-bottom:none}
 .section h2 .num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:700}
 .section h2 .meta{margin-left:auto;font-size:12px;color:var(--text-3);font-weight:400}
 .section-body{padding:14px 18px}
@@ -156,6 +163,13 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 .recent h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
 .recent h3 .ct{color:var(--primary);font-weight:600}
 .recent-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;max-height:320px;overflow-y:auto}
+.recent-filters{display:flex;gap:8px;align-items:end;margin-bottom:10px;flex-wrap:wrap}
+.recent-filters .field{display:flex;flex-direction:column;gap:2px}
+.recent-filters .field label{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3)}
+.recent-filters .field input{font-family:inherit;font-size:12px;padding:5px 9px;border:1px solid var(--border-2);border-radius:5px;background:var(--surface);color:var(--text);outline:none;height:30px;min-width:90px}
+.recent-filters .field input:focus{border-color:var(--primary)}
+.btn.ghost{background:var(--surface);color:var(--text);border:1px solid var(--border-2);font-family:inherit;font-size:11.5px;font-weight:600;padding:5px 12px;border-radius:5px;cursor:pointer}
+.btn.ghost:hover{background:var(--surface-2)}
 .recent-item{display:grid;grid-template-columns:60px 70px 1fr auto;gap:8px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-variant-numeric:tabular-nums;align-items:center;transition:all .12s}
 .recent-item:hover{background:var(--surface-2);border-color:var(--primary)}
 .recent-item .num{color:var(--primary);font-weight:700}
@@ -166,6 +180,9 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 /* HELPERS */
 .empty{padding:30px 20px;text-align:center;color:var(--text-3);font-style:italic}
 .spinner-line{display:flex;align-items:center;gap:8px;color:var(--text-3);font-size:12px;padding:8px 0}
+.full-loader{display:flex;flex-direction:column;align-items:center;gap:14px;padding:50px 20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+.spinner-big{width:36px;height:36px;border:3px solid var(--border-2);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+.full-loader-text{font-size:13.5px;font-weight:600;color:var(--text-2);text-align:center}
 .spinner-line::before{content:'';width:14px;height:14px;border:2px solid var(--border-2);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .help-text{font-size:11.5px;color:var(--text-3);font-style:italic;margin-top:8px}
@@ -189,11 +206,16 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 
 <!-- Selector -->
 <div class="bar">
-  <div class="field grow">
-    <label>Número do Romaneio</label>
+  <div class="field" style="min-width:140px">
+    <label>Romaneio</label>
     <input type="number" id="romInput" placeholder="ex: 24821" autofocus>
   </div>
   <button class="btn" id="btnLoad">Validar</button>
+  <div style="width:1px;background:var(--border);align-self:stretch;margin:0 4px"></div>
+  <div class="field grow"><label>Cliente</label><input type="text" id="fRecCli" placeholder="filtrar lista por nome do cliente…"></div>
+  <div class="field"><label>De</label><input type="date" id="fRecFrom"></div>
+  <div class="field"><label>Até</label><input type="date" id="fRecTo"></div>
+  <button class="btn ghost" id="fRecClear" type="button">Limpar filtros</button>
 </div>
 
 <!-- Romaneios recentes (carregados ao abrir o artefato) -->
@@ -204,6 +226,12 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 
 <!-- Romaneio Header (visível quando carregado) -->
 <div class="rom-header" id="romHeader"></div>
+
+<!-- Loader visível enquanto carrega -->
+<div class="full-loader" id="fullLoader" style="display:none">
+  <div class="spinner-big"></div>
+  <div class="full-loader-text" id="fullLoaderText">Carregando…</div>
+</div>
 
 <!-- Section ① Fluxo dos 7 Documentos -->
 <div class="section" id="sec1" style="display:none">
@@ -219,9 +247,9 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
   <div class="section-body" id="concContent"></div>
 </div>
 
-<!-- Section ③ Fórmula triádica -->
-<div class="section" id="sec3" style="display:none">
-  <h2><span class="num">③</span> Fórmula Triádica · cálculo item a item <span class="meta" id="sec3Meta"></span></h2>
+<!-- Section ③ Fórmula triádica (retrátil) -->
+<div class="section collapsible collapsed" id="sec3" style="display:none">
+  <h2 onclick="this.parentElement.classList.toggle('collapsed')"><span class="num">③</span> Fórmula Triádica · cálculo item a item <span class="meta" id="sec3Meta"></span><span class="chev">▾</span></h2>
   <div class="section-body" id="formulaContent"></div>
 </div>
 
@@ -244,6 +272,9 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
+  { v: '3.0', date: '2026-05-10 23:50', changes: 'Refeita lista de romaneios com SCROLL INFINITO: carrega 50 por vez, conforme rola pra baixo busca mais (sem cap de 30 dias). Filtros (Cliente, De, Até) agora vão na query SQL — qualquer data funciona, não só últimos 30d. Debounce de 400ms ao digitar no filtro de cliente pra não bombardear o banco.' },
+  { v: '2.9', date: '2026-05-10 23:30', changes: 'Filtros (Cliente, De, Até) movidos para a barra principal superior — agora ficam na mesma linha do input de Romaneio + Validar, igual nos outros artefatos. Filtram a lista dos últimos 30 dias em tempo real.' },
+  { v: '2.8', date: '2026-05-10 23:00', changes: 'Refactor UI: (1) Timeline dos 7 documentos agora ordena cronologicamente por data real (separação aparece antes da triagem quando preparação inicia antes da catalogação). (2) Filtros cliente/data adicionados na lista dos últimos 30 dias. (3) Loader grande e visível durante carregamento do romaneio (mostra status atual em destaque). (4) Seção ③ Fórmula Triádica agora é retrátil — começa fechada, clique no header para expandir. (5) Card do header do romaneio redesenhado: cor mais sutil (branco com borda azul lateral em vez de gradient azul forte), removidos campos Peso adicionais e Status pagamento.' },
   { v: '2.7', date: '2026-05-10 22:45', changes: 'BUGFIX limit cap: descobri que MCP pg_consultar tem cap PYDANTIC de limit<=500 (rejeita 5000 com 1 validation error). Revertido pra 500 e implementada PAGINAÇÃO automática via callDBAll: faz queries com OFFSET ate esvaziar. Resolve sintoma de SEM PASS em massa quando passagens passam de 500 (ex: 1453 em abril).' },
   { v: '2.6', date: '2026-05-10 22:30', changes: 'BUGFIX alerta "Variação total alta": estava somando passagens DE TODOS OS TIPOS (banho + adicionais) e comparando com peso de banho do romaneio. Resultado: alerta -27% indevido em romaneios com vernizes (caso #24857 GOIANILDE: pass banho 760g + verniz 304g = 1064g comparado com rom banho 774g → -27.3%, mas a variação real é só +1.8%). Agora a soma de passagens também filtra !isAdicional, igual já fazia com items.' },
   { v: '2.5', date: '2026-05-10 22:00', changes: 'BUGFIX limite MCP: limit=500 estava truncando passagens em períodos com >500 registros (caso real: 1453 passagens em abril). Aumentado pra limit=5000. Sintoma: muitos romaneios marcados "SEM PASS." indevidamente.' },
@@ -265,7 +296,7 @@ const VERSIONS = [
 ];
 const CURRENT_VERSION = VERSIONS[0];
 
-const state = { rom:null, items:[], os:null, osItems:[], triagem:null, recebimentos:[], separacao:null, passagens:[], entregas:[] };
+const state = { rom:null, items:[], os:null, osItems:[], triagem:null, recebimentos:[], separacao:null, passagens:[], entregas:[], recentRows:[], recentPage:0, recentHasMore:true, recentLoading:false };
 
 const fmt = {
   brl: v => 'R$ ' + (Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),
@@ -285,6 +316,12 @@ function setStatus(msg, kind){
   if (kind==='loading') el.classList.add('loading');
   else if (kind==='error') el.classList.add('error');
   txt.textContent = msg;
+  // Loader visível: mostra durante loading, esconde quando ok/error
+  const fl = document.getElementById('fullLoader');
+  if (fl){
+    if (kind === 'loading'){ fl.style.display='flex'; document.getElementById('fullLoaderText').textContent = msg; }
+    else { fl.style.display='none'; }
+  }
 }
 
 function parseResult(t){
@@ -551,13 +588,11 @@ function renderRomHeader(){
   const el = document.getElementById('romHeader');
   el.innerHTML = `
     <h2>Romaneio #${r.id}<small>${fmt.dateF(r.data)}</small></h2>
-    <div style="font-size:14px;font-weight:600">${r.cliente}</div>
+    <div class="cli">${r.cliente}</div>
     <div class="info">
       <div><small>Itens</small><strong>${its.length}</strong></div>
       <div><small>Peso de banho</small><strong>${fmt.g(banho)}</strong></div>
-      <div><small>Peso adicionais</small><strong>${adic ? fmt.g(adic) : '—'}</strong></div>
       <div><small>Valor total</small><strong>${fmt.brl(valor)}</strong></div>
-      <div><small>Status pagamento</small><strong>${r.statuspag || '—'}</strong></div>
     </div>
   `;
   el.classList.add('show');
@@ -631,7 +666,14 @@ function renderTimeline(){
     }
   ];
 
-  document.getElementById('timelineList').innerHTML = docs.map(d => `
+  // Ordenar docs cronologicamente (por data). Os sem data ficam no fim na ordem original.
+  const docsOrdered = [...docs].map((d,i)=>({...d, _origIdx:i})).sort((a,b)=>{
+    if (!a.data && !b.data) return a._origIdx - b._origIdx;
+    if (!a.data) return 1;
+    if (!b.data) return -1;
+    return new Date(a.data) - new Date(b.data);
+  });
+  document.getElementById('timelineList').innerHTML = docsOrdered.map(d => `
     <div class="tl-item ${d.found ? (d.partial ? 'partial' : 'found') : 'missing'}">
       <div class="step">${d.step}</div>
       <div class="when">${d.data ? `<strong>${fmt.dateF(d.data)}</strong>` : '<span class="dim">—</span>'}<small>${d.data ? fmtDelta(d.data) : ''}</small></div>
@@ -892,16 +934,64 @@ function renderAlertas(){
 }
 
 // =============== LISTA DE ROMANEIOS RECENTES ===============
-async function loadRecent(){
-  const sql = `SELECT s.id, s.datavenda::text AS data, c.nome AS cliente, s.valor_com_desconto AS valor FROM servico s JOIN cliente c ON c.id=s.idcliente WHERE s.datavenda >= CURRENT_DATE - INTERVAL '30 days' ORDER BY s.datavenda DESC, s.id DESC LIMIT 200`;
+// Scroll infinito: carrega 50 por vez, ao chegar perto do fim do scroll busca próxima página.
+// Filtros (cliente, de, até) vão direto na query SQL — não filtra em memória.
+const RECENT_PAGE_SIZE = 50;
+let recentDebounce = null;
+
+async function loadRecent(reset = false){
+  if (reset){
+    state.recentPage = 0;
+    state.recentRows = [];
+    state.recentHasMore = true;
+    document.getElementById('recentList').innerHTML = '';
+  }
+  if (state.recentLoading || !state.recentHasMore) return;
+  state.recentLoading = true;
+
+  const cli = (document.getElementById('fRecCli').value||'').trim().replace(/'/g, "''");
+  const dFrom = document.getElementById('fRecFrom').value;
+  const dTo = document.getElementById('fRecTo').value;
+
+  const where = ['1=1'];
+  if (cli) where.push(`LOWER(c.nome) LIKE '%${cli.toLowerCase()}%'`);
+  if (dFrom) where.push(`s.datavenda >= '${dFrom}'::date`);
+  if (dTo) where.push(`s.datavenda <= '${dTo}'::date`);
+
+  const sql = `SELECT s.id, s.datavenda::text AS data, c.nome AS cliente, s.valor_com_desconto AS valor FROM servico s JOIN cliente c ON c.id=s.idcliente WHERE ${where.join(' AND ')} ORDER BY s.datavenda DESC, s.id DESC LIMIT ${RECENT_PAGE_SIZE} OFFSET ${state.recentPage * RECENT_PAGE_SIZE}`;
+
   try {
-    const rows = await callDBAll(sql);
-    document.getElementById('recentCount').textContent = `${rows.length} ${rows.length===1?'romaneio':'romaneios'}`;
-    document.getElementById('recentList').innerHTML = rows.map(r => `<div class="recent-item" onclick="loadFromRecent(${r.id})"><span class="num">#${r.id}</span><span class="data">${fmt.date(r.data)}</span><span class="cli" title="${r.cliente}">${r.cliente}</span><span class="val">${fmt.brl(r.valor||0)}</span></div>`).join('');
+    const rows = await callDB(sql);
+    if (rows.length < RECENT_PAGE_SIZE) state.recentHasMore = false;
+    state.recentRows = (state.recentRows||[]).concat(rows);
+    state.recentPage = (state.recentPage||0) + 1;
+    appendRecent(rows);
+    updateRecentCount();
   } catch(e){
     document.getElementById('recentCount').textContent = 'erro';
-    document.getElementById('recentList').innerHTML = '<div class="empty">Erro ao carregar lista: ' + (e?.message||e) + '</div>';
+    document.getElementById('recentList').insertAdjacentHTML('beforeend', '<div class="empty">Erro: ' + (e?.message||e) + '</div>');
   }
+  state.recentLoading = false;
+}
+
+function appendRecent(rows){
+  if (!rows.length && (state.recentRows||[]).length === 0){
+    document.getElementById('recentList').innerHTML = '<div class="empty">Nenhum romaneio com esses filtros.</div>';
+    return;
+  }
+  const html = rows.map(r => `<div class="recent-item" onclick="loadFromRecent(${r.id})"><span class="num">#${r.id}</span><span class="data">${fmt.date(r.data)}</span><span class="cli" title="${r.cliente}">${r.cliente}</span><span class="val">${fmt.brl(r.valor||0)}</span></div>`).join('');
+  document.getElementById('recentList').insertAdjacentHTML('beforeend', html);
+}
+
+function updateRecentCount(){
+  const total = (state.recentRows||[]).length;
+  const more = state.recentHasMore ? '+' : '';
+  document.getElementById('recentCount').textContent = `${total}${more} ${total===1?'romaneio':'romaneios'}${state.recentHasMore?' · role pra carregar mais':''}`;
+}
+
+function reloadRecentDebounced(){
+  if (recentDebounce) clearTimeout(recentDebounce);
+  recentDebounce = setTimeout(() => loadRecent(true), 400);
 }
 window.loadFromRecent = (num) => {
   document.getElementById('romInput').value = num;
@@ -913,6 +1003,16 @@ window.loadFromRecent = (num) => {
 
 // =============== INIT ===============
 document.getElementById('versionInfo').innerHTML = `v${CURRENT_VERSION.v} · editado ${CURRENT_VERSION.date} · <a onclick="toggleVersionLog()">histórico</a>`;
+// Filtros: ao mudar, refaz a query do zero (com debounce de 400ms)
+['fRecCli','fRecFrom','fRecTo'].forEach(id => document.getElementById(id).addEventListener('input', reloadRecentDebounced));
+document.getElementById('fRecClear').onclick = () => { ['fRecCli','fRecFrom','fRecTo'].forEach(id => document.getElementById(id).value=''); loadRecent(true); };
+// Scroll infinito: ao chegar perto do fim do scroll do recentList, busca mais
+document.getElementById('recentList').addEventListener('scroll', (e) => {
+  const el = e.target;
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 120 && !state.recentLoading && state.recentHasMore){
+    loadRecent();
+  }
+});
 window.toggleVersionLog = () => {
   const m = document.getElementById('versionModal');
   if (!m.classList.contains('open')){
