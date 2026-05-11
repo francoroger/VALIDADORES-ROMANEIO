@@ -163,6 +163,22 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 .alertas li.bad{background:var(--bad-bg);color:#7a1c1c;--c:var(--bad)}
 .alertas li.info{background:var(--surface-2);color:var(--text-2);--c:var(--text-3)}
 
+/* PASS DETAILS */
+.pass-details-toggle{margin-top:8px;font-size:11.5px}
+.pass-details-toggle summary{cursor:pointer;color:var(--primary);font-weight:600;padding:4px 0;user-select:none}
+.pass-details-toggle summary:hover{text-decoration:underline}
+.pass-detail{margin-top:8px}
+.pass-day{margin-bottom:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.pass-day-h{font-size:12px;font-weight:700;padding:7px 12px;background:var(--surface-2);border-bottom:1px solid var(--border);color:var(--text)}
+.pass-day.pass-resumo .pass-day-h{background:#eef2ff;color:var(--primary-2)}
+.pass-table{width:100%;border-collapse:collapse;font-size:11.5px}
+.pass-table th{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-3);padding:5px 10px;background:var(--surface);text-align:left;border-bottom:1px solid var(--border)}
+.pass-table th.right{text-align:right}
+.pass-table td{padding:5px 10px;border-bottom:1px solid #eef1f6;font-variant-numeric:tabular-nums}
+.pass-table td.right{text-align:right;font-weight:600}
+.pass-table td.center{text-align:center}
+.pass-table tr:last-child td{border-bottom:none}
+
 /* RECENT LIST */
 .recent{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px}
 .recent h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
@@ -277,6 +293,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
+  { v: '3.4', date: '2026-05-11 11:30', changes: '(1) JANELA DE BANHO AMPLIADA: passa de banho_fim+24h para até exp_ini-1min. Separações podem ter banhos em DIAS DIFERENTES (ex: Dourado num dia, Ródio em outro). Caso #24713 FLÁVIA: Ródio passou em 23/03 (4d depois do banho_fim 19/03, mas antes do exp_ini 30/03) — agora entra. Cap absoluto de 30d + proteção via próxima sep. (2) ETAPA 5 PASSAGENS RETRÁTIL: novo botão expand/retrair mostra tabela de detalhes por dia (tiposerv+material+cor+ml+peso) + resumo do período no fim. Igual ao Relatório de Produção do sistema Delphi. (3) Removido Status pagamento da etapa 6 (Romaneio) — informação redundante.' },
   { v: '3.3', date: '2026-05-11 10:30', changes: 'BUGFIX anchor: query relaxou tolerância pra romaneios feitos ANTES da expedição. Antes: anchor exigia exp_ini ≤ data_rom + 1d (rígido). Agora: aceita até 30 dias antes do exp_ini, mantendo o limite superior por exp_fim+2d. Caso #24713 FLÁVIA: romaneio em 27/03, exp_ini em 30/03 (3d depois) — sep 14708 com catalogacao_id=13354 não era encontrada. Operadores às vezes faturam antes do motoboy sair. Mesmo fix aplicado em monitor v2.6 e RP v3.3 (no JS, tolIni passou de -1d para -30d).' },
   { v: '3.2', date: '2026-05-11 01:00', changes: 'Nova coluna Catalogação na conciliação por bucket (puxa peso agregado de itemtriagem por material+milésimos) ANTES da coluna OS. Tabela agora é HIERÁRQUICA: linha pai por material+milésimos (com totais e Catalogação) + sub-linhas por cor (sem catalogação porque triagem não distingue cor). Permite ver qual a soma esperada vs o que efetivamente foi banhado.' },
   { v: '3.1', date: '2026-05-11 00:30', changes: 'BUGFIX CRÍTICO: queries de OS agora filtram flag_orcamento IS NULL. A tabela ordemservico tem 2 sequências paralelas — Pré-Orçamento (flag=TRUE, sequência 1-2923) e OS real (flag IS NULL, sequência 1-12980). O validador estava puxando o Pré-Orçamento mais recente como OS, dando comparações de peso sem sentido. Caso #24713 FLÁVIA: pegava #2802 (Pré-Orçamento) em vez de #12734 (OS real com CAT: 13354).' },
@@ -466,10 +483,15 @@ async function loadRomaneio(romNum){
       if (banhoIni && banhoFim){
         // Tolerância +24h no fim, LIMITADA pelo banho_ini da próxima sep do cliente.
         // Operador costuma escanear peças no dia seguinte ao "fim banho" (caso #24863 LAYLA: peça 1m42s depois).
-        const sqlPass = `WITH limite AS (
+        // Teto da janela: exp_ini (separações podem ter banhos em dias DIFERENTES — Dourado num dia, Ródio em outro).
+// Cap absoluto de 30d depois do banho_fim pra evitar janelas absurdas se exp_ini for muito longe.
+// Proteção: limitada pelo banho_ini da PRÓXIMA sep do cliente (não vaza pra próximo lote).
+const tetoExpedicao = sep.exp_ini ? `'${sep.exp_ini}'::timestamp - INTERVAL '1 minute'` : `'${banhoFim}'::timestamp + INTERVAL '30 days'`;
+const sqlPass = `WITH limite AS (
   SELECT LEAST(
-    '${banhoFim}'::timestamp + INTERVAL '24 hours',
-    COALESCE((SELECT data_inicio_banho - INTERVAL '1 minute' FROM separacoes WHERE cliente_id=${cli} AND id<>${sep.id} AND data_inicio_banho > '${banhoFim}'::timestamp ORDER BY data_inicio_banho LIMIT 1), '${banhoFim}'::timestamp + INTERVAL '24 hours')
+    ${tetoExpedicao},
+    '${banhoFim}'::timestamp + INTERVAL '30 days',
+    COALESCE((SELECT data_inicio_banho - INTERVAL '1 minute' FROM separacoes WHERE cliente_id=${cli} AND id<>${sep.id} AND data_inicio_banho > '${banhoFim}'::timestamp ORDER BY data_inicio_banho LIMIT 1), '${banhoFim}'::timestamp + INTERVAL '30 days')
   ) AS fim_tol
 )
 SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS data, p.material_id, m.descricao AS material, p.cor_id, COALESCE(cor.descricao,'—') AS cor, p.milesimos, p.peso, p.tiposervico_id, ts.descricao AS tiposerv, p.created_at::text AS created_at FROM passagem_pecas p JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id JOIN tiposervico ts ON ts.id=p.tiposervico_id, limite WHERE p.deleted_at IS NULL AND p.cliente_id = ${cli} AND p.data_servico >= '${banhoIni}'::timestamp AND p.data_servico <= limite.fim_tol ORDER BY p.data_servico DESC`;
@@ -666,13 +688,13 @@ function renderTimeline(){
       found: state.passagens.length > 0,
       partial: state.passagens.length > 0 && passDias.length === 1,
       data: passDias.length ? passDias[passDias.length-1] : null,
-      info: state.passagens.length ? `${state.passagens.length} ${state.passagens.length===1?'peça':'peças'} em ${passDias.length} ${passDias.length===1?'dia':'dias'} · ${fmt.g(passTotal)} total${passNoBanho !== passTotal ? '<br>Sendo: '+fmt.g(passNoBanho)+' tipo Banho · '+fmt.g(passTotal-passNoBanho)+' adicionais' : ''}<br><small>Datas: ${passDias.map(d => fmt.date(d)).join(', ')}</small>` : '<span class="dim">nenhuma passagem registrada nos 60 dias antes do romaneio</span>'
+      info: state.passagens.length ? renderPassagensInfo(passDias, passagensAgrupadas, passTotal, passNoBanho) : '<span class="dim">nenhuma passagem registrada na janela de banho da separação</span>'
     },
     {
       step: 6, label: 'Romaneio (faturamento)',
       found: true,
       data: r.data,
-      info: `Romaneio <strong>#${r.id}</strong> · ${state.items.length} ${state.items.length===1?'item':'itens'} · ${fmt.brl(r.valor_total||0)}<br>Status pagamento: <strong>${r.statuspag || '—'}</strong>`
+      info: `Romaneio <strong>#${r.id}</strong> · ${state.items.length} ${state.items.length===1?'item':'itens'} · ${fmt.brl(r.valor_total||0)}`
     },
     {
       step: 7, label: 'Expedição · Entrega',
@@ -700,6 +722,61 @@ function renderTimeline(){
 
   document.getElementById('sec1Meta').textContent = `${docs.filter(d=>d.found).length}/7 documentos encontrados`;
   document.getElementById('sec1').style.display = '';
+}
+
+// Renderiza info detalhada das passagens com expand/retrair (igual relatório de produção)
+function renderPassagensInfo(passDias, passAgr, passTotal, passNoBanho){
+  const resumo = `${state.passagens.length} ${state.passagens.length===1?'peça':'peças'} em ${passDias.length} ${passDias.length===1?'dia':'dias'} · ${fmt.g(passTotal)} total${passNoBanho !== passTotal ? ' · '+fmt.g(passNoBanho)+' banho · '+fmt.g(passTotal-passNoBanho)+' adicionais' : ''}`;
+
+  // Agrupar passagens por data e detalhar por material+cor+ml+tiposerv
+  const porDia = {};
+  state.passagens.forEach(p => {
+    if (!porDia[p.data]) porDia[p.data] = [];
+    porDia[p.data].push(p);
+  });
+
+  // Cada dia: agregar por (tiposerv, material, cor, mil)
+  const datasOrd = Object.keys(porDia).sort();
+  let detalheHtml = '<div class="pass-detail">';
+  let totalPeriodo = {};
+  datasOrd.forEach(d => {
+    const itens = porDia[d];
+    // Agregar
+    const agr = new Map();
+    itens.forEach(p => {
+      const key = `${p.tiposerv}|${p.material}|${p.cor||'—'}|${p.milesimos??'—'}`;
+      if (!agr.has(key)) agr.set(key, { tiposerv:p.tiposerv, material:p.material, cor:p.cor||'—', mil:p.milesimos, peso:0, qtd:0 });
+      agr.get(key).peso += +p.peso||0;
+      agr.get(key).qtd++;
+      // Para totais do período
+      if (!totalPeriodo[key]) totalPeriodo[key] = { tiposerv:p.tiposerv, material:p.material, cor:p.cor||'—', mil:p.milesimos, peso:0 };
+      totalPeriodo[key].peso += +p.peso||0;
+    });
+    const linhas = [...agr.values()].sort((a,b) => b.peso - a.peso);
+    const totalDia = linhas.reduce((s,l)=>s+l.peso,0);
+    detalheHtml += `<div class="pass-day"><div class="pass-day-h">${fmt.dateF(d)} <small style="color:var(--text-3);font-weight:400">· ${linhas.length} ${linhas.length===1?'linha':'linhas'} · ${fmt.g(totalDia)}</small></div>`;
+    detalheHtml += '<table class="pass-table"><thead><tr><th>Tipo</th><th>Material</th><th>Cor</th><th>Milésimos</th><th class="right">Peso</th></tr></thead><tbody>';
+    linhas.forEach(l => {
+      detalheHtml += `<tr><td>${l.tiposerv}</td><td>${l.material}</td><td>${l.cor}</td><td class="center">${l.mil==null?'—':l.mil}</td><td class="right">${fmt.g(l.peso)}</td></tr>`;
+    });
+    detalheHtml += '</tbody></table></div>';
+  });
+
+  // Resumo do período (todos os dias agregados)
+  if (datasOrd.length > 1){
+    const linhasPer = Object.values(totalPeriodo).sort((a,b) => b.peso - a.peso);
+    const totalPer = linhasPer.reduce((s,l)=>s+l.peso,0);
+    detalheHtml += `<div class="pass-day pass-resumo"><div class="pass-day-h">Resumo do período <small style="color:var(--text-3);font-weight:400">· ${linhasPer.length} ${linhasPer.length===1?'linha':'linhas'} · ${fmt.g(totalPer)}</small></div>`;
+    detalheHtml += '<table class="pass-table"><thead><tr><th>Tipo</th><th>Material</th><th>Cor</th><th>Milésimos</th><th class="right">Peso</th></tr></thead><tbody>';
+    linhasPer.forEach(l => {
+      detalheHtml += `<tr><td>${l.tiposerv}</td><td>${l.material}</td><td>${l.cor}</td><td class="center">${l.mil==null?'—':l.mil}</td><td class="right">${fmt.g(l.peso)}</td></tr>`;
+    });
+    detalheHtml += '</tbody></table></div>';
+  }
+  detalheHtml += '</div>';
+
+  return `${resumo}<br><small>Datas: ${passDias.map(d => fmt.date(d)).join(', ')}</small>
+    <details class="pass-details-toggle"><summary>▾ Ver detalhes das passagens</summary>${detalheHtml}</details>`;
 }
 
 // SEÇÃO ② — CONCILIAÇÃO POR BUCKET
