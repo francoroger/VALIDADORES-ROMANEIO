@@ -114,6 +114,11 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 .conc-table td.left{text-align:left}
 .conc-table td.right{text-align:right}
 .conc-table tr.adicional{background:rgba(245,158,11,.05)}
+.conc-table tr.grupo-row{background:#f3f6fa;font-weight:600}
+.conc-table tr.grupo-row td{border-top:1px solid var(--border-2)}
+.conc-table tr.sub-row td{padding:6px 10px 6px 24px;color:var(--text-2);font-size:12px;background:#fff}
+.conc-table tr.sub-row.adicional td{background:rgba(245,158,11,.03)}
+.conc-table tr.sub-row .sub-prefix{color:var(--text-3);font-family:ui-monospace,monospace;margin-right:4px}
 .conc-table tr.total-row{background:var(--surface-2);font-weight:700}
 .conc-table tr.total-row td{border-top:2px solid var(--border-2);padding-top:11px}
 .tag-mat{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:3px;background:#dcfce7;color:#166534;border:1px solid #86efac}
@@ -272,6 +277,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
+  { v: '3.2', date: '2026-05-11 01:00', changes: 'Nova coluna Catalogação na conciliação por bucket (puxa peso agregado de itemtriagem por material+milésimos) ANTES da coluna OS. Tabela agora é HIERÁRQUICA: linha pai por material+milésimos (com totais e Catalogação) + sub-linhas por cor (sem catalogação porque triagem não distingue cor). Permite ver qual a soma esperada vs o que efetivamente foi banhado.' },
   { v: '3.1', date: '2026-05-11 00:30', changes: 'BUGFIX CRÍTICO: queries de OS agora filtram flag_orcamento IS NULL. A tabela ordemservico tem 2 sequências paralelas — Pré-Orçamento (flag=TRUE, sequência 1-2923) e OS real (flag IS NULL, sequência 1-12980). O validador estava puxando o Pré-Orçamento mais recente como OS, dando comparações de peso sem sentido. Caso #24713 FLÁVIA: pegava #2802 (Pré-Orçamento) em vez de #12734 (OS real com CAT: 13354).' },
   { v: '3.0', date: '2026-05-10 23:50', changes: 'Refeita lista de romaneios com SCROLL INFINITO: carrega 50 por vez, conforme rola pra baixo busca mais (sem cap de 30 dias). Filtros (Cliente, De, Até) agora vão na query SQL — qualquer data funciona, não só últimos 30d. Debounce de 400ms ao digitar no filtro de cliente pra não bombardear o banco.' },
   { v: '2.9', date: '2026-05-10 23:30', changes: 'Filtros (Cliente, De, Até) movidos para a barra principal superior — agora ficam na mesma linha do input de Romaneio + Validar, igual nos outros artefatos. Filtram a lista dos últimos 30 dias em tempo real.' },
@@ -494,6 +500,14 @@ SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS da
     state.separacoesConcorrentes = state._idxConcorrentes >= 0 ? (results3[state._idxConcorrentes] || []) : [];
     delete state._idxConcorrentes;
 
+    // CATALOGAÇÃO — buscar itens da triagem agregados por material+milesimos (itemtriagem NÃO tem cor)
+    state.catalogacao = [];
+    if (state.triagem){
+      setStatus('Buscando itens da catalogação (triagem)…', 'loading');
+      const sqlCat = `SELECT m.descricao AS material, it.milesimos, SUM(it.peso * COALESCE(it.quantidade,1)) AS peso_total FROM itemtriagem it LEFT JOIN material m ON m.id=it.idmaterial WHERE it.idtriagem = ${state.triagem.id} GROUP BY m.descricao, it.milesimos`;
+      try { state.catalogacao = await callDBAll(sqlCat); } catch(e){ console.warn('catalogação:', e); }
+    }
+
     // Batch 4 — OS com fallback de 4 níveis (com TODOS os níveis tentados em sequência)
     setStatus('Buscando OS associada (4 níveis de fallback)…', 'loading');
     state.osDebug = { triObs: null, regexMatch: null, osNumExtraido: null, niveisTentados: [] };
@@ -689,7 +703,7 @@ function renderTimeline(){
 
 // SEÇÃO ② — CONCILIAÇÃO POR BUCKET
 function renderConciliacao(){
-  // Agregar OS, Passagem, Romaneio por bucket
+  // Agregar OS, Passagem, Romaneio por bucket (material+cor+milésimos)
   const buckets = new Map();
   const ensure = (k, src) => {
     if (!buckets.has(k)) buckets.set(k, { key:k, material:src.material, cor:src.cor, mil:src.milesimos, isAdic:isAdicional(src.material, src.tiposerv), os:0, pass:0, rom:0 });
@@ -698,61 +712,108 @@ function renderConciliacao(){
   state.osItems.forEach(i => { if (!isDesconto(i.tiposerv)) ensure(bucketKey(i), i).os += +i.peso||0; });
   state.passagens.forEach(p => { ensure(bucketKey(p), p).pass += +p.peso||0; });
   state.items.forEach(i => { if (!isDesconto(i.tiposerv)) ensure(bucketKey(i), i).rom += +i.peso||0; });
-  const arr = [...buckets.values()].sort((a,b) => (a.isAdic?1:0) - (b.isAdic?1:0) || (b.os+b.pass+b.rom) - (a.os+a.pass+a.rom));
+  const arr = [...buckets.values()];
 
-  const variacao = (pass, rom) => {
-    if (!pass || !rom) return null;
-    return (rom - pass) / pass * 100;
-  };
+  // Mapa de catalogação por material+milésimos (triagem não tem cor — agrega só por material+ml)
+  const catMap = new Map();
+  (state.catalogacao||[]).forEach(c => {
+    const k = `${c.material}|${c.milesimos??'_'}`;
+    catMap.set(k, (catMap.get(k)||0) + (+c.peso_total||0));
+  });
+
+  const variacao = (pass, rom) => (!pass || !rom) ? null : (rom - pass) / pass * 100;
   const colorVar = v => {
-    // Positivo (rom > pass) = verde · Negativo (rom < pass) = vermelho · Quase zero = neutro
     if (v === null) return '';
     if (Math.abs(v) < 0.5) return '';
     return v > 0 ? 'varok' : 'varbad';
   };
 
+  // Separar banho vs adicionais
   const banho = arr.filter(b => !b.isAdic);
   const adic = arr.filter(b => b.isAdic);
+
+  // Agrupar por (material+milesimos)
+  function agruparPorMatMil(itens){
+    const grupos = new Map();
+    itens.forEach(b => {
+      const k = `${b.material}|${b.mil??'_'}`;
+      if (!grupos.has(k)) grupos.set(k, { material:b.material, mil:b.mil, isAdic:b.isAdic, key:k, cores:[], totOs:0, totPass:0, totRom:0 });
+      const g = grupos.get(k);
+      g.cores.push(b);
+      g.totOs += b.os; g.totPass += b.pass; g.totRom += b.rom;
+    });
+    // Sort: maior soma primeiro
+    return [...grupos.values()].sort((a,b) => (b.totOs+b.totPass+b.totRom) - (a.totOs+a.totPass+a.totRom));
+  }
+
+  const renderGrupo = (g, opts={}) => {
+    const catTot = catMap.get(g.key) || 0;
+    const vTot = variacao(g.totPass, g.totRom);
+    const clsTot = colorVar(vTot);
+    const labelGrupo = `${g.material}${g.mil!=null?' · '+g.mil+' milésimos':''}`;
+    const isAdicTag = g.isAdic ? ' <small class="dim">· adicional (não soma peso)</small>' : '';
+
+    // Linha pai (totais agregados)
+    let html = `<tr class="grupo-row${g.isAdic?' adicional':''}">
+      <td class="left"><strong>${labelGrupo}</strong>${isAdicTag}</td>
+      <td>${catTot ? '<strong>'+fmt.g(catTot)+'</strong>' : '<span class="dim">—</span>'}</td>
+      <td>${g.totOs ? '<strong>'+fmt.g(g.totOs)+'</strong>' : '<span class="dim">—</span>'}</td>
+      <td>${g.totPass ? '<strong>'+fmt.g(g.totPass)+'</strong>' : '<span class="dim">—</span>'}</td>
+      <td><strong>${g.totRom ? fmt.g(g.totRom) : '—'}</strong></td>
+      <td class="${clsTot}"><strong>${vTot===null ? '—' : fmt.pct(vTot)}</strong></td>
+    </tr>`;
+
+    // Sub-linhas (uma por cor)
+    g.cores.forEach(b => {
+      const v = variacao(b.pass, b.rom);
+      const cls = colorVar(v);
+      html += `<tr class="sub-row${g.isAdic?' adicional':''}">
+        <td class="left"><span class="sub-prefix">└─</span> ${b.cor || '<span class="dim">sem cor</span>'}</td>
+        <td><span class="dim">—</span></td>
+        <td>${b.os ? fmt.g(b.os) : '<span class="dim">—</span>'}</td>
+        <td>${b.pass ? fmt.g(b.pass) : '<span class="dim">—</span>'}</td>
+        <td>${b.rom ? fmt.g(b.rom) : '—'}</td>
+        <td class="${cls}">${v===null ? '<span class="dim">—</span>' : fmt.pct(v)}</td>
+      </tr>`;
+    });
+    return html;
+  };
+
+  // Totais gerais (só banho)
+  const grBanho = agruparPorMatMil(banho);
+  const grAdic = agruparPorMatMil(adic);
   const tBanhoOs = banho.reduce((s,b)=>s+b.os,0);
   const tBanhoPa = banho.reduce((s,b)=>s+b.pass,0);
   const tBanhoRo = banho.reduce((s,b)=>s+b.rom,0);
+  const tBanhoCat = grBanho.reduce((s,g)=>s+(catMap.get(g.key)||0),0);
   const tAdicOs = adic.reduce((s,b)=>s+b.os,0);
   const tAdicPa = adic.reduce((s,b)=>s+b.pass,0);
   const tAdicRo = adic.reduce((s,b)=>s+b.rom,0);
-
-  const renderRow = (b) => {
-    const v = variacao(b.pass, b.rom);
-    const cls = colorVar(v);
-    const tag = b.isAdic ? ' adicional' : '';
-    return `<tr class="${b.isAdic?'adicional':''}">
-      <td class="left">${bucketLabel(b.material, b.cor, b.mil)}${b.isAdic ? ' <small class="dim">· adicional (não soma peso)</small>' : ''}</td>
-      <td>${b.os ? fmt.g(b.os) : '<span class="dim">—</span>'}</td>
-      <td>${b.pass ? fmt.g(b.pass) : '<span class="dim">—</span>'}</td>
-      <td><strong>${b.rom ? fmt.g(b.rom) : '—'}</strong></td>
-      <td class="${cls}">${v===null ? '<span class="dim">—</span>' : fmt.pct(v)}</td>
-    </tr>`;
-  };
+  const tAdicCat = grAdic.reduce((s,g)=>s+(catMap.get(g.key)||0),0);
 
   let html = `<table class="conc-table">
     <thead><tr>
-      <th class="left">Bucket · Material · Cor · Milésimos</th>
+      <th class="left">Material · Milésimos / Cor</th>
+      <th>Catalogação</th>
       <th>OS</th>
       <th>Passagem</th>
       <th>Romaneio</th>
-      <th>Variação % (Romaneio vs Passagem)</th>
+      <th>Variação % (Rom vs Pass)</th>
     </tr></thead>
     <tbody>
-      ${banho.map(renderRow).join('')}
-      ${banho.length ? `<tr class="total-row">
+      ${grBanho.map(g => renderGrupo(g)).join('')}
+      ${grBanho.length ? `<tr class="total-row">
         <td class="left">Total banho (peso real)</td>
+        <td>${tBanhoCat ? fmt.g(tBanhoCat) : '<span class="dim">—</span>'}</td>
         <td>${tBanhoOs ? fmt.g(tBanhoOs) : '<span class="dim">—</span>'}</td>
         <td>${tBanhoPa ? fmt.g(tBanhoPa) : '<span class="dim">—</span>'}</td>
         <td>${fmt.g(tBanhoRo)}</td>
         <td class="${colorVar(variacao(tBanhoPa, tBanhoRo))}">${variacao(tBanhoPa, tBanhoRo)===null ? '—' : fmt.pct(variacao(tBanhoPa, tBanhoRo))}</td>
       </tr>` : ''}
-      ${adic.map(renderRow).join('')}
-      ${adic.length ? `<tr class="total-row" style="background:rgba(245,158,11,.08)">
+      ${grAdic.map(g => renderGrupo(g)).join('')}
+      ${grAdic.length ? `<tr class="total-row" style="background:rgba(245,158,11,.08)">
         <td class="left">Total adicionais</td>
+        <td>${tAdicCat ? fmt.g(tAdicCat) : '<span class="dim">—</span>'}</td>
         <td>${tAdicOs ? fmt.g(tAdicOs) : '<span class="dim">—</span>'}</td>
         <td>${tAdicPa ? fmt.g(tAdicPa) : '<span class="dim">—</span>'}</td>
         <td>${tAdicRo ? fmt.g(tAdicRo) : '<span class="dim">—</span>'}</td>
@@ -760,10 +821,10 @@ function renderConciliacao(){
       </tr>` : ''}
     </tbody>
   </table>
-  <div class="help-text">OS = Ordem de Serviço (mais recente do cliente antes deste romaneio) · Passagem = somatório de passagens do mesmo cliente nos 60 dias antes do romaneio · Variação calculada apenas para banho (adicionais não somam no peso total).</div>`;
+  <div class="help-text"><strong>Catalogação</strong> = soma da triagem por material+milésimos (triagem não distingue cor — aparece só na linha pai). <strong>OS</strong> = soma da Ordem de Serviço real (flag_orcamento IS NULL). <strong>Passagem</strong> = soma das passagens da janela de banho da separação. <strong>Romaneio</strong> = peso faturado. Variação só faz sentido para banho (adicionais não somam no peso).</div>`;
 
   document.getElementById('concContent').innerHTML = html;
-  document.getElementById('sec2Meta').textContent = `${arr.length} buckets`;
+  document.getElementById('sec2Meta').textContent = `${arr.length} cores em ${grBanho.length + grAdic.length} grupos (material+milésimos)`;
   document.getElementById('sec2').style.display = '';
 }
 
