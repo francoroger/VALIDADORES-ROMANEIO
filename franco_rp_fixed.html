@@ -268,6 +268,7 @@ canvas{max-height:340px}
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '3.3', date: '2026-05-11 10:30', changes: 'BUGFIX anchor: tolIni -1d → -30d (aceita romaneio antes da expedição).' },
   { v: '3.2', date: '2026-05-11 00:30', changes: 'BUGFIX CRÍTICO: sqlOs agora filtra flag_orcamento IS NULL (só OS reais, não Pré-Orçamentos).' },
   { v: '3.1', date: '2026-05-10 22:45', changes: 'BUGFIX limit cap MCP: cap é 500. Implementada paginação callDBAll via OFFSET.' },
   { v: '3.0', date: '2026-05-10 22:00', changes: 'BUGFIX limite MCP: limit=500 estava truncando passagens. Aumentado pra 5000.' },
@@ -634,7 +635,7 @@ function attachPassagensWindowToServicos(){
       const eIni = new Date(s.exp_ini);
       const eFim = s.exp_fim ? new Date(s.exp_fim) : new Date(eIni.getTime() + 14*86400000);
       const tolFim = new Date(eFim.getTime() + 2*86400000);
-      const tolIni = new Date(eIni.getTime() - 86400000);
+      const tolIni = new Date(eIni.getTime() - 30*86400000); // 30d antes do exp_ini (caso #24713: romaneio antes da expedição)
       return ate >= tolIni && ate <= tolFim;
     });
     sv._separacao = candSeps.sort((a,b) => Math.abs(new Date(a.exp_ini)-ate) - Math.abs(new Date(b.exp_ini)-ate))[0] || null;

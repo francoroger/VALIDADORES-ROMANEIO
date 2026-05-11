@@ -204,6 +204,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '2.6', date: '2026-05-11 10:30', changes: 'BUGFIX anchor: tolIni passou de -1d para -30d (aceita romaneio feito antes da expedição iniciar). Caso #24713 FLÁVIA tinha romaneio 3d antes do exp_ini.' },
   { v: '2.5', date: '2026-05-11 00:30', changes: 'BUGFIX CRÍTICO: query de OS agora filtra flag_orcamento IS NULL. Antes misturava Pré-Orçamento com OS real, distorcendo coluna OS dos romaneios.' },
   { v: '2.4', date: '2026-05-10 22:45', changes: 'BUGFIX limit cap MCP: cap é 500 (validação Pydantic), não 5000. Implementada paginação callDBAll via OFFSET nas 4 queries grandes (roms, oss, passes, seps). Resolve SEM PASS em massa quando passagens >500.' },
   { v: '2.3', date: '2026-05-10 22:00', changes: 'BUGFIX crítico limite MCP: limit=500 estava truncando passagens em períodos com >500 registros (1453 passagens só em abril). Aumentado pra 5000. Sintoma do bug: vários romaneios marcados "SEM PASS." indevidamente porque suas passagens existiam mas foram cortadas pelo limit.' },
@@ -403,7 +404,7 @@ function buildModel(){
       const eIni = new Date(s.exp_ini);
       const eFim = s.exp_fim ? new Date(s.exp_fim) : new Date(eIni.getTime() + 14*86400000);
       const tolFim = new Date(eFim.getTime() + 2*86400000);
-      const tolIni = new Date(eIni.getTime() - 86400000);
+      const tolIni = new Date(eIni.getTime() - 30*86400000); // 30d antes do exp_ini (caso #24713: romaneio antes da expedição)
       return dRom >= tolIni && dRom <= tolFim;
     });
     rom.separacao = candSeps.sort((a,b) => Math.abs(new Date(a.exp_ini)-dRom) - Math.abs(new Date(b.exp_ini)-dRom))[0] || null;
