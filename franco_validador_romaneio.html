@@ -163,6 +163,44 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 .alertas li.bad{background:var(--bad-bg);color:#7a1c1c;--c:var(--bad)}
 .alertas li.info{background:var(--surface-2);color:var(--text-2);--c:var(--text-3)}
 
+/* ROMANEIO DETAILS */
+.rom-details{margin-top:8px;font-size:12px}
+.rom-details summary{cursor:pointer;color:var(--primary);font-weight:600;padding:4px 0;user-select:none}
+.rom-details summary:hover{text-decoration:underline}
+.rom-detail{margin-top:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.rom-h{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.rom-h-l{display:flex;flex-direction:column;gap:2px;font-size:12px}
+.rom-h-l .lbl{font-size:9.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.rom-h-l strong{font-size:13.5px;color:var(--text);font-weight:700}
+.rom-sec{margin-bottom:14px}
+.rom-sec-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--primary-2);padding:5px 0;margin-bottom:6px;border-bottom:2px solid var(--primary)}
+.rom-sec-h.rom-sec-adic{color:#a06010;border-bottom-color:#f59e0b}
+.rom-sec-h.rom-sec-desc{color:#7a1c1c;border-bottom-color:#a82828}
+.rom-sec-h.rom-sec-ext{color:#7c3aed;border-bottom-color:#7c3aed}
+.rom-sec-h.rom-sec-tot{color:#107a4b;border-bottom-color:#107a4b}
+.rom-table{width:100%;border-collapse:collapse;font-size:11.5px;font-variant-numeric:tabular-nums}
+.rom-table th{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-3);padding:5px 8px;background:var(--surface-2);text-align:left;border-bottom:1px solid var(--border)}
+.rom-table th.right{text-align:right}
+.rom-table th.center{text-align:center}
+.rom-table td{padding:5px 8px;border-bottom:1px solid #eef1f6}
+.rom-table td.right{text-align:right;font-weight:600}
+.rom-table td.center{text-align:center}
+.rom-table td.neg{color:var(--bad)}
+.rom-table tr:last-child td{border-bottom:none}
+.rom-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;padding:10px 12px;background:var(--good-bg);border:1px solid var(--good);border-radius:6px}
+.rom-tot-l{display:flex;flex-direction:column;gap:2px}
+.rom-tot-l .lbl{font-size:9.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.rom-tot-l strong{font-size:13px;color:var(--text);font-weight:700}
+.rom-tot-l strong.big{font-size:15px;color:var(--good)}
+.rom-tot-l strong.neg{color:var(--bad)}
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;letter-spacing:.2px}
+.badge-ok{background:var(--good-bg);color:var(--good);border:1px solid var(--good)}
+.badge-warn{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn)}
+.badge-bad{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad)}
+.badge-info{background:#eef2ff;color:#3b3bdb;border:1px solid #c7d2fe}
+.badge-neutral{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border-2)}
+
 /* PASS DETAILS */
 .pass-details-toggle{margin-top:8px;font-size:11.5px}
 .pass-details-toggle summary{cursor:pointer;color:var(--primary);font-weight:600;padding:4px 0;user-select:none}
@@ -293,6 +331,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
+  { v: '3.5', date: '2026-05-11 12:00', changes: 'Etapa 6 (Romaneio) com expand/retrair detalhamento COMPLETO: cabeçalho (cliente, data, cotação ouro, status pgto como BADGE colorido), tabela Serviços (banhos), tabela Serviços Adicionais (vernizes), tabela Descontos/Rebanhos, tabela Serviços Externos (puxa de servicos_servext: SOLDA/COLAGEM, descontos por triagem), e bloco Transporte e Totais (tipo transporte, frete, total metal calculado, peso banho, MO+outros, total nota, valor à vista, saldo pendente se houver). Layout inspirado no PDF do romaneio do Delphi com badges harmoniosos. PLUS: removido alerta "Status de pagamento: Pendente..." da seção ⑤ (agora aparece no detalhamento como badge).' },
   { v: '3.4', date: '2026-05-11 11:30', changes: '(1) JANELA DE BANHO AMPLIADA: passa de banho_fim+24h para até exp_ini-1min. Separações podem ter banhos em DIAS DIFERENTES (ex: Dourado num dia, Ródio em outro). Caso #24713 FLÁVIA: Ródio passou em 23/03 (4d depois do banho_fim 19/03, mas antes do exp_ini 30/03) — agora entra. Cap absoluto de 30d + proteção via próxima sep. (2) ETAPA 5 PASSAGENS RETRÁTIL: novo botão expand/retrair mostra tabela de detalhes por dia (tiposerv+material+cor+ml+peso) + resumo do período no fim. Igual ao Relatório de Produção do sistema Delphi. (3) Removido Status pagamento da etapa 6 (Romaneio) — informação redundante.' },
   { v: '3.3', date: '2026-05-11 10:30', changes: 'BUGFIX anchor: query relaxou tolerância pra romaneios feitos ANTES da expedição. Antes: anchor exigia exp_ini ≤ data_rom + 1d (rígido). Agora: aceita até 30 dias antes do exp_ini, mantendo o limite superior por exp_fim+2d. Caso #24713 FLÁVIA: romaneio em 27/03, exp_ini em 30/03 (3d depois) — sep 14708 com catalogacao_id=13354 não era encontrada. Operadores às vezes faturam antes do motoboy sair. Mesmo fix aplicado em monitor v2.6 e RP v3.3 (no JS, tolIni passou de -1d para -30d).' },
   { v: '3.2', date: '2026-05-11 01:00', changes: 'Nova coluna Catalogação na conciliação por bucket (puxa peso agregado de itemtriagem por material+milésimos) ANTES da coluna OS. Tabela agora é HIERÁRQUICA: linha pai por material+milésimos (com totais e Catalogação) + sub-linhas por cor (sem catalogação porque triagem não distingue cor). Permite ver qual a soma esperada vs o que efetivamente foi banhado.' },
@@ -426,11 +465,12 @@ async function loadRomaneio(romNum){
 
   try {
     // Batch 1: dados do romaneio + itens
-    const sqlRom = `SELECT s.id, s.idcliente, c.nome AS cliente, s.datavenda::text AS data, s.valor_com_desconto AS valor_total, s.descricao, s.total_entregas_motoboy, s.idstatuspag, sp.descricao AS statuspag FROM servico s JOIN cliente c ON c.id=s.idcliente LEFT JOIN statuspag sp ON sp.id=s.idstatuspag WHERE s.id = ${romNum}`;
+    const sqlRom = `SELECT s.id, s.idcliente, c.nome AS cliente, s.datavenda::text AS data, s.valor_com_desconto AS valor_total, s.valortotal AS valor_bruto, s.valor_desconto, s.descricao, s.total_entregas_motoboy, s.idstatuspag, sp.descricao AS statuspag, t.descricao AS transporte, s.valortransporte AS frete, s.saldopag, s.comis_guia FROM servico s JOIN cliente c ON c.id=s.idcliente LEFT JOIN statuspag sp ON sp.id=s.idstatuspag LEFT JOIN transporte t ON t.id=s.idtransporte WHERE s.id = ${romNum}`;
     const sqlItens = `SELECT isv.id, isv.idmaterial, m.descricao AS material, isv.idcor, COALESCE(cor.descricao,'—') AS cor, isv.idtiposervico, ts.descricao AS tiposerv, isv.milesimos, isv.peso, isv.valor, isv.vlr_serv_kg, isv.vlr_adic_ml_kg, isv.material_valorg, isv.mil_ini, isv.fator, isv.tipo_valor, isv.valor_comis FROM itemservico isv JOIN material m ON m.id=isv.idmaterial LEFT JOIN cores cor ON cor.id=isv.idcor JOIN tiposervico ts ON ts.id=isv.idtiposervico WHERE isv.idservico = ${romNum} ORDER BY isv.id`;
-    const [romRows, itens] = await Promise.all([callDB(sqlRom), callDB(sqlItens)]);
+    const sqlExt = `SELECT id, descricao_serv, valor FROM servicos_servext WHERE idservico = ${romNum} ORDER BY id`;
+    const [romRows, itens, externos] = await Promise.all([callDB(sqlRom), callDB(sqlItens), callDB(sqlExt)]);
     if (!romRows.length) { setStatus(`Romaneio #${romNum} não encontrado`, 'error'); hideAllSections(); return; }
-    state.rom = romRows[0]; state.items = itens;
+    state.rom = romRows[0]; state.items = itens; state.servExt = externos || [];
 
     // Batch 2: SEPARAÇÃO como âncora + entregas (motoboy via FK formal)
     setStatus('Buscando separação (âncora do kanban)…', 'loading');
@@ -694,7 +734,7 @@ function renderTimeline(){
       step: 6, label: 'Romaneio (faturamento)',
       found: true,
       data: r.data,
-      info: `Romaneio <strong>#${r.id}</strong> · ${state.items.length} ${state.items.length===1?'item':'itens'} · ${fmt.brl(r.valor_total||0)}`
+      info: renderRomaneioInfo(r)
     },
     {
       step: 7, label: 'Expedição · Entrega',
@@ -777,6 +817,99 @@ function renderPassagensInfo(passDias, passAgr, passTotal, passNoBanho){
 
   return `${resumo}<br><small>Datas: ${passDias.map(d => fmt.date(d)).join(', ')}</small>
     <details class="pass-details-toggle"><summary>▾ Ver detalhes das passagens</summary>${detalheHtml}</details>`;
+}
+
+// Renderiza info detalhada do romaneio (expand/retrair com Serviços, Adicionais, Externos, Transporte, Totais)
+function renderRomaneioInfo(r){
+  const its = state.items;
+  const banho = its.filter(i => !isAdicional(i.material,i.tiposerv) && !isDesconto(i.tiposerv));
+  const adic = its.filter(i => isAdicional(i.material,i.tiposerv));
+  const desc = its.filter(i => isDesconto(i.tiposerv));
+  const ext = state.servExt || [];
+
+  const pesoBanho = banho.reduce((s,i)=>s+(+i.peso||0),0);
+  const valorServicos = banho.reduce((s,i)=>s+(+i.valor||0),0);
+  const valorAdic = adic.reduce((s,i)=>s+(+i.valor||0),0);
+  const valorDesc = desc.reduce((s,i)=>s+(+i.valor||0),0);
+  const valorExt = ext.reduce((s,e)=>s+(+e.valor||0),0);
+  const valorMetal = banho.reduce((s,i)=>s+(+i.material_valorg||0)*(+i.milesimos||0)*(+i.peso||0)/1000,0);
+  const moOutros = valorServicos + valorAdic + valorDesc + valorExt - valorMetal;
+  const cotacaoOuro = banho.find(i => i.material==='Dourado')?.material_valorg || 0;
+
+  // Resumo curto pro timeline
+  const resumo = `Romaneio <strong>#${r.id}</strong> · ${its.length} ${its.length===1?'item':'itens'} · ${fmt.brl(r.valor_total||0)}`;
+
+  // Status pagamento como badge colorido
+  const statusBadge = r.statuspag ? `<span class="badge badge-${(r.statuspag||'').toLowerCase()==='pago'?'ok':((r.statuspag||'').toLowerCase()==='pendente'?'warn':'neutral')}">${r.statuspag}</span>` : '';
+  const transBadge = r.transporte ? `<span class="badge badge-info">${r.transporte}</span>` : '';
+
+  // Tabela Serviços (banhos)
+  let html = '<details class="rom-details"><summary>▾ Ver detalhamento completo do romaneio</summary><div class="rom-detail">';
+
+  // Cabeçalho
+  html += `<div class="rom-h">
+    <div class="rom-h-l"><span class="lbl">Cliente</span><strong>${r.cliente}</strong></div>
+    <div class="rom-h-l"><span class="lbl">Data</span><strong>${fmt.dateF(r.data)}</strong></div>
+    <div class="rom-h-l"><span class="lbl">Cotação ouro</span><strong>${cotacaoOuro?fmt.brl(cotacaoOuro)+'/g':'—'}</strong></div>
+    <div class="rom-h-l"><span class="lbl">Status</span>${statusBadge||'<span class="dim">—</span>'}</div>
+  </div>`;
+
+  // Serviços (banhos principais)
+  if (banho.length){
+    html += '<div class="rom-sec"><div class="rom-sec-h">Serviços</div>';
+    html += '<table class="rom-table"><thead><tr><th>Serviço Prestado</th><th>Cor</th><th class="center">Mil.</th><th class="right">Preço/kg</th><th class="right">Peso</th><th class="right">Total</th></tr></thead><tbody>';
+    banho.forEach(i => {
+      html += `<tr><td>${i.material}${i.material==='Ródio Branco' || !i.milesimos?'':' '+i.milesimos+' ml'} ${i.tiposerv}</td><td>${i.cor!=='—'?i.cor:'<span class="dim">—</span>'}</td><td class="center">${i.milesimos==null?'—':i.milesimos}</td><td class="right">${fmt.brl(i.vlr_serv_kg||0)}</td><td class="right">${fmt.g(i.peso)}</td><td class="right"><strong>${fmt.brl(i.valor||0)}</strong></td></tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // Serviços Adicionais
+  if (adic.length){
+    html += '<div class="rom-sec"><div class="rom-sec-h rom-sec-adic">Serviços Adicionais</div>';
+    html += '<table class="rom-table"><thead><tr><th>Serviço</th><th class="right">Preço/kg</th><th class="right">Peso</th><th class="right">Total</th></tr></thead><tbody>';
+    adic.forEach(i => {
+      html += `<tr><td>${i.material}</td><td class="right">${fmt.brl(i.vlr_serv_kg||0)}</td><td class="right">${fmt.g(i.peso)}</td><td class="right"><strong>${fmt.brl(i.valor||0)}</strong></td></tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // Descontos / Rebanhos (vindos de itemservico com tipo Desconto)
+  if (desc.length){
+    html += '<div class="rom-sec"><div class="rom-sec-h rom-sec-desc">Descontos / Rebanhos</div>';
+    html += '<table class="rom-table"><thead><tr><th>Tipo</th><th>Material</th><th class="right">Peso</th><th class="right">Valor</th></tr></thead><tbody>';
+    desc.forEach(i => {
+      html += `<tr><td>${i.tiposerv}</td><td>${i.material}</td><td class="right">${fmt.g(i.peso)}</td><td class="right">${fmt.brl(i.valor||0)}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // Serviços Externos
+  if (ext.length){
+    html += '<div class="rom-sec"><div class="rom-sec-h rom-sec-ext">Serviços Externos</div>';
+    html += '<table class="rom-table"><thead><tr><th>Serviço</th><th class="right">Total</th></tr></thead><tbody>';
+    ext.forEach(e => {
+      const isNeg = +e.valor < 0;
+      html += `<tr><td>${e.descricao_serv}</td><td class="right ${isNeg?'neg':''}"><strong>${fmt.brl(e.valor||0)}</strong></td></tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // Transporte e Totais
+  html += '<div class="rom-sec"><div class="rom-sec-h rom-sec-tot">Transporte e Totais</div>';
+  html += `<div class="rom-totals">
+    <div class="rom-tot-l"><span class="lbl">Tipo de Transporte</span>${transBadge||'<span class="dim">—</span>'}</div>
+    <div class="rom-tot-l"><span class="lbl">Total Frete</span><strong>${fmt.brl(+r.frete||0)}</strong></div>
+    <div class="rom-tot-l"><span class="lbl">Total Metal</span><strong>${fmt.brl(valorMetal)}</strong></div>
+    <div class="rom-tot-l"><span class="lbl">Peso Total Banho</span><strong>${fmt.g(pesoBanho)}</strong></div>
+    <div class="rom-tot-l"><span class="lbl">M.O. + Outros Serviços</span><strong>${fmt.brl(moOutros)}</strong></div>
+    <div class="rom-tot-l"><span class="lbl">Total da Nota</span><strong class="big">${fmt.brl(+r.valor_total||0)}</strong></div>
+    <div class="rom-tot-l"><span class="lbl">Valor à Vista</span><strong class="big">${fmt.brl(+r.valor_total||0)}</strong></div>
+    ${(+r.saldopag||0)!==0 ? `<div class="rom-tot-l"><span class="lbl">Saldo Pendente</span><strong class="big neg">${fmt.brl(+r.saldopag||0)}</strong></div>` : ''}
+  </div></div>`;
+
+  html += '</div></details>';
+  return resumo + html;
 }
 
 // SEÇÃO ② — CONCILIAÇÃO POR BUCKET
@@ -1065,7 +1198,7 @@ function renderAlertas(){
 
   // Pagamento
   if (state.rom.statuspag && /pendente|aberto/i.test(state.rom.statuspag)){
-    alertas.push({k:'info', msg:`Status de pagamento: <strong>${state.rom.statuspag}</strong>. Conferir saldo no cadastro do cliente.`});
+    // Status pagamento NÃO entra mais como alerta separado (aparece no detalhamento do romaneio na etapa 6)
   }
 
   document.getElementById('alertasList').innerHTML = alertas.map(a => `<li class="${a.k}">${a.msg}</li>`).join('');
