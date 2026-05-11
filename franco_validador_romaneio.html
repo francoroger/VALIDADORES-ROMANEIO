@@ -121,6 +121,8 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 .conc-table tr.sub-row .sub-prefix{color:var(--text-3);font-family:ui-monospace,monospace;margin-right:4px}
 .conc-table tr.total-row{background:var(--surface-2);font-weight:700}
 .conc-table tr.total-row td{border-top:2px solid var(--border-2);padding-top:11px}
+.conc-title{font-size:12px;font-weight:700;color:var(--primary-2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid var(--primary)}
+.conc-meta{margin-bottom:10px}
 .tag-mat{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:3px;background:#dcfce7;color:#166534;border:1px solid #86efac}
 .tag-cor{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:3px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;margin:0 4px}
 .tag-mil{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:3px;background:#eef2ff;color:#3b3bdb;border:1px solid #c7d2fe}
@@ -312,9 +314,9 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
   <div class="section-body" id="formulaContent"></div>
 </div>
 
-<!-- Section ④ Itens detalhados -->
-<div class="section" id="sec4" style="display:none">
-  <h2><span class="num">④</span> Itens detalhados do Romaneio <span class="meta" id="sec4Meta"></span></h2>
+<!-- Section ④ Itens detalhados (retrátil) -->
+<div class="section collapsible collapsed" id="sec4" style="display:none">
+  <h2 onclick="this.parentElement.classList.toggle('collapsed')"><span class="num">④</span> Itens detalhados do Romaneio <span class="meta" id="sec4Meta"></span><span class="chev">▾</span></h2>
   <div class="section-body" id="itensContent"></div>
 </div>
 
@@ -331,6 +333,8 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
+  { v: '3.7', date: '2026-05-11 13:00', changes: '(1) bucketLabel: badges de cor e milésimos só aparecem quando têm valor (Ródio Branco não mostra mais — — milésimos). (2) Cada cor tem paleta DISTINTA: Madrid azul, Quebec âmbar, Champagne rosa, Roma vermelho, Milano roxo, Veneza verde, demais via hash (cor estável por nome). (3) Tabela 2 agora tem badge delta tempo OS→Romaneio igual Tabela 1. (4) Variação % na Tabela 2 trocada de "Rom vs Pass" para "Rom vs OS" (faz mais sentido conceitualmente — Catalogação/OS são plano, Romaneio é execução).' },
+  { v: '3.6', date: '2026-05-11 12:30', changes: 'Conciliação reorganizada em DUAS tabelas separadas (Opção C): Tabela 1 = Bucket com cor (Material·Cor·Milésimos × OS·Pass·Rom·Var%) + badge com delta de tempo OS→Romaneio no header. Tabela 2 = Conferência por material+milésimos (com coluna Catalogação primeiro, depois OS·Pass·Rom·Var%). Cada granularidade tem sua própria tabela — não mistura mais conceitos. PLUS: Seção ④ Itens detalhados do Romaneio agora é RETRÁTIL (default fechada) já que o detalhamento completo aparece na etapa ⑥.' },
   { v: '3.5', date: '2026-05-11 12:00', changes: 'Etapa 6 (Romaneio) com expand/retrair detalhamento COMPLETO: cabeçalho (cliente, data, cotação ouro, status pgto como BADGE colorido), tabela Serviços (banhos), tabela Serviços Adicionais (vernizes), tabela Descontos/Rebanhos, tabela Serviços Externos (puxa de servicos_servext: SOLDA/COLAGEM, descontos por triagem), e bloco Transporte e Totais (tipo transporte, frete, total metal calculado, peso banho, MO+outros, total nota, valor à vista, saldo pendente se houver). Layout inspirado no PDF do romaneio do Delphi com badges harmoniosos. PLUS: removido alerta "Status de pagamento: Pendente..." da seção ⑤ (agora aparece no detalhamento como badge).' },
   { v: '3.4', date: '2026-05-11 11:30', changes: '(1) JANELA DE BANHO AMPLIADA: passa de banho_fim+24h para até exp_ini-1min. Separações podem ter banhos em DIAS DIFERENTES (ex: Dourado num dia, Ródio em outro). Caso #24713 FLÁVIA: Ródio passou em 23/03 (4d depois do banho_fim 19/03, mas antes do exp_ini 30/03) — agora entra. Cap absoluto de 30d + proteção via próxima sep. (2) ETAPA 5 PASSAGENS RETRÁTIL: novo botão expand/retrair mostra tabela de detalhes por dia (tiposerv+material+cor+ml+peso) + resumo do período no fim. Igual ao Relatório de Produção do sistema Delphi. (3) Removido Status pagamento da etapa 6 (Romaneio) — informação redundante.' },
   { v: '3.3', date: '2026-05-11 10:30', changes: 'BUGFIX anchor: query relaxou tolerância pra romaneios feitos ANTES da expedição. Antes: anchor exigia exp_ini ≤ data_rom + 1d (rígido). Agora: aceita até 30 dias antes do exp_ini, mantendo o limite superior por exp_fim+2d. Caso #24713 FLÁVIA: romaneio em 27/03, exp_ini em 30/03 (3d depois) — sep 14708 com catalogacao_id=13354 não era encontrada. Operadores às vezes faturam antes do motoboy sair. Mesmo fix aplicado em monitor v2.6 e RP v3.3 (no JS, tolIni passou de -1d para -30d).' },
@@ -644,8 +648,28 @@ const DESC_TIPOS = ['Desconto - Rebanho','Desconto de Pedras','Tarraxa'];
 function isAdicional(material, tiposerv){ return ADIC_MATS.includes(material) || ADIC_TIPOS.includes(tiposerv); }
 function isDesconto(tiposerv){ return DESC_TIPOS.includes(tiposerv); }
 function bucketKey(r){ return `${r.material}|${r.cor||'—'}|${r.milesimos??'—'}`; }
+// Paleta de cores por NOME da cor — palette acessível com bom contraste
+const CORES_PALETTE = {
+  'Madrid':    { bg:'#dbeafe', fg:'#1e40af', bd:'#93c5fd' },  // azul
+  'Quebec':    { bg:'#fef3c7', fg:'#92400e', bd:'#fcd34d' },  // âmbar
+  'Champagne': { bg:'#fce7f3', fg:'#9d174d', bd:'#f9a8d4' },  // rosa
+  'Roma':      { bg:'#fee2e2', fg:'#991b1b', bd:'#fca5a5' },  // vermelho
+  'Milano':    { bg:'#f3e8ff', fg:'#6b21a8', bd:'#d8b4fe' },  // roxo
+  'Veneza':    { bg:'#d1fae5', fg:'#065f46', bd:'#6ee7b7' },  // verde
+};
+function corStyle(cor){
+  if (!cor || cor === '—') return null;
+  const p = CORES_PALETTE[cor];
+  if (p) return `background:${p.bg};color:${p.fg};border:1px solid ${p.bd}`;
+  // Fallback: hash simples do nome → cor estável
+  let h = 0; for (const c of cor) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const hue = h % 360;
+  return `background:hsl(${hue},65%,92%);color:hsl(${hue},75%,28%);border:1px solid hsl(${hue},55%,72%)`;
+}
 function bucketLabel(material, cor, mil){
-  return `<span class="tag-mat">${material}</span><span class="tag-cor">${cor||'—'}</span><span class="tag-mil">${mil??'—'} milésimos</span>`;
+  const corBadge = (cor && cor !== '—') ? `<span class="tag-cor" style="${corStyle(cor)}">${cor}</span>` : '';
+  const milBadge = (mil !== null && mil !== undefined && mil !== '') ? `<span class="tag-mil">${mil} milésimos</span>` : '';
+  return `<span class="tag-mat">${material}</span>${corBadge}${milBadge}`;
 }
 
 function renderAll(){
@@ -923,9 +947,9 @@ function renderConciliacao(){
   state.osItems.forEach(i => { if (!isDesconto(i.tiposerv)) ensure(bucketKey(i), i).os += +i.peso||0; });
   state.passagens.forEach(p => { ensure(bucketKey(p), p).pass += +p.peso||0; });
   state.items.forEach(i => { if (!isDesconto(i.tiposerv)) ensure(bucketKey(i), i).rom += +i.peso||0; });
-  const arr = [...buckets.values()];
+  const arr = [...buckets.values()].sort((a,b) => (a.isAdic?1:0) - (b.isAdic?1:0) || (b.os+b.pass+b.rom) - (a.os+a.pass+a.rom));
 
-  // Mapa de catalogação por material+milésimos (triagem não tem cor — agrega só por material+ml)
+  // Mapa catalogação (triagem) por material+milésimos
   const catMap = new Map();
   (state.catalogacao||[]).forEach(c => {
     const k = `${c.material}|${c.milesimos??'_'}`;
@@ -933,109 +957,138 @@ function renderConciliacao(){
   });
 
   const variacao = (pass, rom) => (!pass || !rom) ? null : (rom - pass) / pass * 100;
-  const colorVar = v => {
-    if (v === null) return '';
-    if (Math.abs(v) < 0.5) return '';
-    return v > 0 ? 'varok' : 'varbad';
-  };
-
-  // Separar banho vs adicionais
+  const colorVar = v => { if (v === null) return ''; if (Math.abs(v) < 0.5) return ''; return v > 0 ? 'varok' : 'varbad'; };
   const banho = arr.filter(b => !b.isAdic);
   const adic = arr.filter(b => b.isAdic);
 
-  // Agrupar por (material+milesimos)
-  function agruparPorMatMil(itens){
-    const grupos = new Map();
-    itens.forEach(b => {
-      const k = `${b.material}|${b.mil??'_'}`;
-      if (!grupos.has(k)) grupos.set(k, { material:b.material, mil:b.mil, isAdic:b.isAdic, key:k, cores:[], totOs:0, totPass:0, totRom:0 });
-      const g = grupos.get(k);
-      g.cores.push(b);
-      g.totOs += b.os; g.totPass += b.pass; g.totRom += b.rom;
-    });
-    // Sort: maior soma primeiro
-    return [...grupos.values()].sort((a,b) => (b.totOs+b.totPass+b.totRom) - (a.totOs+a.totPass+a.totRom));
+  // Delta tempo OS → Romaneio
+  let deltaInfo = '';
+  if (state.os && state.os.data && state.rom && state.rom.data){
+    const dOs = new Date(state.os.data);
+    const dRom = new Date(state.rom.data);
+    const dias = Math.round((dRom - dOs)/86400000);
+    deltaInfo = `<span class="badge badge-info">OS #${state.os.numero} em ${fmt.dateF(state.os.data)} → Romaneio em ${fmt.dateF(state.rom.data)} · <strong>${dias} ${dias===1?'dia':'dias'}</strong></span>`;
   }
 
-  const renderGrupo = (g, opts={}) => {
-    const catTot = catMap.get(g.key) || 0;
-    const vTot = variacao(g.totPass, g.totRom);
-    const clsTot = colorVar(vTot);
-    const labelGrupo = `${g.material}${g.mil!=null?' · '+g.mil+' milésimos':''}`;
-    const isAdicTag = g.isAdic ? ' <small class="dim">· adicional (não soma peso)</small>' : '';
-
-    // Linha pai (totais agregados)
-    let html = `<tr class="grupo-row${g.isAdic?' adicional':''}">
-      <td class="left"><strong>${labelGrupo}</strong>${isAdicTag}</td>
-      <td>${catTot ? '<strong>'+fmt.g(catTot)+'</strong>' : '<span class="dim">—</span>'}</td>
-      <td>${g.totOs ? '<strong>'+fmt.g(g.totOs)+'</strong>' : '<span class="dim">—</span>'}</td>
-      <td>${g.totPass ? '<strong>'+fmt.g(g.totPass)+'</strong>' : '<span class="dim">—</span>'}</td>
-      <td><strong>${g.totRom ? fmt.g(g.totRom) : '—'}</strong></td>
-      <td class="${clsTot}"><strong>${vTot===null ? '—' : fmt.pct(vTot)}</strong></td>
+  // ============================================
+  // TABELA 1: Conciliação por Bucket (com cor) — OS · Passagem · Romaneio
+  // ============================================
+  const renderRow1 = (b) => {
+    const v = variacao(b.pass, b.rom);
+    const cls = colorVar(v);
+    return `<tr class="${b.isAdic?'adicional':''}">
+      <td class="left">${bucketLabel(b.material, b.cor, b.mil)}${b.isAdic?' <small class="dim">· adicional (não soma peso)</small>':''}</td>
+      <td>${b.os ? fmt.g(b.os) : '<span class="dim">—</span>'}</td>
+      <td>${b.pass ? fmt.g(b.pass) : '<span class="dim">—</span>'}</td>
+      <td><strong>${b.rom ? fmt.g(b.rom) : '—'}</strong></td>
+      <td class="${cls}">${v===null ? '<span class="dim">—</span>' : fmt.pct(v)}</td>
     </tr>`;
-
-    // Sub-linhas (uma por cor)
-    g.cores.forEach(b => {
-      const v = variacao(b.pass, b.rom);
-      const cls = colorVar(v);
-      html += `<tr class="sub-row${g.isAdic?' adicional':''}">
-        <td class="left"><span class="sub-prefix">└─</span> ${b.cor || '<span class="dim">sem cor</span>'}</td>
-        <td><span class="dim">—</span></td>
-        <td>${b.os ? fmt.g(b.os) : '<span class="dim">—</span>'}</td>
-        <td>${b.pass ? fmt.g(b.pass) : '<span class="dim">—</span>'}</td>
-        <td>${b.rom ? fmt.g(b.rom) : '—'}</td>
-        <td class="${cls}">${v===null ? '<span class="dim">—</span>' : fmt.pct(v)}</td>
-      </tr>`;
-    });
-    return html;
   };
 
-  // Totais gerais (só banho)
-  const grBanho = agruparPorMatMil(banho);
-  const grAdic = agruparPorMatMil(adic);
-  const tBanhoOs = banho.reduce((s,b)=>s+b.os,0);
-  const tBanhoPa = banho.reduce((s,b)=>s+b.pass,0);
-  const tBanhoRo = banho.reduce((s,b)=>s+b.rom,0);
-  const tBanhoCat = grBanho.reduce((s,g)=>s+(catMap.get(g.key)||0),0);
-  const tAdicOs = adic.reduce((s,b)=>s+b.os,0);
-  const tAdicPa = adic.reduce((s,b)=>s+b.pass,0);
-  const tAdicRo = adic.reduce((s,b)=>s+b.rom,0);
-  const tAdicCat = grAdic.reduce((s,g)=>s+(catMap.get(g.key)||0),0);
+  const tBOs = banho.reduce((s,b)=>s+b.os,0);
+  const tBPa = banho.reduce((s,b)=>s+b.pass,0);
+  const tBRo = banho.reduce((s,b)=>s+b.rom,0);
+  const tAOs = adic.reduce((s,b)=>s+b.os,0);
+  const tAPa = adic.reduce((s,b)=>s+b.pass,0);
+  const tARo = adic.reduce((s,b)=>s+b.rom,0);
 
-  let html = `<table class="conc-table">
+  let html = `<div class="conc-title">Tabela 1 · Conciliação por Bucket (material+cor+milésimos)</div>
+  ${deltaInfo ? '<div class="conc-meta">'+deltaInfo+'</div>' : ''}
+  <table class="conc-table">
     <thead><tr>
-      <th class="left">Material · Milésimos / Cor</th>
-      <th>Catalogação</th>
-      <th>OS</th>
-      <th>Passagem</th>
-      <th>Romaneio</th>
+      <th class="left">Material · Cor · Milésimos</th>
+      <th>OS</th><th>Passagem</th><th>Romaneio</th>
       <th>Variação % (Rom vs Pass)</th>
     </tr></thead>
     <tbody>
-      ${grBanho.map(g => renderGrupo(g)).join('')}
+      ${banho.map(renderRow1).join('')}
+      ${banho.length ? `<tr class="total-row">
+        <td class="left">Total banho (peso real)</td>
+        <td>${tBOs ? fmt.g(tBOs) : '<span class="dim">—</span>'}</td>
+        <td>${tBPa ? fmt.g(tBPa) : '<span class="dim">—</span>'}</td>
+        <td>${fmt.g(tBRo)}</td>
+        <td class="${colorVar(variacao(tBPa, tBRo))}">${variacao(tBPa, tBRo)===null ? '—' : fmt.pct(variacao(tBPa, tBRo))}</td>
+      </tr>` : ''}
+      ${adic.map(renderRow1).join('')}
+      ${adic.length ? `<tr class="total-row" style="background:rgba(245,158,11,.08)">
+        <td class="left">Total adicionais</td>
+        <td>${tAOs ? fmt.g(tAOs) : '<span class="dim">—</span>'}</td>
+        <td>${tAPa ? fmt.g(tAPa) : '<span class="dim">—</span>'}</td>
+        <td>${tARo ? fmt.g(tARo) : '<span class="dim">—</span>'}</td>
+        <td><span class="dim">—</span></td>
+      </tr>` : ''}
+    </tbody>
+  </table>`;
+
+  // ============================================
+  // TABELA 2: Conferência por material+milésimos (com Catalogação)
+  // ============================================
+  function agruparMatMil(itens){
+    const grupos = new Map();
+    itens.forEach(b => {
+      const k = `${b.material}|${b.mil??'_'}`;
+      if (!grupos.has(k)) grupos.set(k, { key:k, material:b.material, mil:b.mil, isAdic:b.isAdic, os:0, pass:0, rom:0 });
+      const g = grupos.get(k);
+      g.os += b.os; g.pass += b.pass; g.rom += b.rom;
+    });
+    return [...grupos.values()].sort((a,b) => (b.os+b.pass+b.rom) - (a.os+a.pass+a.rom));
+  }
+
+  const grBanho = agruparMatMil(banho);
+  const grAdic = agruparMatMil(adic);
+
+  const renderRow2 = (g) => {
+    const cat = catMap.get(g.key) || 0;
+    const v = variacao(g.os, g.rom);  // Var% entre OS e Romaneio (não Pass→Rom)
+    const cls = colorVar(v);
+    const label = `${g.material}${g.mil!=null?' · '+g.mil+' milésimos':''}${g.isAdic?' <small class="dim">· adicional</small>':''}`;
+    return `<tr class="${g.isAdic?'adicional':''}">
+      <td class="left">${label}</td>
+      <td>${cat ? fmt.g(cat) : '<span class="dim">—</span>'}</td>
+      <td>${g.os ? fmt.g(g.os) : '<span class="dim">—</span>'}</td>
+      <td>${g.pass ? fmt.g(g.pass) : '<span class="dim">—</span>'}</td>
+      <td><strong>${g.rom ? fmt.g(g.rom) : '—'}</strong></td>
+      <td class="${cls}">${v===null ? '<span class="dim">—</span>' : fmt.pct(v)}</td>
+    </tr>`;
+  };
+
+  const tBCat = grBanho.reduce((s,g)=>s+(catMap.get(g.key)||0), 0);
+  const tACat = grAdic.reduce((s,g)=>s+(catMap.get(g.key)||0), 0);
+
+  html += `<div class="conc-title" style="margin-top:18px">Tabela 2 · Conferência por material+milésimos (com Catalogação)</div>
+  ${deltaInfo ? '<div class="conc-meta">'+deltaInfo+'</div>' : ''}
+  <div class="help-text" style="margin-bottom:6px">A triagem (Catalogação) não distingue cor — agrega só por material+milésimos. Variação calculada entre OS e Romaneio.</div>
+  <table class="conc-table">
+    <thead><tr>
+      <th class="left">Material · Milésimos</th>
+      <th>Catalogação</th><th>OS</th><th>Passagem</th><th>Romaneio</th>
+      <th>Variação % (Rom vs OS)</th>
+    </tr></thead>
+    <tbody>
+      ${grBanho.map(renderRow2).join('')}
       ${grBanho.length ? `<tr class="total-row">
         <td class="left">Total banho (peso real)</td>
-        <td>${tBanhoCat ? fmt.g(tBanhoCat) : '<span class="dim">—</span>'}</td>
-        <td>${tBanhoOs ? fmt.g(tBanhoOs) : '<span class="dim">—</span>'}</td>
-        <td>${tBanhoPa ? fmt.g(tBanhoPa) : '<span class="dim">—</span>'}</td>
-        <td>${fmt.g(tBanhoRo)}</td>
-        <td class="${colorVar(variacao(tBanhoPa, tBanhoRo))}">${variacao(tBanhoPa, tBanhoRo)===null ? '—' : fmt.pct(variacao(tBanhoPa, tBanhoRo))}</td>
+        <td>${tBCat ? fmt.g(tBCat) : '<span class="dim">—</span>'}</td>
+        <td>${tBOs ? fmt.g(tBOs) : '<span class="dim">—</span>'}</td>
+        <td>${tBPa ? fmt.g(tBPa) : '<span class="dim">—</span>'}</td>
+        <td>${fmt.g(tBRo)}</td>
+        <td class="${colorVar(variacao(tBOs, tBRo))}">${variacao(tBOs, tBRo)===null ? '—' : fmt.pct(variacao(tBOs, tBRo))}</td>
       </tr>` : ''}
-      ${grAdic.map(g => renderGrupo(g)).join('')}
+      ${grAdic.map(renderRow2).join('')}
       ${grAdic.length ? `<tr class="total-row" style="background:rgba(245,158,11,.08)">
         <td class="left">Total adicionais</td>
-        <td>${tAdicCat ? fmt.g(tAdicCat) : '<span class="dim">—</span>'}</td>
-        <td>${tAdicOs ? fmt.g(tAdicOs) : '<span class="dim">—</span>'}</td>
-        <td>${tAdicPa ? fmt.g(tAdicPa) : '<span class="dim">—</span>'}</td>
-        <td>${tAdicRo ? fmt.g(tAdicRo) : '<span class="dim">—</span>'}</td>
+        <td>${tACat ? fmt.g(tACat) : '<span class="dim">—</span>'}</td>
+        <td>${tAOs ? fmt.g(tAOs) : '<span class="dim">—</span>'}</td>
+        <td>${tAPa ? fmt.g(tAPa) : '<span class="dim">—</span>'}</td>
+        <td>${tARo ? fmt.g(tARo) : '<span class="dim">—</span>'}</td>
         <td><span class="dim">—</span></td>
       </tr>` : ''}
     </tbody>
   </table>
-  <div class="help-text"><strong>Catalogação</strong> = soma da triagem por material+milésimos (triagem não distingue cor — aparece só na linha pai). <strong>OS</strong> = soma da Ordem de Serviço real (flag_orcamento IS NULL). <strong>Passagem</strong> = soma das passagens da janela de banho da separação. <strong>Romaneio</strong> = peso faturado. Variação só faz sentido para banho (adicionais não somam no peso).</div>`;
+  <div class="help-text"><strong>OS</strong> = Ordem de Serviço (flag_orcamento IS NULL) · <strong>Passagem</strong> = peso real escaneado na janela de banho · <strong>Romaneio</strong> = peso faturado · Variação só para banho (adicionais não somam no peso).</div>`;
 
   document.getElementById('concContent').innerHTML = html;
-  document.getElementById('sec2Meta').textContent = `${arr.length} cores em ${grBanho.length + grAdic.length} grupos (material+milésimos)`;
+  document.getElementById('sec2Meta').textContent = `${arr.length} buckets · ${grBanho.length + grAdic.length} grupos`;
   document.getElementById('sec2').style.display = '';
 }
 
