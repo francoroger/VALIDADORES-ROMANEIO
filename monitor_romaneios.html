@@ -204,6 +204,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '2.5', date: '2026-05-11 00:30', changes: 'BUGFIX CRÍTICO: query de OS agora filtra flag_orcamento IS NULL. Antes misturava Pré-Orçamento com OS real, distorcendo coluna OS dos romaneios.' },
   { v: '2.4', date: '2026-05-10 22:45', changes: 'BUGFIX limit cap MCP: cap é 500 (validação Pydantic), não 5000. Implementada paginação callDBAll via OFFSET nas 4 queries grandes (roms, oss, passes, seps). Resolve SEM PASS em massa quando passagens >500.' },
   { v: '2.3', date: '2026-05-10 22:00', changes: 'BUGFIX crítico limite MCP: limit=500 estava truncando passagens em períodos com >500 registros (1453 passagens só em abril). Aumentado pra 5000. Sintoma do bug: vários romaneios marcados "SEM PASS." indevidamente porque suas passagens existiam mas foram cortadas pelo limit.' },
   { v: '2.2', date: '2026-05-10 21:30', changes: 'Detector de duplicatas com ALERTA VISUAL na expansão do romaneio (igual já estava no validador). Mostra: quantos grupos duplicados, peso inflado total, IDs envolvidos, e variação recalculada IGNORANDO duplicatas. Caso #24874 LETÍCIA: alerta exibe 4 IDs no mesmo segundo (POST duplo na API), peso real ≈ 1.280g (não 1.766g), variação ≈ +1.3% (não -26.6%).' },
@@ -350,7 +351,7 @@ async function loadAll(){
     const inClauseP = clienteIds.length > 0 ? `AND p.cliente_id IN (${clienteIds.join(',')})` : '';
 
     setStatus('Carregando OSs anteriores…', 'loading');
-    const sqlO = `SELECT o.id AS os_id, o.numero AS os_numero, o.datavenda::text AS data, o.idcliente AS cliente_id, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, io.id AS item_id, m.descricao AS material, COALESCE(cor.descricao,'—') AS cor, io.milesimos, ts.descricao AS tiposerv, io.peso FROM itemordem io JOIN ordemservico o ON o.id=io.idordem JOIN material m ON m.id=io.idmaterial LEFT JOIN cores cor ON cor.id=io.idcor JOIN tiposervico ts ON ts.id=io.idtiposervico WHERE o.datavenda >= '${dOSFrom}' AND o.datavenda < '${dToPlus}' ${inClauseO} ORDER BY o.datavenda DESC`;
+    const sqlO = `SELECT o.id AS os_id, o.numero AS os_numero, o.datavenda::text AS data, o.idcliente AS cliente_id, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, io.id AS item_id, m.descricao AS material, COALESCE(cor.descricao,'—') AS cor, io.milesimos, ts.descricao AS tiposerv, io.peso FROM itemordem io JOIN ordemservico o ON o.id=io.idordem JOIN material m ON m.id=io.idmaterial LEFT JOIN cores cor ON cor.id=io.idcor JOIN tiposervico ts ON ts.id=io.idtiposervico WHERE o.flag_orcamento IS NULL AND o.datavenda >= '${dOSFrom}' AND o.datavenda < '${dToPlus}' ${inClauseO} ORDER BY o.datavenda DESC`;
     state.oss = await callDBAll(sqlO, 'os-items');
     setStatus('Carregando passagens anteriores…', 'loading');
     // ATENÇÃO: incluir data_full (timestamp) pra filtrar por janela exata banho_ini→banho_fim da separação

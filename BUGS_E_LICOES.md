@@ -78,6 +78,23 @@ REPLACE(REPLACE(COALESCE(observacao, ''), CHR(13), ' '), CHR(10), ' ') AS observ
 
 ---
 
+### `ordemservico` mistura OS real com Pré-Orçamento (flag_orcamento)
+
+**Sintoma:** validador puxa um "OS" cujo número é estranhamente baixo (ex: #2802) e os pesos não batem com nada do romaneio.
+
+**Causa:** a tabela `ordemservico` tem 2 sequências paralelas:
+- `flag_orcamento = TRUE` → **PRÉ-ORÇAMENTO** (tela "Pré Orçamento" do Delphi) — só estimativa pré-aprovação
+- `flag_orcamento IS NULL` → **OS real** (Ordem de Serviço efetiva)
+
+**Tratamento:** SEMPRE filtrar nas queries:
+```sql
+WHERE flag_orcamento IS NULL
+```
+
+**Caso histórico:** #24713 FLÁVIA — validador pegou #2802 (pré-orçamento) em vez de #12734 (OS real). Diferença é gigante porque pré-orçamento muda antes do banho e não reflete o que efetivamente foi produzido.
+
+---
+
 ## Bugs nos artefatos (foram corrigidos)
 
 ### MCP limit cap 500

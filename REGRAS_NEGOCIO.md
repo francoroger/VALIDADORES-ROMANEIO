@@ -86,6 +86,29 @@ LIMIT 1
 
 **Não usar `±2d do exp_ini`** — falha quando romaneio é >2d depois do início da expedição. Caso #24855 NP SOARES (exp_ini=04-30, romaneio=05-04 = 4 dias depois).
 
+## OS vs Pré-Orçamento (regra crítica)
+
+A tabela `ordemservico` tem **2 tipos de documento** misturados, separados pela coluna `flag_orcamento`:
+
+| `flag_orcamento` | É o quê | Usar em comparação de peso? |
+|---|---|---|
+| **`TRUE`** | **PRÉ-ORÇAMENTO** (UI Delphi: tela "Pré Orçamento") — estimativa pré-aprovação | ❌ **NUNCA** |
+| **`NULL`** | **OS real** (Ordem de Serviço efetiva) — cliente aprovou e foi pra produção | ✅ **SIM** |
+
+As sequências de `numero` são PARALELAS:
+- Pré-orçamentos (`flag=TRUE`): números 1 a 2.923 (sequência mais nova)
+- OSs reais (`flag IS NULL`): números 1 a 12.980 (sequência antiga, contínua)
+
+**Em todas as queries que buscam OS, SEMPRE filtrar:**
+
+```sql
+SELECT * FROM ordemservico WHERE flag_orcamento IS NULL AND ...
+```
+
+Sem esse filtro, o sistema pode pegar um pré-orçamento como se fosse OS real e calcular variações de peso comparando com algo que nunca foi efetivamente executado.
+
+**Caso histórico #24713 FLÁVIA:** validador estava puxando `#2802` (pré-orçamento, flag=TRUE) como referência. A OS real era `#12734` (flag=NULL, com `CAT.: 13354` na observação ligando à triagem).
+
 ## Idiossincrasias do schema
 
 | Idiossincrasia | Detalhe |

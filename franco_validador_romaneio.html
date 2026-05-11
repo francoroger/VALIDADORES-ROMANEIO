@@ -272,6 +272,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
+  { v: '3.1', date: '2026-05-11 00:30', changes: 'BUGFIX CRÍTICO: queries de OS agora filtram flag_orcamento IS NULL. A tabela ordemservico tem 2 sequências paralelas — Pré-Orçamento (flag=TRUE, sequência 1-2923) e OS real (flag IS NULL, sequência 1-12980). O validador estava puxando o Pré-Orçamento mais recente como OS, dando comparações de peso sem sentido. Caso #24713 FLÁVIA: pegava #2802 (Pré-Orçamento) em vez de #12734 (OS real com CAT: 13354).' },
   { v: '3.0', date: '2026-05-10 23:50', changes: 'Refeita lista de romaneios com SCROLL INFINITO: carrega 50 por vez, conforme rola pra baixo busca mais (sem cap de 30 dias). Filtros (Cliente, De, Até) agora vão na query SQL — qualquer data funciona, não só últimos 30d. Debounce de 400ms ao digitar no filtro de cliente pra não bombardear o banco.' },
   { v: '2.9', date: '2026-05-10 23:30', changes: 'Filtros (Cliente, De, Até) movidos para a barra principal superior — agora ficam na mesma linha do input de Romaneio + Validar, igual nos outros artefatos. Filtram a lista dos últimos 30 dias em tempo real.' },
   { v: '2.8', date: '2026-05-10 23:00', changes: 'Refactor UI: (1) Timeline dos 7 documentos agora ordena cronologicamente por data real (separação aparece antes da triagem quando preparação inicia antes da catalogação). (2) Filtros cliente/data adicionados na lista dos últimos 30 dias. (3) Loader grande e visível durante carregamento do romaneio (mostra status atual em destaque). (4) Seção ③ Fórmula Triádica agora é retrátil — começa fechada, clique no header para expandir. (5) Card do header do romaneio redesenhado: cor mais sutil (branco com borda azul lateral em vez de gradient azul forte), removidos campos Peso adicionais e Status pagamento.' },
@@ -508,14 +509,14 @@ SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS da
 
     // NÍVEL (a): OS via "O.S:NNNN" da observacao da triagem
     if (state.osDebug.osNumExtraido){
-      const sqlA = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.idcliente = ${cli} AND o.numero = ${state.osDebug.osNumExtraido} LIMIT 1`;
+      const sqlA = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.flag_orcamento IS NULL AND o.idcliente = ${cli} AND o.numero = ${state.osDebug.osNumExtraido} LIMIT 1`;
       state.osDebug.niveisTentados.push({n:'a', sql:sqlA});
       const r = await callDB(sqlA);
       if (r[0]){ state.os = r[0]; state.osStrategy = `(a) via "O.S:${state.osDebug.osNumExtraido}" na obs da triagem ${state.triagem.id}`; }
     }
     // NÍVEL (b): OS com "CAT: <triagem_id>" na observação
     if (!state.os && state.triagem){
-      const sqlB = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.idcliente = ${cli} AND o.observacao ~* 'CAT:\\s*${state.triagem.id}\\b' ORDER BY o.datavenda DESC LIMIT 1`;
+      const sqlB = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.flag_orcamento IS NULL AND o.idcliente = ${cli} AND o.observacao ~* 'CAT:\\s*${state.triagem.id}\\b' ORDER BY o.datavenda DESC LIMIT 1`;
       state.osDebug.niveisTentados.push({n:'b', sql:sqlB});
       const r = await callDB(sqlB);
       if (r[0]){ state.os = r[0]; state.osStrategy = `(b) via "CAT: ${state.triagem.id}" na observação da OS`; }
@@ -524,14 +525,14 @@ SELECT p.id, p.data_servico::text AS data_full, p.data_servico::date::text AS da
     if (!state.os && sep && state.recebimentos.length){
       const minRec = state.recebimentos[0].data;
       const fimSep = (sep.fim_sep || dt).slice(0,10);
-      const sqlC = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.idcliente = ${cli} AND o.datavenda BETWEEN '${minRec}' AND '${fimSep}' ORDER BY o.datavenda DESC LIMIT 1`;
+      const sqlC = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.flag_orcamento IS NULL AND o.idcliente = ${cli} AND o.datavenda BETWEEN '${minRec}' AND '${fimSep}' ORDER BY o.datavenda DESC LIMIT 1`;
       state.osDebug.niveisTentados.push({n:'c', sql:sqlC});
       const r = await callDB(sqlC);
       if (r[0]){ state.os = r[0]; state.osStrategy = `(c) OS do cliente entre 1º recebimento (${fmt.date(minRec)}) e fim da separação (${fmt.date(fimSep)})`; }
     }
     // NÍVEL (d): OS mais recente do cliente antes do romaneio
     if (!state.os){
-      const sqlD = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.idcliente = ${cli} AND o.datavenda <= '${dt}' ORDER BY o.datavenda DESC, o.id DESC LIMIT 1`;
+      const sqlD = `SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, o.tipopeso, o.pesototal, o.valor_com_desconto FROM ordemservico o WHERE o.flag_orcamento IS NULL AND o.idcliente = ${cli} AND o.datavenda <= '${dt}' ORDER BY o.datavenda DESC, o.id DESC LIMIT 1`;
       state.osDebug.niveisTentados.push({n:'d', sql:sqlD});
       const r = await callDB(sqlD);
       if (r[0]){ state.os = r[0]; state.osStrategy = `(d) OS mais recente do cliente antes do romaneio (fallback)`; }

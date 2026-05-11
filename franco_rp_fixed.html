@@ -268,6 +268,7 @@ canvas{max-height:340px}
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '3.2', date: '2026-05-11 00:30', changes: 'BUGFIX CRÍTICO: sqlOs agora filtra flag_orcamento IS NULL (só OS reais, não Pré-Orçamentos).' },
   { v: '3.1', date: '2026-05-10 22:45', changes: 'BUGFIX limit cap MCP: cap é 500. Implementada paginação callDBAll via OFFSET.' },
   { v: '3.0', date: '2026-05-10 22:00', changes: 'BUGFIX limite MCP: limit=500 estava truncando passagens. Aumentado pra 5000.' },
   { v: '2.9', date: '2026-05-10 21:00', changes: 'Tolerância +24h no banho_fim (LIMITADA pela próxima sep) e detector de duplicatas em sv._passDuplicatas. Casos: #24863 e #24874.' },
@@ -425,7 +426,7 @@ async function loadData(){
     } else state.triagens = [];
 
     setStatus('Carregando OSs (orcamentos previos)…', 'loading');
-    const sqlOs = `SELECT io.id, io.idordem AS id_os, os.numero AS num_os, os.idcliente, os.datavenda::text AS data_os, c.nome AS cliente, ts.descricao AS tiposerv, m.descricao AS material, cor.descricao AS cor, io.milesimos, io.peso FROM itemordem io JOIN ordemservico os ON os.id=io.idordem JOIN cliente c ON c.id=os.idcliente JOIN tiposervico ts ON ts.id=io.idtiposervico JOIN material m ON m.id=io.idmaterial LEFT JOIN cores cor ON cor.id=io.idcor WHERE os.datavenda >= '${dFromMatch}' AND os.datavenda < '${dToPlus}' ${inClauseOs} ORDER BY os.datavenda DESC, io.idordem DESC, io.id`;
+    const sqlOs = `SELECT io.id, io.idordem AS id_os, os.numero AS num_os, os.idcliente, os.datavenda::text AS data_os, c.nome AS cliente, ts.descricao AS tiposerv, m.descricao AS material, cor.descricao AS cor, io.milesimos, io.peso FROM itemordem io JOIN ordemservico os ON os.id=io.idordem JOIN cliente c ON c.id=os.idcliente JOIN tiposervico ts ON ts.id=io.idtiposervico JOIN material m ON m.id=io.idmaterial LEFT JOIN cores cor ON cor.id=io.idcor WHERE os.flag_orcamento IS NULL AND os.datavenda >= '${dFromMatch}' AND os.datavenda < '${dToPlus}' ${inClauseOs} ORDER BY os.datavenda DESC, io.idordem DESC, io.id`;
     state.itensOS = await callDB(sqlOs, 'os-items');
 
     state.servicos = {};
