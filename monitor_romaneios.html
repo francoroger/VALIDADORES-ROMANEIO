@@ -204,6 +204,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '2.9', date: '2026-05-11 16:30', changes: 'BUGFIX timeout: existem 327 romaneios com datavenda=NULL e idcliente=NULL no banco. Por padrão Postgres ordena NULLs PRIMEIRO em DESC → primeira página do monitor pegava só NULLs, queries de OS/Pass ficavam vazias mas as joins demoravam (timeout). Fix: WHERE s.datavenda IS NOT NULL AND s.idcliente IS NOT NULL na query principal.' },
   { v: '2.8', date: '2026-05-11 16:00', changes: 'PERFORMANCE: monitor estava muito lento porque quando datas vazias usava dFrom=2020-01-01, fazendo queries de OS/Passagens/Separações de 6 anos. Agora datas de OS/Pass/Sep derivam do BATCH atual (range das datas dos 50 romaneios carregados), reduzindo drasticamente o volume de dados. Janelas: OS 60d antes, Pass 60d antes (era 180d).' },
   { v: '2.7', date: '2026-05-11 14:30', changes: 'Scroll infinito: removido preenchimento automático das datas De/Até. Lista de romaneios agora carrega 50 por vez do mais recente pro mais antigo. Ao rolar perto do fim da tela, carrega +50 automaticamente. Filtros de cliente/data/status aplicam normalmente. Status mostra "X romaneios · role pra carregar mais" enquanto há mais; "fim" quando acaba.' },
   { v: '2.6', date: '2026-05-11 10:30', changes: 'BUGFIX anchor: tolIni passou de -1d para -30d (aceita romaneio feito antes da expedição iniciar). Caso #24713 FLÁVIA tinha romaneio 3d antes do exp_ini.' },
@@ -349,7 +350,7 @@ async function loadAll(reset=true){
 
   try {
     // 1) Carregar batch de romaneios (ordenado desc por data, paginado por offset)
-    const sqlRomIds = `SELECT s.id, s.datavenda::text AS data, s.idcliente AS cliente_id, c.nome AS cliente FROM servico s JOIN cliente c ON c.id=s.idcliente WHERE 1=1${filtroDataFrom}${filtroDataTo} ORDER BY s.datavenda DESC, s.id DESC LIMIT ${state.romBatchSize} OFFSET ${state.romOffset}`;
+    const sqlRomIds = `SELECT s.id, s.datavenda::text AS data, s.idcliente AS cliente_id, c.nome AS cliente FROM servico s JOIN cliente c ON c.id=s.idcliente WHERE s.datavenda IS NOT NULL AND s.idcliente IS NOT NULL${filtroDataFrom}${filtroDataTo} ORDER BY s.datavenda DESC, s.id DESC LIMIT ${state.romBatchSize} OFFSET ${state.romOffset}`;
     const romIds = await callDB(sqlRomIds, 'rom-ids-batch');
     if (romIds.length < state.romBatchSize) state.romHasMore = false;
     state.romOffset += romIds.length;
