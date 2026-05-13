@@ -339,7 +339,11 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
-  { v: '3.12', date: '2026-05-11 16:30', changes: 'BUGFIX: filtra romaneios com datavenda=NULL/idcliente=NULL da lista da home (327 registros lixo no banco apareciam no topo). Mesmo fix aplicado ao monitor v2.9.' },
+  { v: '3.16', date: '2026-05-13 14:25', changes: 'BUGFIX home: lista mostrava variação Rom×Pass muito diferente do detalhe. Causa: a janela de passagens da home só capava no exp_ini, mas não no banho_ini da PRÓXIMA separação do mesmo cliente — passagens do próximo lote vazavam pro lote atual. Caso #24878 ANA BEATRIZ: sep 14938 (banho 04-05→05-05, exp 07-05) tinha sep 14939 começando banho em 06-05 — home calculava peso_pass=1552g (variação artificial -44.7%), detalhe calculava peso_pass=838g (variação real +2.4%). Agora bFim do LATERAL anchor também usa LEAST com MIN(banho_ini) das outras seps do cliente posteriores a banho_fim. Detalhe já tinha essa proteção desde v1.7.' },
+  { v: '3.15', date: '2026-05-13 13:55', changes: 'UX: Botão "← Voltar à listagem" no header do romaneio. Antes só dava pra voltar limpando o campo. Agora um clique esconde o detalhe, mostra a lista da home e limpa o hash da URL.' },
+  { v: '3.14', date: '2026-05-13 09:35', changes: 'BUGFIX timeout: SEM filtro de data, a query da home faz LATERAL JOIN + 3 subqueries por linha em todo o histórico → timeout MCP. Agora aplica filtro padrão de últimos 30 dias quando dFrom/dTo não preenchidos (já era o label da seção). Usuário pode limpar filtros pra desfazer, mas o padrão é seguro.' },
+  { v: '3.13', date: '2026-05-13 09:15', changes: 'BUGFIX REAL: filtro datavenda IS NOT NULL + idcliente IS NOT NULL agora está realmente aplicado no SQL home. Em v3.12 o changelog dizia aplicado mas o where array começava com ["1=1"] e o filtro nunca foi adicionado — causava MCP timeout porque os 327 registros lixo subiam ao topo do ORDER BY DESC (NULLs first no Postgres).' },
+  { v: '3.12', date: '2026-05-11 16:30', changes: 'TENTATIVA (não funcionou): suposto filtro datavenda=NULL/idcliente=NULL — ver v3.13 para o fix real.' },
   { v: '3.11', date: '2026-05-11 15:30', changes: 'BUGFIX status na lista da home: peso_pass estava sendo calculado como soma de TODAS as passagens do cliente nos 30 dias antes do romaneio — pegava passagens de OUTROS lotes do cliente, inflando a variação. Caso #24897 VITOR mostrava -94.7% (falso) na lista mas -4.9% no validador. Agora SQL usa LATERAL JOIN: encontra a separação anchor do romaneio (mesma lógica do validador interno) e filtra passagens só na janela banho_ini → exp_ini-1min daquela separação. Status agora bate com o validador.' },
   { v: '3.10', date: '2026-05-11 15:00', changes: 'Home do validador: lista de romaneios convertida de GRID de cards para TABELA EM LINHAS. Nova coluna STATUS com badge igual o monitor (conciliado/var.média/var.alta/sem pass) calculado via variação Pass→Rom no SQL. Cada linha mostra: # romaneio · Data · Cliente · Itens · Banho · Valor · Status. SQL traz peso_rom, peso_os, peso_pass via subqueries; cálculo de variação feito em JS.' },
   { v: '3.9', date: '2026-05-11 14:00', changes: 'Tabela 2: coluna Variação % trocada de "Rom vs OS" para "Rom vs Catalogação". Faz mais sentido pra Franco — compara o que foi efetivamente catalogado em produção (peças pesadas individualmente) com o que foi faturado, medindo divergência real do processo.' },
@@ -700,8 +704,13 @@ function renderRomHeader(){
   const valor = its.reduce((s,i)=>s+(+i.valor||0),0);
   const el = document.getElementById('romHeader');
   el.innerHTML = `
-    <h2>Romaneio #${r.id}<small>${fmt.dateF(r.data)}</small></h2>
-    <div class="cli">${r.cliente}</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div style="flex:1">
+        <h2>Romaneio #${r.id}<small>${fmt.dateF(r.data)}</small></h2>
+        <div class="cli">${r.cliente}</div>
+      </div>
+      <button class="btn ghost" onclick="backToHome()" style="white-space:nowrap" title="Voltar para a lista de romaneios">← Voltar à listagem</button>
+    </div>
     <div class="info">
       <div><small>Itens</small><strong>${its.length}</strong></div>
       <div><small>Peso de banho</small><strong>${fmt.g(banho)}</strong></div>
@@ -710,6 +719,24 @@ function renderRomHeader(){
   `;
   el.classList.add('show');
 }
+
+// v3.15: voltar à listagem da home (esconde detalhe, mostra lista)
+window.backToHome = () => {
+  // Esconde tudo do detalhe
+  document.getElementById('romHeader').classList.remove('show');
+  document.getElementById('romHeader').innerHTML = '';
+  document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+  document.getElementById('fullLoader').style.display = 'none';
+  // Mostra lista de novo
+  document.getElementById('recentBox').style.display = '';
+  // Limpa input e hash
+  document.getElementById('romInput').value = '';
+  if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+  // Status
+  document.getElementById('statusText').textContent = 'Pronto';
+  // Scroll pro topo
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
 // SEÇÃO ① — TIMELINE 7 DOCS
 function renderTimeline(){
@@ -1292,10 +1319,19 @@ async function loadRecent(reset = false){
   const dFrom = document.getElementById('fRecFrom').value;
   const dTo = document.getElementById('fRecTo').value;
 
-  const where = ['1=1'];
+  // v3.14: SEM filtro de data, a query LATERAL JOIN faz timeout (varre todo o histórico).
+  // Quando dFrom não está preenchido, aplicamos automaticamente últimos 30 dias (já está no label da seção).
+  const today = new Date();
+  const fmtIso = d => d.toISOString().slice(0, 10);
+  const defaultFrom = fmtIso(new Date(today.getTime() - 30 * 86400000));
+  const effDFrom = dFrom || defaultFrom;
+  const effDTo = dTo || fmtIso(today);
+
+  // v3.13: filtra 327 registros lixo (datavenda/idcliente NULL) que sobem ao topo do ORDER BY DESC e causam timeout
+  const where = ['s.datavenda IS NOT NULL', 's.idcliente IS NOT NULL'];
   if (cli) where.push(`LOWER(c.nome) LIKE '%${cli.toLowerCase()}%'`);
-  if (dFrom) where.push(`s.datavenda >= '${dFrom}'::date`);
-  if (dTo) where.push(`s.datavenda <= '${dTo}'::date`);
+  where.push(`s.datavenda >= '${effDFrom}'::date`);
+  where.push(`s.datavenda <= '${effDTo}'::date`);
 
   // SQL traz peso_rom (banho do romaneio), peso_os (OS real mais recente, banho), peso_pass (passagens na janela banho_ini→exp_ini da SEPARAÇÃO anchor — não 30d genérico).
   // 'Banho principal' = tiposervico='Banho' E material NÃO é verniz/cataforetico/ródio caneta (regra peso total Franco)
@@ -1307,10 +1343,21 @@ async function loadRecent(reset = false){
     COALESCE(sep_pass.peso_pass, 0) AS peso_pass
     FROM servico s JOIN cliente c ON c.id=s.idcliente
     LEFT JOIN LATERAL (
+      -- v3.16: bFim agora também limitado pelo banho_ini da PRÓXIMA separação do cliente
+      -- (impede que passagens do próximo lote vazem para este — caso #24878 ANA BEATRIZ).
       SELECT sep.data_inicio_banho AS bIni,
              LEAST(
                COALESCE(sep.data_inicio_expedicao - INTERVAL '1 minute', sep.data_fim_banho + INTERVAL '30 days'),
-               sep.data_fim_banho + INTERVAL '30 days'
+               sep.data_fim_banho + INTERVAL '30 days',
+               COALESCE(
+                 (SELECT MIN(sep2.data_inicio_banho) - INTERVAL '1 minute'
+                  FROM separacoes sep2
+                  WHERE sep2.cliente_id=sep.cliente_id
+                    AND sep2.id<>sep.id
+                    AND sep2.data_inicio_banho IS NOT NULL
+                    AND sep2.data_inicio_banho > sep.data_fim_banho),
+                 sep.data_fim_banho + INTERVAL '30 days'
+               )
              ) AS bFim
       FROM separacoes sep
       WHERE sep.cliente_id=s.idcliente
