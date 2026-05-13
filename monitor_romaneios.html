@@ -204,6 +204,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '2.8', date: '2026-05-11 16:00', changes: 'PERFORMANCE: monitor estava muito lento porque quando datas vazias usava dFrom=2020-01-01, fazendo queries de OS/Passagens/Separações de 6 anos. Agora datas de OS/Pass/Sep derivam do BATCH atual (range das datas dos 50 romaneios carregados), reduzindo drasticamente o volume de dados. Janelas: OS 60d antes, Pass 60d antes (era 180d).' },
   { v: '2.7', date: '2026-05-11 14:30', changes: 'Scroll infinito: removido preenchimento automático das datas De/Até. Lista de romaneios agora carrega 50 por vez do mais recente pro mais antigo. Ao rolar perto do fim da tela, carrega +50 automaticamente. Filtros de cliente/data/status aplicam normalmente. Status mostra "X romaneios · role pra carregar mais" enquanto há mais; "fim" quando acaba.' },
   { v: '2.6', date: '2026-05-11 10:30', changes: 'BUGFIX anchor: tolIni passou de -1d para -30d (aceita romaneio feito antes da expedição iniciar). Caso #24713 FLÁVIA tinha romaneio 3d antes do exp_ini.' },
   { v: '2.5', date: '2026-05-11 00:30', changes: 'BUGFIX CRÍTICO: query de OS agora filtra flag_orcamento IS NULL. Antes misturava Pré-Orçamento com OS real, distorcendo coluna OS dos romaneios.' },
@@ -342,29 +343,35 @@ async function loadAll(reset=true){
   setStatus(reset ? 'Carregando romaneios…' : 'Carregando mais romaneios…', 'loading');
   const dFromInput = document.getElementById('dFrom').value;
   const dToInput = document.getElementById('dTo').value;
-  // Defaults amplos quando vazios — query trará TUDO em batches paginados
-  const dFrom = dFromInput || '2020-01-01';
-  const dTo = dToInput || new Date(Date.now()+86400000).toISOString().slice(0,10);
-  const dToPlus = (() => { const d = new Date(dTo); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })();
-  // Janela de OS: 60d antes do dFrom
-  const dOSFrom = (() => { const d = new Date(dFrom); d.setDate(d.getDate()-60); return d.toISOString().slice(0,10); })();
-  // Janela de Passagens: 180d antes (cobre 100% dos casos não-estorno)
-  const dPassFrom = (() => { const d = new Date(dFrom); d.setDate(d.getDate()-180); return d.toISOString().slice(0,10); })();
+  // Filtros opcionais — usuario pode preencher ou deixar vazios pra scroll infinito
+  const filtroDataFrom = dFromInput ? ` AND s.datavenda >= '${dFromInput}'` : '';
+  const filtroDataTo = dToInput ? ` AND s.datavenda <= '${dToInput}'` : '';
+
   try {
     // 1) Carregar batch de romaneios (ordenado desc por data, paginado por offset)
-    // Pega só IDs dos romaneios primeiro (paginar por servico, não por itens)
-    const sqlRomIds = `SELECT s.id, s.datavenda::text AS data, s.idcliente AS cliente_id, c.nome AS cliente FROM servico s JOIN cliente c ON c.id=s.idcliente WHERE s.datavenda >= '${dFrom}' AND s.datavenda < '${dToPlus}' ORDER BY s.datavenda DESC, s.id DESC LIMIT ${state.romBatchSize} OFFSET ${state.romOffset}`;
+    const sqlRomIds = `SELECT s.id, s.datavenda::text AS data, s.idcliente AS cliente_id, c.nome AS cliente FROM servico s JOIN cliente c ON c.id=s.idcliente WHERE 1=1${filtroDataFrom}${filtroDataTo} ORDER BY s.datavenda DESC, s.id DESC LIMIT ${state.romBatchSize} OFFSET ${state.romOffset}`;
     const romIds = await callDB(sqlRomIds, 'rom-ids-batch');
     if (romIds.length < state.romBatchSize) state.romHasMore = false;
     state.romOffset += romIds.length;
     if (romIds.length === 0){
-      // Nada novo — só re-renderiza
       buildModel(); render();
       state.romLoading = false;
       setStatus(`${[...new Set(state.roms.map(r=>r.rom_num))].length} romaneios carregados · sem mais resultados`, 'ok');
       return;
     }
     const newIds = romIds.map(r => r.id).join(',');
+    // Derivar dFrom/dTo do BATCH atual (não 2020-presente!) — queries de OS/Pass/Sep só cobrem o range REAL
+    const datasOrd = romIds.map(r => r.data).sort();
+    const dFromBatch = datasOrd[0];
+    const dToBatch = datasOrd[datasOrd.length-1];
+    const dToPlus = (() => { const d = new Date(dToBatch); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })();
+    // OS: 60d antes do romaneio mais antigo do batch
+    const dOSFrom = (() => { const d = new Date(dFromBatch); d.setDate(d.getDate()-60); return d.toISOString().slice(0,10); })();
+    // Passagens: 60d antes (cobre janela de banho da maioria das separações)
+    const dPassFrom = (() => { const d = new Date(dFromBatch); d.setDate(d.getDate()-60); return d.toISOString().slice(0,10); })();
+    // Alias antigo pra evitar refatoração das queries abaixo
+    const dFrom = dFromBatch;
+    const dTo = dToBatch;
 
     // Carregar itens desses romaneios
     const sqlR = `SELECT s.id AS rom_num, s.datavenda::text AS data, s.idcliente AS cliente_id, c.nome AS cliente, isv.id AS item_id, m.descricao AS material, COALESCE(cor.descricao,'—') AS cor, isv.milesimos, ts.descricao AS tiposerv, isv.peso, isv.valor FROM itemservico isv JOIN servico s ON s.id=isv.idservico JOIN cliente c ON c.id=s.idcliente JOIN material m ON m.id=isv.idmaterial LEFT JOIN cores cor ON cor.id=isv.idcor JOIN tiposervico ts ON ts.id=isv.idtiposervico WHERE s.id IN (${newIds}) ORDER BY s.datavenda DESC, s.id DESC, isv.id`;
