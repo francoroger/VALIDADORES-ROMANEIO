@@ -8,9 +8,9 @@ Os 3 artefatos rodam dentro do **Cowork** (Claude desktop) e fazem queries diret
 
 | Artefato | Versão | Linhas | Função |
 |---|---:|---:|---|
-| **Validador de Romaneio** | v2.8 | ~1020 | Análise detalhada de 1 romaneio (5 seções: 7 documentos, conciliação por bucket, fórmula triádica retrátil, itens, alertas) |
-| **Monitor de Romaneios** | v2.4 | ~720 | Lista todos romaneios de um período com KPIs e variação Pass→Rom |
-| **Romaneio × Passagem** | v3.1 | ~1.180 | Comparativo Por Serviço / Diário com filtros |
+| **Validador de Romaneio** | v3.16 | ~1.500 | Home com lista + filtros, análise detalhada de 1 romaneio (6 seções: 7 documentos, conciliação por bucket em 2 tabelas, itens retráteis, alertas, romaneio retrátil) |
+| **Monitor de Romaneios** | v2.9 | ~790 | Lista todos romaneios de um período com KPIs, variação Pass→Rom e scroll infinito |
+| **Romaneio × Passagem** | v3.3 | ~1.200 | Comparativo Por Serviço / Diário com filtros |
 
 ## Conteúdo
 

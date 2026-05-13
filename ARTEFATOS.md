@@ -2,26 +2,28 @@
 
 ## Visão dos 3 artefatos
 
-### 1. Validador de Romaneio · `franco_validador_romaneio.html`
+### 1. Validador de Romaneio · `franco_validador_romaneio.html` · **v3.16**
 
-**Objetivo:** análise profunda de UM romaneio específico.
+**Objetivo:** análise profunda de UM romaneio específico, com home de listagem por filtros.
 
-**Seções:**
+**Home (lista da entrada):** scroll infinito dos romaneios dos últimos 30 dias (padrão), com filtros cliente/data. Cada linha mostra # romaneio · data · cliente · itens · banho · valor · status (variação Pass→Rom). Clicar na linha abre o detalhe; botão `← Voltar à listagem` retorna pra home.
+
+**Seções (no detalhe):**
 
 | # | Seção | O que mostra |
 |---|---|---|
-| ① | Fluxo dos 7 Documentos | Timeline de Recebimento → OS → Triagem → Separação → Banho → Romaneio → Expedição, com Δ tempo entre etapas |
-| ② | Conciliação por Bucket | Tabela tripla OS×Pass×Rom agrupada por (material+cor+milésimos), com variação % |
-| ③ | Fórmula Triádica | Recalcula `valor = (vlr_serv_kg × peso/1000) + (vlr_adic × (mil-mil_ini) × peso/1000) + (cotação × mil × peso/1000)` item a item e compara com o valor armazenado |
-| ④ | Itens detalhados | Lista de todos itens com vlr_serv_kg, vlr_adic, cotação |
-| ⑤ | Alertas automáticos | Variação alta, separações concorrentes, duplicatas, OS sem CAT, status pagamento, etc |
+| ① | Fluxo dos 7 Documentos | Timeline de Recebimento → OS → Triagem → Separação → Banho → Passagens → Romaneio → Expedição, com Δ tempo entre etapas |
+| ② | Conciliação por Bucket | **Tabela 1**: tripla OS×Pass×Rom por (material+cor+milésimos), variação Rom×Pass. **Tabela 2**: por material+milésimos com Catalogação, variação Rom×Catalogação |
+| ③ | Fórmula Triádica (retrátil) | Recalcula `valor = (vlr_serv_kg × peso/1000) + (vlr_adic × (mil-mil_ini) × peso/1000) + (cotação × mil × peso/1000)` item a item e compara com o valor armazenado |
+| ④ | Itens detalhados (retrátil) | Lista de todos itens com vlr_serv_kg, vlr_adic, cotação |
+| ⑤ | Alertas automáticos | Variação alta, separações concorrentes, duplicatas, OS sem CAT, etc |
+| ⑥ | Romaneio (retrátil) | Detalhamento completo no formato do PDF Delphi: cabeçalho, serviços, adicionais, descontos, externos, transporte e totais |
 
-**Entrada:** número do romaneio (input manual ou via URL `?rom=NNN` / `#rom=NNN`).
-**Lista pré-carregada:** últimos 30 dias clicáveis ao abrir.
+**Entrada:** número do romaneio (input manual ou via URL `?rom=NNN` / `#rom=NNN`), ou clicar em uma linha da home.
 
-### 2. Monitor de Romaneios · `monitor_romaneios.html`
+### 2. Monitor de Romaneios · `monitor_romaneios.html` · **v2.9**
 
-**Objetivo:** visão diária/mensal de todos os romaneios com status automático.
+**Objetivo:** visão diária/mensal de todos os romaneios com status automático. Scroll infinito quando sem filtro de data.
 
 **Colunas:** romaneio · data · cliente · qtd itens · banho · adicionais · valor · OS · Δ dias OS→Rom · passagens · Δ % · status.
 
@@ -41,7 +43,7 @@
 
 **Filtros:** cliente, número, status. Default: mês corrente.
 
-### 3. Romaneio × Passagem · `franco_rp_fixed.html`
+### 3. Romaneio × Passagem · `franco_rp_fixed.html` · **v3.3**
 
 **Objetivo:** comparativo Pass → Rom em 2 modos.
 
