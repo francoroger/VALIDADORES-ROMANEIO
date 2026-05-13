@@ -204,6 +204,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '2.7', date: '2026-05-11 14:30', changes: 'Scroll infinito: removido preenchimento automático das datas De/Até. Lista de romaneios agora carrega 50 por vez do mais recente pro mais antigo. Ao rolar perto do fim da tela, carrega +50 automaticamente. Filtros de cliente/data/status aplicam normalmente. Status mostra "X romaneios · role pra carregar mais" enquanto há mais; "fim" quando acaba.' },
   { v: '2.6', date: '2026-05-11 10:30', changes: 'BUGFIX anchor: tolIni passou de -1d para -30d (aceita romaneio feito antes da expedição iniciar). Caso #24713 FLÁVIA tinha romaneio 3d antes do exp_ini.' },
   { v: '2.5', date: '2026-05-11 00:30', changes: 'BUGFIX CRÍTICO: query de OS agora filtra flag_orcamento IS NULL. Antes misturava Pré-Orçamento com OS real, distorcendo coluna OS dos romaneios.' },
   { v: '2.4', date: '2026-05-10 22:45', changes: 'BUGFIX limit cap MCP: cap é 500 (validação Pydantic), não 5000. Implementada paginação callDBAll via OFFSET nas 4 queries grandes (roms, oss, passes, seps). Resolve SEM PASS em massa quando passagens >500.' },
@@ -224,7 +225,7 @@ const VERSIONS = [
 ];
 const CURRENT_VERSION = VERSIONS[0];
 
-const state = { roms:[], oss:[], passes:[], seps:[], expanded:new Set(), truncated:[] };
+const state = { roms:[], oss:[], passes:[], seps:[], expanded:new Set(), truncated:[], romOffset:0, romBatchSize:50, romHasMore:true, romLoading:false };
 
 const fmt = {
   brl: v => 'R$ ' + (Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),
@@ -331,47 +332,80 @@ function bucketKey(r){
   return `${r.material}|${r.cor||'—'}|${r.milesimos??'—'}`;
 }
 
-async function loadAll(){
+async function loadAll(reset=true){
+  if (reset){
+    state.roms = []; state.oss = []; state.passes = []; state.seps = [];
+    state.romOffset = 0; state.romHasMore = true;
+  }
+  state.romLoading = true;
   state.truncated = [];
-  setStatus('Carregando romaneios…', 'loading');
-  const dFrom = document.getElementById('dFrom').value;
-  const dTo = document.getElementById('dTo').value;
+  setStatus(reset ? 'Carregando romaneios…' : 'Carregando mais romaneios…', 'loading');
+  const dFromInput = document.getElementById('dFrom').value;
+  const dToInput = document.getElementById('dTo').value;
+  // Defaults amplos quando vazios — query trará TUDO em batches paginados
+  const dFrom = dFromInput || '2020-01-01';
+  const dTo = dToInput || new Date(Date.now()+86400000).toISOString().slice(0,10);
   const dToPlus = (() => { const d = new Date(dTo); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })();
   // Janela de OS: 60d antes do dFrom
   const dOSFrom = (() => { const d = new Date(dFrom); d.setDate(d.getDate()-60); return d.toISOString().slice(0,10); })();
   // Janela de Passagens: 180d antes (cobre 100% dos casos não-estorno)
   const dPassFrom = (() => { const d = new Date(dFrom); d.setDate(d.getDate()-180); return d.toISOString().slice(0,10); })();
   try {
-    // 1) Carregar romaneios primeiro — define o universo de clientes p/ filtrar OSs e passagens
-    const sqlR = `SELECT s.id AS rom_num, s.datavenda::text AS data, s.idcliente AS cliente_id, c.nome AS cliente, isv.id AS item_id, m.descricao AS material, COALESCE(cor.descricao,'—') AS cor, isv.milesimos, ts.descricao AS tiposerv, isv.peso, isv.valor FROM itemservico isv JOIN servico s ON s.id=isv.idservico JOIN cliente c ON c.id=s.idcliente JOIN material m ON m.id=isv.idmaterial LEFT JOIN cores cor ON cor.id=isv.idcor JOIN tiposervico ts ON ts.id=isv.idtiposervico WHERE s.datavenda >= '${dFrom}' AND s.datavenda < '${dToPlus}' ORDER BY s.datavenda DESC, s.id DESC, isv.id`;
-    state.roms = await callDBAll(sqlR, 'itens-romaneio');
+    // 1) Carregar batch de romaneios (ordenado desc por data, paginado por offset)
+    // Pega só IDs dos romaneios primeiro (paginar por servico, não por itens)
+    const sqlRomIds = `SELECT s.id, s.datavenda::text AS data, s.idcliente AS cliente_id, c.nome AS cliente FROM servico s JOIN cliente c ON c.id=s.idcliente WHERE s.datavenda >= '${dFrom}' AND s.datavenda < '${dToPlus}' ORDER BY s.datavenda DESC, s.id DESC LIMIT ${state.romBatchSize} OFFSET ${state.romOffset}`;
+    const romIds = await callDB(sqlRomIds, 'rom-ids-batch');
+    if (romIds.length < state.romBatchSize) state.romHasMore = false;
+    state.romOffset += romIds.length;
+    if (romIds.length === 0){
+      // Nada novo — só re-renderiza
+      buildModel(); render();
+      state.romLoading = false;
+      setStatus(`${[...new Set(state.roms.map(r=>r.rom_num))].length} romaneios carregados · sem mais resultados`, 'ok');
+      return;
+    }
+    const newIds = romIds.map(r => r.id).join(',');
 
-    // Lista de clientes do periodo — sem isso o limite 500 da MCP truncava as passagens
-    const clienteIds = [...new Set(state.roms.map(r => r.cliente_id).filter(x => x != null))];
+    // Carregar itens desses romaneios
+    const sqlR = `SELECT s.id AS rom_num, s.datavenda::text AS data, s.idcliente AS cliente_id, c.nome AS cliente, isv.id AS item_id, m.descricao AS material, COALESCE(cor.descricao,'—') AS cor, isv.milesimos, ts.descricao AS tiposerv, isv.peso, isv.valor FROM itemservico isv JOIN servico s ON s.id=isv.idservico JOIN cliente c ON c.id=s.idcliente JOIN material m ON m.id=isv.idmaterial LEFT JOIN cores cor ON cor.id=isv.idcor JOIN tiposervico ts ON ts.id=isv.idtiposervico WHERE s.id IN (${newIds}) ORDER BY s.datavenda DESC, s.id DESC, isv.id`;
+    const newRomItens = await callDBAll(sqlR, 'itens-romaneio-batch');
+    state.roms = state.roms.concat(newRomItens);
+
+    // Lista de clientes — só os NOVOS (não re-busca os já carregados)
+    const newClienteIds = [...new Set(newRomItens.map(r => r.cliente_id).filter(x => x != null))];
+    const clienteIds = newClienteIds;
     const inClauseO = clienteIds.length > 0 ? `AND o.idcliente IN (${clienteIds.join(',')})` : '';
     const inClauseP = clienteIds.length > 0 ? `AND p.cliente_id IN (${clienteIds.join(',')})` : '';
 
     setStatus('Carregando OSs anteriores…', 'loading');
     const sqlO = `SELECT o.id AS os_id, o.numero AS os_numero, o.datavenda::text AS data, o.idcliente AS cliente_id, REPLACE(REPLACE(COALESCE(o.observacao,''), CHR(13), ' '), CHR(10), ' ') AS observacao, io.id AS item_id, m.descricao AS material, COALESCE(cor.descricao,'—') AS cor, io.milesimos, ts.descricao AS tiposerv, io.peso FROM itemordem io JOIN ordemservico o ON o.id=io.idordem JOIN material m ON m.id=io.idmaterial LEFT JOIN cores cor ON cor.id=io.idcor JOIN tiposervico ts ON ts.id=io.idtiposervico WHERE o.flag_orcamento IS NULL AND o.datavenda >= '${dOSFrom}' AND o.datavenda < '${dToPlus}' ${inClauseO} ORDER BY o.datavenda DESC`;
-    state.oss = await callDBAll(sqlO, 'os-items');
+    const newOss = await callDBAll(sqlO, 'os-items'); state.oss = state.oss.concat(newOss);
     setStatus('Carregando passagens anteriores…', 'loading');
     // ATENÇÃO: incluir data_full (timestamp) pra filtrar por janela exata banho_ini→banho_fim da separação
     const sqlP = `SELECT p.id AS pass_id, p.data_servico::text AS data_full, p.data_servico::date::text AS data, p.cliente_id, m.descricao AS material, COALESCE(cor.descricao,'—') AS cor, p.milesimos, ts.descricao AS tiposerv, p.peso FROM passagem_pecas p JOIN material m ON m.id=p.material_id LEFT JOIN cores cor ON cor.id=p.cor_id JOIN tiposervico ts ON ts.id=p.tiposervico_id WHERE p.deleted_at IS NULL AND p.data_servico >= '${dPassFrom}' AND p.data_servico < '${dToPlus}' ${inClauseP} ORDER BY p.data_servico DESC`;
-    state.passes = await callDBAll(sqlP, 'passagens-180d');
+    const newPasses = await callDBAll(sqlP, 'passagens-180d'); state.passes = state.passes.concat(newPasses);
 
     // SEPARAÇÕES — buscar para o período pra ancorar cada romaneio na sua separação correta
     setStatus('Carregando separações para ancorar romaneios…', 'loading');
     const inClauseS = clienteIds.length > 0 ? `AND s.cliente_id IN (${clienteIds.join(',')})` : '';
     const sqlSep = `SELECT s.id AS sep_id, s.cliente_id, s.catalogacao_id, s.status, s.data_inicio_banho::text AS banho_ini, s.data_fim_banho::text AS banho_fim, s.data_inicio_expedicao::text AS exp_ini, s.data_fim_expedicao::text AS exp_fim, s.data_fim_separacao::text AS fim_sep FROM separacoes s WHERE (s.data_inicio_expedicao::date BETWEEN '${dFrom}'::date - INTERVAL '20 days' AND '${dTo}'::date + INTERVAL '5 days' OR s.data_fim_expedicao::date BETWEEN '${dFrom}'::date - INTERVAL '5 days' AND '${dTo}'::date + INTERVAL '5 days' OR s.data_fim_separacao::date BETWEEN '${dFrom}'::date - INTERVAL '5 days' AND '${dTo}'::date + INTERVAL '5 days') ${inClauseS} ORDER BY s.data_inicio_expedicao DESC NULLS LAST`;
-    state.seps = await callDBAll(sqlSep, 'separacoes');
+    const newSeps = await callDBAll(sqlSep, 'separacoes'); state.seps = state.seps.concat(newSeps);
 
     const trunc = state.truncated.length ? ` · ⚠ truncado: ${state.truncated.join(', ')}` : '';
-    setStatus(`${[...new Set(state.roms.map(r=>r.rom_num))].length} romaneios · ${state.oss.length} itens OS · ${state.passes.length} passagens · ${state.seps.length} separações · ${new Date().toTimeString().slice(0,5)}${trunc}`, state.truncated.length ? 'error' : 'ok');
+    const moreSuffix = state.romHasMore ? ' · role pra carregar mais' : ' · fim';
+    setStatus(`${[...new Set(state.roms.map(r=>r.rom_num))].length} romaneios · ${state.oss.length} itens OS · ${state.passes.length} passagens · ${state.seps.length} separações${moreSuffix}${trunc}`, state.truncated.length ? 'error' : 'ok');
   } catch(e){
-    console.error(e); setStatus('Erro: ' + (e?.message||e), 'error'); return;
+    console.error(e); setStatus('Erro: ' + (e?.message||e), 'error'); state.romLoading=false; return;
   }
   buildModel();
   render();
+  state.romLoading = false;
+}
+
+// Carrega próxima página (chamado pelo scroll listener)
+async function loadMore(){
+  if (state.romLoading || !state.romHasMore) return;
+  await loadAll(false);
 }
 
 function buildModel(){
@@ -721,20 +755,30 @@ document.addEventListener('click', e => {
 });
 
 // =============== INIT ===============
-const today = new Date();
-const past = new Date(today.getFullYear(), today.getMonth(), 1); // primeiro dia do mês corrente
-document.getElementById('dFrom').value = past.toISOString().slice(0,10);
-document.getElementById('dTo').value = today.toISOString().slice(0,10);
-
+// Datas inicialmente VAZIAS — usuário preenche se quiser filtrar. Se vazias, carrega todos descendentes via scroll infinito.
 ['fCli','fRom','fStatus'].forEach(id => document.getElementById(id).addEventListener('input', () => render()));
-document.getElementById('btnReload').onclick = loadAll;
+document.getElementById('btnReload').onclick = () => loadAll(true);
 document.getElementById('btnClear').onclick = () => {
-  ['fCli','fRom'].forEach(id => document.getElementById(id).value = '');
+  ['fCli','fRom','dFrom','dTo'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('fStatus').value = '';
-  render();
+  loadAll(true);
 };
+// Re-load ao mudar datas
+['dFrom','dTo'].forEach(id => document.getElementById(id).addEventListener('change', () => loadAll(true)));
 
-loadAll();
+// Scroll infinito: ao chegar perto do fim do main, carrega próxima página
+window.addEventListener('scroll', () => {
+  if (state.romLoading || !state.romHasMore) return;
+  const main = document.getElementById('main');
+  if (!main) return;
+  const rect = main.getBoundingClientRect();
+  const distFromBottom = rect.bottom - window.innerHeight;
+  if (distFromBottom < 400){
+    loadMore();
+  }
+});
+
+loadAll(true);
 </script>
 </body>
 </html>
