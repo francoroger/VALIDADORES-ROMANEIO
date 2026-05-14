@@ -339,6 +339,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // =============== VERSÕES ===============
 const VERSIONS = [
+  { v: '3.17', date: '2026-05-14 10:30', changes: 'BUGFIX home: lista vinha vazia (0 romaneios) por timeout MCP. Query da home rodava em 3.4s no Postgres (peso_os com subquery aninhada ordemservico+itemordem custava ~250k unidades). Removido peso_os da home — agora roda em ~600ms. peso_os era usado só para distinguir status "sem pass/OS" de "sem pass" — distinção que não fazia diferença pra home; basta mostrar "sem pass".' },
   { v: '3.16', date: '2026-05-13 14:25', changes: 'BUGFIX home: lista mostrava variação Rom×Pass muito diferente do detalhe. Causa: a janela de passagens da home só capava no exp_ini, mas não no banho_ini da PRÓXIMA separação do mesmo cliente — passagens do próximo lote vazavam pro lote atual. Caso #24878 ANA BEATRIZ: sep 14938 (banho 04-05→05-05, exp 07-05) tinha sep 14939 começando banho em 06-05 — home calculava peso_pass=1552g (variação artificial -44.7%), detalhe calculava peso_pass=838g (variação real +2.4%). Agora bFim do LATERAL anchor também usa LEAST com MIN(banho_ini) das outras seps do cliente posteriores a banho_fim. Detalhe já tinha essa proteção desde v1.7.' },
   { v: '3.15', date: '2026-05-13 13:55', changes: 'UX: Botão "← Voltar à listagem" no header do romaneio. Antes só dava pra voltar limpando o campo. Agora um clique esconde o detalhe, mostra a lista da home e limpa o hash da URL.' },
   { v: '3.14', date: '2026-05-13 09:35', changes: 'BUGFIX timeout: SEM filtro de data, a query da home faz LATERAL JOIN + 3 subqueries por linha em todo o histórico → timeout MCP. Agora aplica filtro padrão de últimos 30 dias quando dFrom/dTo não preenchidos (já era o label da seção). Usuário pode limpar filtros pra desfazer, mas o padrão é seguro.' },
@@ -1336,10 +1337,12 @@ async function loadRecent(reset = false){
   // SQL traz peso_rom (banho do romaneio), peso_os (OS real mais recente, banho), peso_pass (passagens na janela banho_ini→exp_ini da SEPARAÇÃO anchor — não 30d genérico).
   // 'Banho principal' = tiposervico='Banho' E material NÃO é verniz/cataforetico/ródio caneta (regra peso total Franco)
   const filtroBanhoPrincipal = `ts.descricao='Banho' AND m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Ródio Caneta%' AND m.descricao NOT ILIKE 'Adicional%'`;
+  // v3.17: removido peso_os da home (subquery ordemservico+itemordem custava ~250k unidades).
+  // Query agora roda em ~600ms em vez de 3.4s. peso_os era usado só para distinguir status
+  // 'sem pass/OS' de 'sem pass' — pra home isso era over-detail, basta 'sem pass'.
   const sql = `SELECT s.id, s.datavenda::text AS data, c.nome AS cliente, s.valor_com_desconto AS valor,
     (SELECT COUNT(*) FROM itemservico isv WHERE isv.idservico=s.id) AS itens,
     (SELECT COALESCE(SUM(isv.peso),0) FROM itemservico isv JOIN tiposervico ts ON ts.id=isv.idtiposervico JOIN material m ON m.id=isv.idmaterial WHERE isv.idservico=s.id AND ${filtroBanhoPrincipal}) AS peso_rom,
-    (SELECT COALESCE(SUM(io.peso),0) FROM itemordem io JOIN ordemservico o ON o.id=io.idordem JOIN tiposervico ts ON ts.id=io.idtiposervico JOIN material m ON m.id=io.idmaterial WHERE o.idcliente=s.idcliente AND o.flag_orcamento IS NULL AND o.id=(SELECT o2.id FROM ordemservico o2 WHERE o2.idcliente=s.idcliente AND o2.flag_orcamento IS NULL AND o2.datavenda <= s.datavenda ORDER BY o2.datavenda DESC, o2.id DESC LIMIT 1) AND ${filtroBanhoPrincipal}) AS peso_os,
     COALESCE(sep_pass.peso_pass, 0) AS peso_pass
     FROM servico s JOIN cliente c ON c.id=s.idcliente
     LEFT JOIN LATERAL (
@@ -1398,10 +1401,8 @@ async function loadRecent(reset = false){
 
 function statusBadge(r){
   const pesoRom = +r.peso_rom || 0;
-  const pesoOs = +r.peso_os || 0;
   const pesoPass = +r.peso_pass || 0;
   if (pesoRom === 0) return '<span class="badge badge-neutral">sem banho</span>';
-  if (pesoPass === 0 && pesoOs === 0) return '<span class="badge badge-neutral">sem pass/OS</span>';
   if (pesoPass === 0) return '<span class="badge badge-warn">sem pass</span>';
   const v = (pesoRom - pesoPass) / pesoPass * 100;
   const abs = Math.abs(v);
