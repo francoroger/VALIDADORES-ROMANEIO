@@ -1,6 +1,24 @@
 # CHANGELOG
 
-Histórico consolidado das versões dos 4 artefatos. Cada artefato também mantém seu próprio array `VERSIONS` em JS (clicável no header).
+Histórico consolidado das versões dos artefatos. Cada artefato também mantém seu próprio array `VERSIONS` em JS (clicável no header).
+
+## 2026-05-14
+
+### Novo artefato: Monitor de Demanda v1.0
+
+**Monitor de Demanda v1.0** (`franco_demanda.html`) — primeira entrega da **Fase 1** do plano de demanda/capacidade/prazo.
+
+- 🆕 **Foco**: fluxo de recebimentos (entrada na operação). Os 3 artefatos pré-existentes cobrem o lado da saída (romaneio/faturamento); este cobre o lado da entrada (`recebimento_pecas`).
+- 🆕 **4 KPIs**: entrada no período (qtd + peso + lead médio), fila ativa (sem separação), já em produção, estagnado acima do threshold.
+- 🆕 **Seção 1 — Entrada por dia**: linha por dia útil do período; sab/dom em cinza com `—`. Clique expande detalhes do dia (cliente, fornecedor, peso, estado, lead, aging, obs).
+- 🆕 **Seção 2 — Fila ativa**: toggle "Por recebimento" ↔ "Por cliente". Aging colorido (0-7d neutro, 8-14d amarelo, 15-30d laranja, >30d vermelho).
+- 🆕 **Seção 3 — Agregações**: abas Dia / Semana (seg-início) / Mês / Ano.
+- 🆕 **Seção 4 — Rankings**: top 10 clientes por peso, top 10 fornecedores, movimento por dia da semana.
+- 🆕 **Seção 5 — Estagnados**: collapsed por padrão; abre via clique no KPI ou no header. Threshold ajustável (30/60/90/180/365 dias).
+- 🛡 **Sanitização**: `REPLACE(CHR(13)/CHR(10))` em `obs`, `nome_cliente`, `nome_fornec` (V PINHEIRO Comércio LTDA tem `\n` no nome).
+- 🛡 **Paginação**: `callDBAll` para queries que podem trazer >500 rows (estagnados = ~7k).
+- 🛡 **Estado por recebimento** derivado de `separacoes` (fila / em_separacao / em_banho / finalizado / fechado_sem_sep).
+- 🔮 **Próximas fases (planejadas)**: Fase 2 — capacidade por setor (tempo em cada bucket do kanban); Fase 3 — previsão de prazo de entrega.
 
 ## 2026-05-13
 

@@ -1,0 +1,886 @@
+<!DOCTYPE html><script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Franco Monitor de Demanda",
+  "schemaVersion": 1,
+  "description": "Monitor de fluxo de recebimentos da Franco Galvânica. Mostra entrada diária, fila ativa (recebimentos sem separação), agregações por dia/semana/mês/ano, rankings por cliente e fornecedor, e lista de estagnados (acima do threshold). Fase 1 do plano: futuras versões adicionam capacidade por setor e previsão de prazo. Banco Aiven, somente leitura.",
+  "mcpTools": [
+    "mcp__postgres-aiven__pg_consultar"
+  ],
+  "mcpServerNames": [
+    "postgres-aiven"
+  ]
+}
+</script>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Franco Galvânica · Monitor de Demanda</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg:#f4f6fa;
+  --surface:#ffffff;
+  --surface-2:#eef1f6;
+  --border:#dde2eb;
+  --border-2:#cdd4df;
+  --text:#0d1424;
+  --text-2:#4a5266;
+  --text-3:#8089a0;
+  --primary:#1f5fc6;
+  --primary-2:#0e478f;
+  --good:#107a4b;
+  --good-bg:#e3f4eb;
+  --warn:#a06010;
+  --warn-bg:#fcf2dc;
+  --bad:#a82828;
+  --bad-bg:#fbe5e2;
+  --neutral:#5a6270;
+  --age-0:#5a6270;
+  --age-1:#a06010;
+  --age-2:#cc6a18;
+  --age-3:#a82828;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',Roboto,sans-serif;font-size:13px;line-height:1.45;color:var(--text);background:var(--bg);min-height:100vh}
+.app{padding:14px 16px;max-width:1700px;margin:0 auto}
+
+header{display:flex;justify-content:space-between;align-items:center;gap:14px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px;flex-wrap:wrap}
+.brand h1{font-size:16px;font-weight:700;letter-spacing:-.2px}
+.brand h1 span{color:var(--primary);font-weight:500}
+.brand small{color:var(--text-3);font-size:11px;display:block;margin-top:1px}
+.version-info{font-size:11px;color:var(--text-3);margin-left:8px}
+.version-info a{color:var(--primary);cursor:pointer;text-decoration:none;margin-left:4px}
+.version-info a:hover{text-decoration:underline}
+.version-modal{position:fixed;top:60px;right:20px;width:480px;max-height:70vh;background:#fff;border:1px solid var(--border);border-radius:10px;padding:18px 20px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:100;display:none;overflow-y:auto}
+.version-modal.open{display:block}
+.version-modal h3{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.version-modal h3 span{cursor:pointer;color:var(--text-3);font-weight:400}
+.version-entry{padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.version-entry:last-child{border-bottom:none}
+.version-entry strong{color:var(--primary)}
+.version-entry small{color:var(--text-3);margin-left:6px}
+.version-entry div{color:var(--text-2);margin-top:3px;line-height:1.5}
+.status{font-size:11px;color:var(--text-2);display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:var(--surface);border:1px solid var(--border);border-radius:999px}
+.status .dot{width:7px;height:7px;border-radius:50%;background:var(--good)}
+.status.loading .dot{background:var(--warn);animation:pulse 1.2s infinite}
+.status.error .dot{background:var(--bad)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+.bar{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:2px}
+.field.grow{flex:1;min-width:160px}
+.field label{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3)}
+.field input,.field select{font-family:inherit;font-size:12px;padding:6px 9px;border:1px solid var(--border-2);border-radius:5px;background:var(--surface);color:var(--text);outline:none;height:30px}
+.field input:focus,.field select:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(31,95,198,.18)}
+.btn{font-family:inherit;font-size:12px;font-weight:600;padding:6px 14px;border:none;border-radius:5px;cursor:pointer;background:var(--primary);color:#fff;height:30px}
+.btn:hover{background:var(--primary-2)}
+.btn.ghost{background:var(--surface);color:var(--text);border:1px solid var(--border-2)}
+.btn.ghost.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+@media (max-width:900px){ .kpis{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:560px){ .kpis{grid-template-columns:1fr} }
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:10px 12px;border-left:3px solid var(--c,var(--primary));cursor:default}
+.kpi.click{cursor:pointer;transition:transform .1s, border-color .1s}
+.kpi.click:hover{transform:translateY(-1px);border-color:var(--primary)}
+.kpi .l{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);font-weight:600}
+.kpi .v{font-size:20px;font-weight:700;letter-spacing:-.3px;font-variant-numeric:tabular-nums;line-height:1.15;margin-top:3px}
+.kpi .s{font-size:11px;color:var(--text-2);margin-top:2px}
+.kpi.warn{--c:var(--warn)}
+.kpi.bad{--c:var(--bad)}
+.kpi.good{--c:var(--good)}
+
+.section{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden}
+.section h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-2);padding:10px 14px;background:var(--surface-2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.section h2 .toggle{font-size:10px;color:var(--text-3);font-weight:400;text-transform:none;letter-spacing:0}
+.section .body{padding:0}
+.section.collapsed .body{display:none}
+
+table.tbl{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+table.tbl thead th{background:var(--surface-2);color:var(--text-2);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;padding:9px 8px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap}
+table.tbl thead th.left{text-align:left}
+table.tbl tbody td{padding:8px;border-bottom:1px solid var(--border);text-align:center}
+table.tbl tbody td.left{text-align:left}
+table.tbl tbody tr:hover{background:var(--surface-2)}
+table.tbl tbody tr.row-click{cursor:pointer}
+table.tbl tbody tr.expanded{background:#f0f4fa}
+table.tbl tbody tr.weekend td{color:var(--text-3);background:#f7f8fb}
+table.tbl tbody tr.weekend td.left{font-style:italic}
+table.tbl tbody tr.total-row{background:var(--surface-2);font-weight:700}
+table.tbl tbody tr.total-row td{border-top:2px solid var(--border-2)}
+
+.age-tag{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+.age-0{background:#eef1f6;color:var(--age-0)}
+.age-1{background:var(--warn-bg);color:var(--age-1)}
+.age-2{background:#ffe8d0;color:var(--age-2)}
+.age-3{background:var(--bad-bg);color:var(--age-3)}
+
+.state-tag{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600}
+.state-fila{background:var(--warn-bg);color:var(--warn)}
+.state-em_separacao{background:#e7eefb;color:var(--primary)}
+.state-em_banho{background:#e7eefb;color:var(--primary-2)}
+.state-finalizado{background:var(--good-bg);color:var(--good)}
+.state-fechado_sem_sep{background:#f0e8f6;color:#6d3a8e}
+
+.expand{background:#fafbfd;border-bottom:1px solid var(--border);padding:12px 14px;display:none}
+.expand.open{display:block}
+.expand table.tbl{border:1px solid var(--border);border-radius:5px;overflow:hidden}
+
+.rank-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px 14px}
+.rank-row .rank-card{background:#fafbfd;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.rank-row .rank-card h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-3);padding:8px 10px;background:var(--surface-2);border-bottom:1px solid var(--border)}
+@media (max-width:900px){ .rank-row{grid-template-columns:1fr} }
+
+.tabs{display:flex;gap:0;padding:10px 14px 0;border-bottom:1px solid var(--border);background:var(--surface)}
+.tabs .tab{padding:7px 14px;font-size:12px;font-weight:600;color:var(--text-3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs .tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.tabs .tab:hover{color:var(--text-2)}
+
+.empty{padding:30px 14px;text-align:center;color:var(--text-3);font-size:12px;font-style:italic}
+.muted{color:var(--text-3)}
+.num{font-variant-numeric:tabular-nums}
+
+.toggle-row{display:flex;gap:6px;padding:10px 14px;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.toggle-row .btn{height:26px;padding:4px 12px;font-size:11px}
+
+footer{padding:8px 4px;font-size:10.5px;color:var(--text-3);text-align:right}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="brand">
+    <h1>Franco Galvânica · <span>Monitor de Demanda</span></h1>
+    <small>Fluxo de recebimentos · Fase 1 do plano de demanda/capacidade/prazo</small>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="version-info">
+      v<span id="vNum">1.0</span> · editado <span id="vDate">14/05/2026</span>
+      <a id="vLink">histórico</a>
+    </div>
+    <div class="status" id="status"><span class="dot"></span><span id="statusTxt">aguardando</span></div>
+  </div>
+</header>
+
+<div id="vModal" class="version-modal">
+  <h3>Histórico de versões <span id="vClose">×</span></h3>
+  <div id="vList"></div>
+</div>
+
+<div class="bar">
+  <div class="field"><label>De</label><input type="date" id="dFrom"></div>
+  <div class="field"><label>Até</label><input type="date" id="dTo"></div>
+  <div class="field grow"><label>Cliente</label><input type="search" id="fCli" placeholder="filtrar por cliente"></div>
+  <div class="field grow"><label>Fornecedor</label><input type="search" id="fForn" placeholder="filtrar por fornecedor"></div>
+  <div class="field"><label>Estagnado a partir de</label>
+    <select id="thrEst">
+      <option value="30">30 dias</option>
+      <option value="60">60 dias</option>
+      <option value="90" selected>90 dias</option>
+      <option value="180">180 dias</option>
+      <option value="365">365 dias</option>
+    </select>
+  </div>
+  <button class="btn" id="btnLoad">Atualizar</button>
+</div>
+
+<div class="kpis">
+  <div class="kpi" id="kpiEntrada"><div class="l">Entrada no período</div><div class="v">—</div><div class="s">—</div></div>
+  <div class="kpi warn" id="kpiFila"><div class="l">Fila ativa (sem separação)</div><div class="v">—</div><div class="s">—</div></div>
+  <div class="kpi good" id="kpiProd"><div class="l">Já em produção</div><div class="v">—</div><div class="s">—</div></div>
+  <div class="kpi bad click" id="kpiEst"><div class="l">Estagnado &gt; <span id="thrLbl">90</span> dias</div><div class="v">—</div><div class="s">Clique para abrir lista</div></div>
+</div>
+
+<div class="section" id="secDia">
+  <h2 onclick="toggleSection('secDia')"><span>① Entrada por dia</span><span class="toggle">[ocultar]</span></h2>
+  <div class="body" id="secDiaBody"><div class="empty">Carregue dados para visualizar.</div></div>
+</div>
+
+<div class="section" id="secFila">
+  <h2 onclick="toggleSection('secFila')"><span>② Fila ativa</span><span class="toggle">[ocultar]</span></h2>
+  <div class="toggle-row">
+    <button class="btn ghost active" id="filaModoReceb">Por recebimento</button>
+    <button class="btn ghost" id="filaModoCli">Por cliente</button>
+    <span class="muted" style="margin-left:auto;align-self:center;font-size:11px">Recebimentos sem separação, dentro do período filtrado</span>
+  </div>
+  <div class="body" id="secFilaBody"><div class="empty">Carregue dados para visualizar.</div></div>
+</div>
+
+<div class="section" id="secAgg">
+  <h2 onclick="toggleSection('secAgg')"><span>③ Agregações</span><span class="toggle">[ocultar]</span></h2>
+  <div class="tabs">
+    <div class="tab active" data-agg="d">Dia</div>
+    <div class="tab" data-agg="w">Semana</div>
+    <div class="tab" data-agg="m">Mês</div>
+    <div class="tab" data-agg="y">Ano</div>
+  </div>
+  <div class="body" id="secAggBody"><div class="empty">Carregue dados para visualizar.</div></div>
+</div>
+
+<div class="section" id="secRank">
+  <h2 onclick="toggleSection('secRank')"><span>④ Rankings</span><span class="toggle">[ocultar]</span></h2>
+  <div class="body" id="secRankBody"><div class="empty">Carregue dados para visualizar.</div></div>
+</div>
+
+<div class="section collapsed" id="secEst">
+  <h2 onclick="toggleSection('secEst')"><span>⑤ Estagnados (acima do threshold)</span><span class="toggle">[mostrar]</span></h2>
+  <div class="body" id="secEstBody"><div class="empty">Clique no card "Estagnado" ou aqui para carregar a lista.</div></div>
+</div>
+
+<footer>Fonte: <code>recebimento_pecas</code> + <code>separacoes_recebimentos</code> + <code>separacoes</code> · Banco Aiven · Cap 500/query, paginado</footer>
+
+</div>
+
+<script>
+const VERSIONS = [
+  { v:'1.0', d:'14/05/2026', notes:'v1.0 inicial — Monitor de Demanda Fase 1. KPIs (entrada/fila/produção/estagnado), entrada por dia (com sab/dom em cinza), fila ativa em 2 modos (por recebimento ou por cliente), agregações dia/semana/mês/ano, rankings de clientes/fornecedores/dia-da-semana, lista de estagnados via threshold ajustável (30/60/90/180/365d). Carga via callDBAll paginado, sanitização CHR(13)/CHR(10) em obs e nome_cliente.' }
+];
+
+// ========== STATE ==========
+const state = { receb:[], loading:false, filaModo:'receb', aggView:'d' };
+
+// ========== HELPERS ==========
+function $(id){ return document.getElementById(id); }
+function setStatus(txt, cls){
+  $('status').className = 'status' + (cls ? ' ' + cls : '');
+  $('statusTxt').textContent = txt;
+}
+function fmtInt(n){ if (n == null || isNaN(n)) return '—'; return Number(n).toLocaleString('pt-BR'); }
+function fmtPeso(g){ if (g == null || isNaN(g)) return '—'; return Number(g).toLocaleString('pt-BR', {maximumFractionDigits:0}) + ' g'; }
+function fmtPct(p){ if (p == null || isNaN(p)) return '—'; return (p>0?'+':'') + Number(p).toFixed(1) + '%'; }
+function fmtDays(d){ if (d == null || isNaN(d)) return '—'; return Math.round(d) + 'd'; }
+function fmtData(s){ if (!s) return '—'; return s.slice(8,10) + '/' + s.slice(5,7) + '/' + s.slice(0,4); }
+function fmtDataCurta(s){ if (!s) return '—'; return s.slice(8,10) + '/' + s.slice(5,7); }
+function dayName(dow){ return ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][dow]; }
+function ageTag(d){
+  if (d == null) return '<span class="muted">—</span>';
+  let cls = 'age-0';
+  if (d > 30) cls = 'age-3';
+  else if (d > 14) cls = 'age-2';
+  else if (d > 7) cls = 'age-1';
+  return `<span class="age-tag ${cls}">${Math.round(d)}d</span>`;
+}
+function stateTag(estado){
+  const labels = { fila:'na fila', em_separacao:'em separação', em_banho:'em banho', finalizado:'finalizado', fechado_sem_sep:'fechado' };
+  return `<span class="state-tag state-${estado}">${labels[estado] || estado}</span>`;
+}
+function escapeHtml(s){ if (s == null) return ''; return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ========== DB ==========
+async function callDB(sql, label){
+  try {
+    const res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit: 500 } });
+    if (!res || !res.content) return [];
+    const txt = (res.content[0] && res.content[0].text) || '';
+    return parseResult(txt);
+  } catch (e) {
+    console.error('callDB error', label, e);
+    return [];
+  }
+}
+async function callDBAll(sqlBase, label){
+  const PAGE = 500;
+  let core = sqlBase.replace(/\s*LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/i, '').trim();
+  let orderBy = '';
+  const m = core.match(/(\s+ORDER BY [\s\S]+)$/i);
+  if (m){ orderBy = m[1]; core = core.slice(0, m.index).trim(); }
+  let all = [], offset = 0;
+  while (offset < 100000) {
+    const sql = `${core}${orderBy} LIMIT ${PAGE} OFFSET ${offset}`;
+    const rows = await callDB(sql, label);
+    all = all.concat(rows);
+    if (rows.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
+}
+function parseResult(t){
+  if (!t) return [];
+  // Remove the trailing "Total: N registro(s)" / "Erro" lines
+  const cleaned = t.replace(/\n\nTotal: \d+ registro\(s\).*$/s, '').replace(/^Erro.*$/sm, '');
+  const lines = cleaned.split('\n').filter(l => l.length > 0);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split('|').map(s => s.trim());
+  // line 1 is separator "----+----"
+  const data = [];
+  for (let i = 2; i < lines.length; i++){
+    const vals = lines[i].split('|').map(v => v.trim());
+    if (vals.length !== headers.length) continue;
+    const row = {};
+    for (let j = 0; j < headers.length; j++){
+      let v = vals[j];
+      if (v === 'NULL' || v === '') v = null;
+      row[headers[j]] = v;
+    }
+    data.push(row);
+  }
+  return data;
+}
+
+// ========== QUERIES ==========
+function sqlMain(dFrom, dTo){
+  return `
+WITH rp_periodo AS (
+  SELECT rp.id, rp.data_receb, rp.hora_receb, rp.idcliente,
+         REPLACE(REPLACE(COALESCE(c.nome, rp.nome_cliente, '(sem cliente)'), CHR(13), ' '), CHR(10), ' ') AS cliente_nome,
+         rp.idfornec,
+         REPLACE(REPLACE(COALESCE(rp.nome_fornec, '(sem fornec)'), CHR(13), ' '), CHR(10), ' ') AS fornec_nome,
+         rp.pesototal,
+         REPLACE(REPLACE(COALESCE(rp.obs, ''), CHR(13), ' '), CHR(10), ' ') AS obs_sanit,
+         rp.status, rp.arquivado, rp.data_fim
+  FROM recebimento_pecas rp
+  LEFT JOIN cliente c ON c.id = rp.idcliente
+  WHERE rp.data_receb BETWEEN '${dFrom}' AND '${dTo}'
+),
+sep_first AS (
+  SELECT sr.recebimento_id,
+         MIN(s.data_inicio_recebimento) AS sep_inicio,
+         MIN(s.data_inicio_banho) AS banho_inicio,
+         MIN(s.data_fim_separacao) AS sep_fim
+  FROM separacoes_recebimentos sr
+  JOIN separacoes s ON s.id = sr.separacao_id
+  GROUP BY sr.recebimento_id
+)
+SELECT rp.id, rp.data_receb::text AS data_receb,
+       rp.idcliente, rp.cliente_nome,
+       rp.idfornec, rp.fornec_nome,
+       rp.pesototal::text AS peso,
+       rp.obs_sanit,
+       rp.status,
+       sf.sep_inicio::text, sf.banho_inicio::text, sf.sep_fim::text,
+       CASE WHEN sf.sep_inicio IS NOT NULL THEN (sf.sep_inicio::date - rp.data_receb) ELSE NULL END AS lead_dias,
+       CASE
+         WHEN sf.sep_fim IS NOT NULL THEN 'finalizado'
+         WHEN sf.banho_inicio IS NOT NULL THEN 'em_banho'
+         WHEN sf.sep_inicio IS NOT NULL THEN 'em_separacao'
+         WHEN rp.status = 'S' OR rp.data_fim IS NOT NULL THEN 'fechado_sem_sep'
+         ELSE 'fila'
+       END AS estado,
+       (CURRENT_DATE - rp.data_receb) AS dias_aberto
+FROM rp_periodo rp
+LEFT JOIN sep_first sf ON sf.recebimento_id = rp.id
+ORDER BY rp.data_receb DESC, rp.id DESC`;
+}
+function sqlEstagnado(thr){
+  return `
+SELECT rp.id, rp.data_receb::text AS data_receb,
+       rp.idcliente,
+       REPLACE(REPLACE(COALESCE(c.nome, rp.nome_cliente, '(sem cliente)'), CHR(13), ' '), CHR(10), ' ') AS cliente_nome,
+       rp.idfornec,
+       REPLACE(REPLACE(COALESCE(rp.nome_fornec, '(sem fornec)'), CHR(13), ' '), CHR(10), ' ') AS fornec_nome,
+       rp.pesototal::text AS peso,
+       REPLACE(REPLACE(COALESCE(rp.obs, ''), CHR(13), ' '), CHR(10), ' ') AS obs_sanit,
+       rp.status, rp.arquivado,
+       (CURRENT_DATE - rp.data_receb) AS dias_aberto
+FROM recebimento_pecas rp
+LEFT JOIN cliente c ON c.id = rp.idcliente
+WHERE rp.status IS NULL
+  AND rp.data_fim IS NULL
+  AND NOT EXISTS (SELECT 1 FROM separacoes_recebimentos sr WHERE sr.recebimento_id = rp.id)
+  AND (CURRENT_DATE - rp.data_receb) > ${thr}
+ORDER BY rp.data_receb ASC`;
+}
+
+// ========== LOAD ==========
+async function load(){
+  if (state.loading) return;
+  state.loading = true;
+  setStatus('carregando…', 'loading');
+  const dFrom = $('dFrom').value;
+  const dTo = $('dTo').value;
+  try {
+    const rows = await callDBAll(sqlMain(dFrom, dTo), 'main');
+    state.receb = rows.map(r => ({
+      id: parseInt(r.id),
+      data_receb: r.data_receb,
+      idcliente: r.idcliente ? parseInt(r.idcliente) : null,
+      cliente_nome: r.cliente_nome,
+      idfornec: r.idfornec ? parseInt(r.idfornec) : null,
+      fornec_nome: r.fornec_nome,
+      peso: parseFloat(r.peso) || 0,
+      obs: r.obs_sanit || '',
+      status: r.status,
+      sep_inicio: r.sep_inicio,
+      banho_inicio: r.banho_inicio,
+      sep_fim: r.sep_fim,
+      lead_dias: r.lead_dias != null ? parseInt(r.lead_dias) : null,
+      estado: r.estado,
+      dias_aberto: r.dias_aberto != null ? parseInt(r.dias_aberto) : null
+    }));
+    setStatus(`${state.receb.length} recebimentos no período`, '');
+    renderAll();
+  } catch (e) {
+    console.error(e);
+    setStatus('erro: ' + (e.message || e), 'error');
+  } finally {
+    state.loading = false;
+  }
+}
+
+// ========== FILTERS ==========
+function getFiltered(){
+  const fCli = ($('fCli').value || '').toLowerCase().trim();
+  const fForn = ($('fForn').value || '').toLowerCase().trim();
+  return state.receb.filter(r => {
+    if (fCli && !(r.cliente_nome || '').toLowerCase().includes(fCli)) return false;
+    if (fForn && !(r.fornec_nome || '').toLowerCase().includes(fForn)) return false;
+    return true;
+  });
+}
+
+// ========== RENDER ==========
+function renderAll(){
+  renderKPIs();
+  renderSecDia();
+  renderSecFila();
+  renderSecAgg();
+  renderSecRank();
+}
+
+function renderKPIs(){
+  const rows = getFiltered();
+  const total = rows.length;
+  const peso = rows.reduce((s, r) => s + r.peso, 0);
+  const fila = rows.filter(r => r.estado === 'fila');
+  const pesoFila = fila.reduce((s, r) => s + r.peso, 0);
+  const prod = rows.filter(r => r.estado !== 'fila' && r.estado !== 'fechado_sem_sep');
+  const pesoProd = prod.reduce((s, r) => s + r.peso, 0);
+  const leadAvg = avg(rows.filter(r => r.lead_dias != null).map(r => r.lead_dias));
+  $('kpiEntrada').querySelector('.v').textContent = fmtInt(total);
+  $('kpiEntrada').querySelector('.s').textContent = fmtPeso(peso) + ' · lead médio ' + (leadAvg != null ? leadAvg.toFixed(1) + 'd' : '—');
+  $('kpiFila').querySelector('.v').textContent = fmtInt(fila.length);
+  $('kpiFila').querySelector('.s').textContent = fmtPeso(pesoFila);
+  $('kpiProd').querySelector('.v').textContent = fmtInt(prod.length);
+  $('kpiProd').querySelector('.s').textContent = fmtPeso(pesoProd);
+  // estagnado é carregado on-demand
+  $('thrLbl').textContent = $('thrEst').value;
+}
+
+function avg(arr){
+  if (!arr || !arr.length) return null;
+  return arr.reduce((s,v) => s+v, 0) / arr.length;
+}
+
+function renderSecDia(){
+  const rows = getFiltered();
+  const dFrom = $('dFrom').value;
+  const dTo = $('dTo').value;
+  if (!rows.length || !dFrom || !dTo){
+    $('secDiaBody').innerHTML = '<div class="empty">Nenhum recebimento no filtro atual.</div>';
+    return;
+  }
+  // gerar todos os dias do período
+  const dias = [];
+  const start = new Date(dFrom + 'T00:00:00');
+  const end = new Date(dTo + 'T00:00:00');
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)){
+    dias.push(d.toISOString().slice(0,10));
+  }
+  // agrupar
+  const byDia = {};
+  for (const r of rows){
+    const k = r.data_receb;
+    if (!byDia[k]) byDia[k] = [];
+    byDia[k].push(r);
+  }
+  let html = `<table class="tbl"><thead><tr>
+    <th class="left">Dia</th><th>DS</th><th>Qtd</th><th>Peso</th><th>Clientes</th><th>Fornec.</th>
+    <th>Em fila</th><th>Já produzido</th><th>Lead médio</th>
+  </tr></thead><tbody>`;
+  // mais recente em cima
+  for (const dia of dias.slice().reverse()){
+    const dt = new Date(dia + 'T00:00:00');
+    const dow = dt.getDay();
+    const isWeekend = (dow === 0 || dow === 6);
+    const items = byDia[dia] || [];
+    if (!items.length){
+      html += `<tr class="${isWeekend ? 'weekend' : ''}"><td class="left">${fmtData(dia)}</td><td>${dayName(dow)}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
+      continue;
+    }
+    const qtd = items.length;
+    const peso = items.reduce((s,r) => s + r.peso, 0);
+    const clis = new Set(items.map(r => r.idcliente)).size;
+    const forns = new Set(items.map(r => r.idfornec)).size;
+    const fila = items.filter(r => r.estado === 'fila').length;
+    const prod = items.filter(r => r.estado !== 'fila' && r.estado !== 'fechado_sem_sep').length;
+    const leadAvg = avg(items.filter(r => r.lead_dias != null).map(r => r.lead_dias));
+    html += `<tr class="row-click ${isWeekend ? 'weekend' : ''}" data-dia="${dia}">
+      <td class="left">${fmtData(dia)}</td>
+      <td>${dayName(dow)}</td>
+      <td>${fmtInt(qtd)}</td>
+      <td>${fmtPeso(peso)}</td>
+      <td>${fmtInt(clis)}</td>
+      <td>${fmtInt(forns)}</td>
+      <td>${fila > 0 ? `<span class="age-tag age-1">${fila}</span>` : '—'}</td>
+      <td>${prod > 0 ? `<span class="age-tag" style="background:var(--good-bg);color:var(--good)">${prod}</span>` : '—'}</td>
+      <td>${leadAvg != null ? leadAvg.toFixed(1) + 'd' : '—'}</td>
+    </tr>
+    <tr class="expand-row" data-dia-exp="${dia}" style="display:none"><td colspan="9" style="padding:0"><div class="expand open" style="display:block">${renderDiaExpand(items)}</div></td></tr>`;
+  }
+  html += '</tbody></table>';
+  $('secDiaBody').innerHTML = html;
+  $('secDiaBody').querySelectorAll('.row-click').forEach(tr => {
+    tr.addEventListener('click', e => {
+      const dia = tr.getAttribute('data-dia');
+      const exp = $('secDiaBody').querySelector(`tr.expand-row[data-dia-exp="${dia}"]`);
+      if (exp){
+        const wasOpen = exp.style.display !== 'none';
+        $('secDiaBody').querySelectorAll('.expand-row').forEach(r => r.style.display = 'none');
+        $('secDiaBody').querySelectorAll('.row-click').forEach(r => r.classList.remove('expanded'));
+        if (!wasOpen){ exp.style.display = ''; tr.classList.add('expanded'); }
+      }
+    });
+  });
+}
+
+function renderDiaExpand(items){
+  let html = `<table class="tbl" style="font-size:11.5px"><thead><tr>
+    <th>#</th><th class="left">Cliente</th><th class="left">Fornecedor</th><th>Peso</th><th>Estado</th><th>Lead</th><th>Aging</th><th class="left">Obs</th>
+  </tr></thead><tbody>`;
+  for (const r of items){
+    html += `<tr>
+      <td>${r.id}</td>
+      <td class="left">${escapeHtml(r.cliente_nome || '—')}</td>
+      <td class="left">${escapeHtml(r.fornec_nome || '—')}</td>
+      <td>${fmtPeso(r.peso)}</td>
+      <td>${stateTag(r.estado)}</td>
+      <td>${r.lead_dias != null ? r.lead_dias + 'd' : '—'}</td>
+      <td>${r.estado === 'fila' ? ageTag(r.dias_aberto) : '<span class="muted">—</span>'}</td>
+      <td class="left muted" style="font-size:11px">${escapeHtml(r.obs || '')}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderSecFila(){
+  const rows = getFiltered().filter(r => r.estado === 'fila');
+  if (!rows.length){
+    $('secFilaBody').innerHTML = '<div class="empty">Nenhum recebimento na fila ativa (sem separação) no período/filtros atuais.</div>';
+    return;
+  }
+  if (state.filaModo === 'receb'){
+    renderFilaReceb(rows);
+  } else {
+    renderFilaCli(rows);
+  }
+}
+
+function renderFilaReceb(rows){
+  // ordenado por dias_aberto desc (mais antigos em cima)
+  const sorted = rows.slice().sort((a,b) => (b.dias_aberto || 0) - (a.dias_aberto || 0));
+  let html = `<table class="tbl"><thead><tr>
+    <th>#</th><th>Data</th><th class="left">Cliente</th><th class="left">Fornecedor</th>
+    <th>Peso</th><th>Dias aberto</th><th class="left">Obs</th>
+  </tr></thead><tbody>`;
+  let totPeso = 0;
+  for (const r of sorted){
+    totPeso += r.peso;
+    html += `<tr>
+      <td>${r.id}</td>
+      <td>${fmtDataCurta(r.data_receb)}</td>
+      <td class="left">${escapeHtml(r.cliente_nome || '—')}</td>
+      <td class="left">${escapeHtml(r.fornec_nome || '—')}</td>
+      <td>${fmtPeso(r.peso)}</td>
+      <td>${ageTag(r.dias_aberto)}</td>
+      <td class="left muted" style="font-size:11px">${escapeHtml(r.obs || '')}</td>
+    </tr>`;
+  }
+  html += `<tr class="total-row"><td colspan="4" class="left">Total · ${rows.length} recebimentos</td><td>${fmtPeso(totPeso)}</td><td colspan="2"></td></tr>`;
+  html += '</tbody></table>';
+  $('secFilaBody').innerHTML = html;
+}
+
+function renderFilaCli(rows){
+  const byCli = {};
+  for (const r of rows){
+    const k = r.idcliente + '|' + r.cliente_nome;
+    if (!byCli[k]) byCli[k] = { idcliente: r.idcliente, nome: r.cliente_nome, items: [] };
+    byCli[k].items.push(r);
+  }
+  const list = Object.values(byCli).map(g => ({
+    ...g,
+    qtd: g.items.length,
+    peso: g.items.reduce((s,r) => s + r.peso, 0),
+    maisAntigo: Math.max(...g.items.map(r => r.dias_aberto || 0))
+  })).sort((a,b) => b.maisAntigo - a.maisAntigo);
+  let html = `<table class="tbl"><thead><tr>
+    <th class="left">Cliente</th><th>Qtd abertos</th><th>Peso</th><th>Mais antigo</th><th></th>
+  </tr></thead><tbody>`;
+  for (const g of list){
+    html += `<tr class="row-click" data-cli="${g.idcliente}">
+      <td class="left">${escapeHtml(g.nome || '—')}</td>
+      <td>${fmtInt(g.qtd)}</td>
+      <td>${fmtPeso(g.peso)}</td>
+      <td>${ageTag(g.maisAntigo)}</td>
+      <td>▾</td>
+    </tr>
+    <tr class="expand-row" data-cli-exp="${g.idcliente}" style="display:none"><td colspan="5" style="padding:0"><div class="expand open" style="display:block">${renderClienteExpand(g.items)}</div></td></tr>`;
+  }
+  html += '</tbody></table>';
+  $('secFilaBody').innerHTML = html;
+  $('secFilaBody').querySelectorAll('.row-click').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const cli = tr.getAttribute('data-cli');
+      const exp = $('secFilaBody').querySelector(`tr.expand-row[data-cli-exp="${cli}"]`);
+      if (exp){
+        const wasOpen = exp.style.display !== 'none';
+        exp.style.display = wasOpen ? 'none' : '';
+        tr.classList.toggle('expanded', !wasOpen);
+      }
+    });
+  });
+}
+
+function renderClienteExpand(items){
+  let html = `<table class="tbl" style="font-size:11.5px"><thead><tr>
+    <th>#</th><th>Data</th><th class="left">Fornecedor</th><th>Peso</th><th>Dias aberto</th><th class="left">Obs</th>
+  </tr></thead><tbody>`;
+  for (const r of items.slice().sort((a,b) => (b.dias_aberto||0) - (a.dias_aberto||0))){
+    html += `<tr>
+      <td>${r.id}</td>
+      <td>${fmtDataCurta(r.data_receb)}</td>
+      <td class="left">${escapeHtml(r.fornec_nome || '—')}</td>
+      <td>${fmtPeso(r.peso)}</td>
+      <td>${ageTag(r.dias_aberto)}</td>
+      <td class="left muted" style="font-size:11px">${escapeHtml(r.obs || '')}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderSecAgg(){
+  const rows = getFiltered();
+  if (!rows.length){
+    $('secAggBody').innerHTML = '<div class="empty">Nenhum recebimento no filtro atual.</div>';
+    return;
+  }
+  const groups = {};
+  for (const r of rows){
+    let k;
+    const dt = new Date(r.data_receb + 'T00:00:00');
+    if (state.aggView === 'd') k = r.data_receb;
+    else if (state.aggView === 'w'){
+      // monday-start week
+      const d = new Date(dt);
+      const day = (d.getDay() + 6) % 7; // mon=0
+      d.setDate(d.getDate() - day);
+      k = d.toISOString().slice(0,10);
+    }
+    else if (state.aggView === 'm') k = r.data_receb.slice(0,7);
+    else k = r.data_receb.slice(0,4);
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(r);
+  }
+  const keys = Object.keys(groups).sort().reverse();
+  const labelHeader = { d:'Dia', w:'Semana (seg)', m:'Mês', y:'Ano' }[state.aggView];
+  let html = `<table class="tbl"><thead><tr>
+    <th class="left">${labelHeader}</th><th>Qtd</th><th>Peso</th><th>Clientes</th><th>Fornec.</th>
+    <th>Em fila</th><th>Produção</th><th>Lead médio</th>
+  </tr></thead><tbody>`;
+  let totQtd = 0, totPeso = 0;
+  for (const k of keys){
+    const items = groups[k];
+    const qtd = items.length;
+    const peso = items.reduce((s,r) => s + r.peso, 0);
+    const clis = new Set(items.map(r => r.idcliente)).size;
+    const forns = new Set(items.map(r => r.idfornec)).size;
+    const fila = items.filter(r => r.estado === 'fila').length;
+    const prod = items.filter(r => r.estado !== 'fila' && r.estado !== 'fechado_sem_sep').length;
+    const leadAvg = avg(items.filter(r => r.lead_dias != null).map(r => r.lead_dias));
+    totQtd += qtd; totPeso += peso;
+    const label = state.aggView === 'm' ? k.slice(5,7) + '/' + k.slice(0,4)
+                 : state.aggView === 'y' ? k
+                 : fmtData(k);
+    html += `<tr>
+      <td class="left">${label}</td>
+      <td>${fmtInt(qtd)}</td>
+      <td>${fmtPeso(peso)}</td>
+      <td>${fmtInt(clis)}</td>
+      <td>${fmtInt(forns)}</td>
+      <td>${fila > 0 ? `<span class="age-tag age-1">${fila}</span>` : '—'}</td>
+      <td>${prod > 0 ? `<span class="age-tag" style="background:var(--good-bg);color:var(--good)">${prod}</span>` : '—'}</td>
+      <td>${leadAvg != null ? leadAvg.toFixed(1) + 'd' : '—'}</td>
+    </tr>`;
+  }
+  html += `<tr class="total-row"><td class="left">Total</td><td>${fmtInt(totQtd)}</td><td>${fmtPeso(totPeso)}</td><td colspan="5"></td></tr></tbody></table>`;
+  $('secAggBody').innerHTML = html;
+}
+
+function renderSecRank(){
+  const rows = getFiltered();
+  if (!rows.length){
+    $('secRankBody').innerHTML = '<div class="empty">Nenhum recebimento no filtro atual.</div>';
+    return;
+  }
+  // Top clientes
+  const byCli = {};
+  for (const r of rows){
+    const k = r.idcliente + '|' + r.cliente_nome;
+    if (!byCli[k]) byCli[k] = { nome: r.cliente_nome, qtd:0, peso:0, abertos:0, leads:[] };
+    byCli[k].qtd++;
+    byCli[k].peso += r.peso;
+    if (r.estado === 'fila') byCli[k].abertos++;
+    if (r.lead_dias != null) byCli[k].leads.push(r.lead_dias);
+  }
+  const topCli = Object.values(byCli).sort((a,b) => b.peso - a.peso).slice(0,10);
+  // Top fornec
+  const byForn = {};
+  for (const r of rows){
+    const k = r.fornec_nome;
+    if (!byForn[k]) byForn[k] = { nome: r.fornec_nome, qtd:0, peso:0 };
+    byForn[k].qtd++;
+    byForn[k].peso += r.peso;
+  }
+  const topForn = Object.values(byForn).sort((a,b) => b.peso - a.peso).slice(0,10);
+  // Dia da semana
+  const byDow = {};
+  for (let i = 1; i <= 5; i++) byDow[i] = { qtd:0, peso:0 };
+  for (const r of rows){
+    const dow = new Date(r.data_receb + 'T00:00:00').getDay();
+    if (dow >= 1 && dow <= 5){
+      byDow[dow].qtd++;
+      byDow[dow].peso += r.peso;
+    }
+  }
+  let h = '<div class="rank-row">';
+  // Card 1
+  h += '<div class="rank-card"><h3>Top 10 Clientes (por peso)</h3><table class="tbl" style="font-size:11.5px"><thead><tr><th class="left">Cliente</th><th>Qtd</th><th>Peso</th><th>% abertos</th><th>Lead méd.</th></tr></thead><tbody>';
+  for (const c of topCli){
+    const pct = c.qtd > 0 ? (c.abertos * 100 / c.qtd) : 0;
+    const lead = avg(c.leads);
+    h += `<tr><td class="left">${escapeHtml(c.nome)}</td><td>${c.qtd}</td><td>${fmtPeso(c.peso)}</td><td>${pct.toFixed(0)}%</td><td>${lead != null ? lead.toFixed(1) + 'd' : '—'}</td></tr>`;
+  }
+  h += '</tbody></table></div>';
+  // Card 2
+  h += '<div class="rank-card"><h3>Top 10 Fornecedores (por peso)</h3><table class="tbl" style="font-size:11.5px"><thead><tr><th class="left">Fornecedor</th><th>Qtd</th><th>Peso</th></tr></thead><tbody>';
+  for (const f of topForn){
+    h += `<tr><td class="left">${escapeHtml(f.nome)}</td><td>${f.qtd}</td><td>${fmtPeso(f.peso)}</td></tr>`;
+  }
+  h += '</tbody></table></div>';
+  // Card 3
+  h += '<div class="rank-card"><h3>Movimento por dia da semana</h3><table class="tbl" style="font-size:11.5px"><thead><tr><th class="left">Dia</th><th>Qtd</th><th>Peso</th><th>Peso médio</th></tr></thead><tbody>';
+  for (let i = 1; i <= 5; i++){
+    const d = byDow[i];
+    h += `<tr><td class="left">${dayName(i)}</td><td>${d.qtd}</td><td>${fmtPeso(d.peso)}</td><td>${d.qtd>0 ? fmtPeso(d.peso/d.qtd) : '—'}</td></tr>`;
+  }
+  h += '</tbody></table></div>';
+  h += '</div>';
+  $('secRankBody').innerHTML = h;
+}
+
+async function renderSecEst(){
+  setStatus('carregando estagnados…', 'loading');
+  const thr = parseInt($('thrEst').value);
+  try {
+    const rows = await callDBAll(sqlEstagnado(thr), 'estagnado');
+    const peso = rows.reduce((s, r) => s + (parseFloat(r.peso) || 0), 0);
+    $('kpiEst').querySelector('.v').textContent = fmtInt(rows.length);
+    $('kpiEst').querySelector('.s').textContent = fmtPeso(peso) + ' · clique para ver';
+    if (!rows.length){
+      $('secEstBody').innerHTML = '<div class="empty">Nenhum recebimento estagnado acima de ' + thr + ' dias.</div>';
+      setStatus(`${state.receb.length} receb · 0 estagnados`, '');
+      return;
+    }
+    let h = `<table class="tbl"><thead><tr>
+      <th>#</th><th>Data</th><th class="left">Cliente</th><th>idCli</th><th class="left">Fornecedor</th><th>idForn</th>
+      <th>Peso</th><th>Dias aberto</th><th class="left">Obs</th>
+    </tr></thead><tbody>`;
+    for (const r of rows){
+      h += `<tr>
+        <td>${r.id}</td>
+        <td>${fmtData(r.data_receb)}</td>
+        <td class="left">${escapeHtml(r.cliente_nome || '—')}</td>
+        <td>${r.idcliente || '—'}</td>
+        <td class="left">${escapeHtml(r.fornec_nome || '—')}</td>
+        <td>${r.idfornec || '—'}</td>
+        <td>${fmtPeso(parseFloat(r.peso) || 0)}</td>
+        <td><span class="age-tag age-3">${r.dias_aberto}d</span></td>
+        <td class="left muted" style="font-size:11px">${escapeHtml(r.obs_sanit || '')}</td>
+      </tr>`;
+    }
+    h += `<tr class="total-row"><td colspan="6" class="left">Total · ${rows.length} recebimentos estagnados</td><td>${fmtPeso(peso)}</td><td colspan="2"></td></tr></tbody></table>`;
+    $('secEstBody').innerHTML = h;
+    setStatus(`${state.receb.length} receb · ${rows.length} estagnados`, '');
+  } catch (e) {
+    setStatus('erro estagnado: ' + (e.message || e), 'error');
+  }
+}
+
+// ========== SECTION TOGGLE ==========
+function toggleSection(id){
+  const el = $(id);
+  el.classList.toggle('collapsed');
+  const t = el.querySelector('h2 .toggle');
+  if (t) t.textContent = el.classList.contains('collapsed') ? '[mostrar]' : '[ocultar]';
+  if (id === 'secEst' && !el.classList.contains('collapsed') && $('secEstBody').querySelector('.empty')){
+    renderSecEst();
+  }
+}
+
+// ========== VERSION MODAL ==========
+function renderVersions(){
+  $('vNum').textContent = VERSIONS[0].v;
+  $('vDate').textContent = VERSIONS[0].d;
+  $('vList').innerHTML = VERSIONS.map(v => `
+    <div class="version-entry">
+      <strong>v${v.v}</strong><small>${v.d}</small>
+      <div>${v.notes}</div>
+    </div>`).join('');
+}
+
+// ========== INIT ==========
+function initDates(){
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const todayISO = now.toISOString().slice(0,10);
+  $('dFrom').value = first.toISOString().slice(0,10);
+  $('dTo').value = todayISO;
+}
+function bindEvents(){
+  $('btnLoad').addEventListener('click', load);
+  $('fCli').addEventListener('input', () => { renderKPIs(); renderSecDia(); renderSecFila(); renderSecAgg(); renderSecRank(); });
+  $('fForn').addEventListener('input', () => { renderKPIs(); renderSecDia(); renderSecFila(); renderSecAgg(); renderSecRank(); });
+  $('thrEst').addEventListener('change', () => { $('thrLbl').textContent = $('thrEst').value; renderSecEst(); });
+  $('filaModoReceb').addEventListener('click', () => {
+    state.filaModo = 'receb';
+    $('filaModoReceb').classList.add('active');
+    $('filaModoCli').classList.remove('active');
+    renderSecFila();
+  });
+  $('filaModoCli').addEventListener('click', () => {
+    state.filaModo = 'cli';
+    $('filaModoCli').classList.add('active');
+    $('filaModoReceb').classList.remove('active');
+    renderSecFila();
+  });
+  $('kpiEst').addEventListener('click', () => {
+    const el = $('secEst');
+    if (el.classList.contains('collapsed')) toggleSection('secEst');
+    el.scrollIntoView({behavior:'smooth', block:'start'});
+    renderSecEst();
+  });
+  document.querySelectorAll('.tabs .tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tabs .tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      state.aggView = t.getAttribute('data-agg');
+      renderSecAgg();
+    });
+  });
+  $('vLink').addEventListener('click', () => $('vModal').classList.toggle('open'));
+  $('vClose').addEventListener('click', () => $('vModal').classList.remove('open'));
+}
+
+(function init(){
+  initDates();
+  renderVersions();
+  bindEvents();
+  load();
+})();
+</script>
+</body>
+</html>

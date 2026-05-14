@@ -1,6 +1,6 @@
 # Artefatos
 
-## Visão dos 3 artefatos
+## Visão dos 4 artefatos
 
 ### 1. Validador de Romaneio · `franco_validador_romaneio.html` · **v3.16**
 
@@ -55,8 +55,48 @@
 
 **Função-chave:** `matchOsServico` com 4 níveis de fallback (a/b/c/d) para encontrar a OS correta de cada romaneio.
 
+### 4. Monitor de Demanda · `franco_demanda.html` · **v1.0**
 
-## Convenções comuns aos 3
+**Objetivo:** monitorar o fluxo de **recebimentos** (entrada na operação) — o lado oposto ao que os 3 artefatos acima cobrem (saída/faturamento). É a **Fase 1** do plano de demanda/capacidade/prazo: depois vêm capacidade por setor (Fase 2) e previsão de prazo (Fase 3).
+
+**Filtros:** período (default mês corrente), cliente, fornecedor, threshold de estagnado (30/60/90/180/365 dias).
+
+**KPIs no topo:**
+
+| KPI | Conteúdo |
+|---|---|
+| Entrada no período | Qtd · peso total · lead médio recebimento→separação |
+| Fila ativa | Recebimentos sem separação · peso aguardando |
+| Já em produção | Recebimentos com separação iniciada · peso |
+| Estagnado | Qtd acima do threshold (clique abre Seção ⑤) |
+
+**Seções:**
+
+| # | Seção | O que mostra |
+|---|---|---|
+| ① | Entrada por dia | Linha por dia útil do período (sab/dom em cinza). Cada linha clicável expande os recebimentos do dia |
+| ② | Fila ativa | Toggle "Por recebimento" ↔ "Por cliente". Aging colorido (0-7d / 8-14d / 15-30d / >30d) |
+| ③ | Agregações | Abas Dia / Semana (seg-início) / Mês / Ano com mesmas métricas |
+| ④ | Rankings | Top 10 clientes (por peso, com % abertos), Top 10 fornecedores, Movimento por dia da semana |
+| ⑤ | Estagnados | Collapsed por padrão. Lista completa dos abertos > threshold (lixo histórico desde 2018) |
+
+**Estado por recebimento** (derivado de `separacoes` via `separacoes_recebimentos`):
+
+| Estado | Critério |
+|---|---|
+| `fila` | Sem separação |
+| `em_separacao` | Tem `data_inicio_recebimento` mas não tem `data_inicio_banho` |
+| `em_banho` | Tem `data_inicio_banho` mas não tem `data_fim_separacao` |
+| `finalizado` | Tem `data_fim_separacao` |
+| `fechado_sem_sep` | Status `S` ou `data_fim`, mas sem separação (caso raro) |
+
+**Notas técnicas:**
+- Sanitização `REPLACE(CHR(13)/CHR(10))` em `obs`, `cliente_nome`, `nome_fornec` (V PINHEIRO Comércio LTDA tem `\n` no nome do cliente).
+- Paginação `callDBAll` em todas as queries — estagnados retornam ~7k rows acima do threshold default.
+- Não compara entrada vs saída (Fase 2/3 farão isso).
+
+
+## Convenções comuns aos 4
 
 - **Versionamento:** array `VERSIONS` em JS no topo, log clicável no header compacto via modal
 - **Cor da variação:** positivo (rom>pass) verde, negativo vermelho, |v|<0.5% neutro
