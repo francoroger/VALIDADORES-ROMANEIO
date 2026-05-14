@@ -1,0 +1,12 @@
+{
+  "name": "validadores-romaneio",
+  "version": "1.0.0",
+  "description": "Artefatos web vivos da Franco Galvanica — hospedados no Netlify com backend serverless para o Postgres Aiven",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

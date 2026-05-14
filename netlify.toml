@@ -1,0 +1,28 @@
+# Netlify config para hospedar os artefatos com backend serverless
+# que conecta no Postgres Aiven. Necessario configurar as env vars
+# no painel do Netlify (Site settings -> Environment variables):
+#   PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASS, API_TOKEN
+
+[build]
+  # Sem build step — sao HTMLs estaticos. Apenas instala deps da function.
+  command = "npm install"
+  publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  # Node 18 LTS, runtime serverless padrao
+  node_bundler = "esbuild"
+
+# Redirecionamento amigavel: /api/db -> /.netlify/functions/db
+[[redirects]]
+  from = "/api/db"
+  to = "/.netlify/functions/db"
+  status = 200
+
+# Headers de seguranca basicos
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

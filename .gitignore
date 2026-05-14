@@ -19,6 +19,8 @@ credentials.json
 node_modules/
 dist/
 build/
+.netlify/
+package-lock.json
 
 # Logs
 *.log

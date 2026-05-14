@@ -23,6 +23,7 @@ Os 3 artefatos rodam dentro do **Cowork** (Claude desktop) e fazem queries diret
 | [REGRAS_NEGOCIO.md](REGRAS_NEGOCIO.md) | Fórmula triádica, fluxo de 7 documentos, idiossincrasias |
 | [BUGS_E_LICOES.md](BUGS_E_LICOES.md) | Bugs encontrados e como evitar regressão |
 | [DEPLOY.md](DEPLOY.md) | Como atualizar artefatos no Cowork e fazer push GitHub |
+| [NETLIFY.md](NETLIFY.md) | Como hospedar os artefatos no Netlify (backend serverless + token) |
 | [docs/memory/](docs/memory/) | Memória persistente do Claude — referência canônica |
 
 ## Quick start

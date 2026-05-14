@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Franco Galvânica · Acesso</title>
+<style>
+  :root {
+    --primary: #1a4d6e;
+    --primary-2: #2980b9;
+    --bg: #f5f7fa;
+    --surface: #fff;
+    --border: #e1e8ed;
+    --text-1: #1a2733;
+    --text-2: #5a6878;
+    --text-3: #8a98a8;
+    --error: #c0392b;
+    --success: #27ae60;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text-1);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0,0,0,.05);
+  }
+  h1 {
+    font-size: 22px;
+    color: var(--primary);
+    margin-bottom: 6px;
+  }
+  h1 span { color: var(--primary-2); }
+  .sub {
+    font-size: 13px;
+    color: var(--text-3);
+    margin-bottom: 24px;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  input[type="password"], input[type="text"] {
+    width: 100%;
+    padding: 11px 13px;
+    font-size: 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: inherit;
+  }
+  input:focus {
+    border-color: var(--primary-2);
+  }
+  button {
+    width: 100%;
+    margin-top: 16px;
+    padding: 11px;
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    background: var(--primary);
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover { background: var(--primary-2); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .msg {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: none;
+  }
+  .msg.error { display: block; background: #fdecea; color: var(--error); border: 1px solid #f8c9c5; }
+  .msg.success { display: block; background: #e8f8f0; color: var(--success); border: 1px solid #c3ecd4; }
+  .links {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .links h3 {
+    font-size: 12px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+  .links a {
+    display: block;
+    padding: 8px 0;
+    color: var(--primary-2);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .links a:hover { text-decoration: underline; }
+  .footer {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-3);
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Franco <span>Galvânica</span></h1>
+  <p class="sub">Validadores de Romaneio — acesso restrito</p>
+
+  <form id="form">
+    <label for="token">Token de acesso</label>
+    <input type="password" id="token" placeholder="Cole o token aqui" autocomplete="current-password" required>
+    <button type="submit" id="btn">Entrar</button>
+  </form>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="links" id="links" style="display:none">
+    <h3>Artefatos disponíveis</h3>
+    <a href="/franco_validador_romaneio.html">Validador de Romaneio</a>
+    <a href="/monitor_romaneios.html">Monitor de Romaneios</a>
+    <a href="/franco_rp_fixed.html">Romaneio × Passagem</a>
+    <a href="/franco_dashboard.html">Dashboard</a>
+  </div>
+
+  <div class="footer">Token fica salvo no navegador (localStorage). Não compartilhe.</div>
+</div>
+
+<script>
+const STORAGE_KEY = 'franco_api_token';
+const tokenInput = document.getElementById('token');
+const msgEl = document.getElementById('msg');
+const linksEl = document.getElementById('links');
+const formEl = document.getElementById('form');
+const btnEl = document.getElementById('btn');
+
+function showMsg(text, kind) {
+  msgEl.className = 'msg ' + (kind || 'error');
+  msgEl.textContent = text;
+}
+
+// Se ja tem token salvo, preenche e mostra os links
+const saved = localStorage.getItem(STORAGE_KEY);
+if (saved) {
+  tokenInput.value = saved;
+  linksEl.style.display = 'block';
+  showMsg('Você já tem um token salvo. Pode acessar os artefatos abaixo, ou cole outro pra trocar.', 'success');
+}
+
+formEl.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const token = tokenInput.value.trim();
+  if (!token) return;
+
+  btnEl.disabled = true;
+  btnEl.textContent = 'Validando...';
+  showMsg('Testando token...', 'success');
+
+  try {
+    // Testa o token com um SELECT trivial
+    const resp = await fetch('/.netlify/functions/db', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+      },
+      body: JSON.stringify({ sql: 'SELECT 1 AS ok' }),
+    });
+
+    if (resp.status === 401) {
+      showMsg('Token inválido. Confira com quem te passou.', 'error');
+    } else if (!resp.ok) {
+      const txt = await resp.text();
+      showMsg('Erro: ' + txt.slice(0, 200), 'error');
+    } else {
+      localStorage.setItem(STORAGE_KEY, token);
+      showMsg('Token válido. Bem-vindo!', 'success');
+      linksEl.style.display = 'block';
+    }
+  } catch (err) {
+    showMsg('Erro de rede: ' + (err.message || err), 'error');
+  } finally {
+    btnEl.disabled = false;
+    btnEl.textContent = 'Entrar';
+  }
+});
+</script>
+</body>
+</html>
