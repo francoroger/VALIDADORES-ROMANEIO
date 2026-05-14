@@ -44,12 +44,26 @@ Em **Site configuration → Environment variables → Add a variable**, criar:
 
 | Nome | Valor |
 |---|---|
-| `PG_HOST` | `164.92.100.77` (ou o endpoint Aiven) |
+| `PG_HOST` | **hostname** do Postgres — prefira o nome em vez do IP (veja seção abaixo) |
 | `PG_PORT` | `24135` |
 | `PG_DB` | nome do banco |
 | `PG_USER` | usuário read-only |
 | `PG_PASS` | senha |
 | `API_TOKEN` | gerar uma string secreta (ex: `openssl rand -hex 24`) |
+
+### Onde achar o hostname Aiven
+
+1. Entra em https://console.aiven.io
+2. Clica no serviço PostgreSQL da Franco
+3. Aba **Overview** — procura o card **Connection information**
+4. Copia o valor de **Host** (não copia a porta junto). Vai ser algo como:
+   ```
+   pg-xxxxxxxx-franco-galvanica.aivencloud.com
+   ```
+5. Copia também o valor de **Port** (vai pra `PG_PORT`)
+6. Em **Service URI** você tem a connection string completa, útil pra conferência: `postgres://avnadmin:SENHA@HOST:PORTA/defaultdb?sslmode=require`
+
+**Por que isso é importante:** Aiven pode mover o serviço de host físico durante manutenção (sem aviso) e o IP muda — mas o hostname continua o mesmo. Se você usar IP, um dia vai parar de funcionar do nada. Com hostname você nunca tem esse problema.
 
 Depois de adicionar, **Trigger deploy → Clear cache and deploy site** pra Function pegar as vars.
 
@@ -87,6 +101,7 @@ Quem tinha o token antigo será redirecionado pra tela de login na próxima requ
 - **Conexão é read-only** (`SET TRANSACTION READ ONLY`). Mesmo se um bug deixasse passar um INSERT, o Postgres recusaria.
 - **Token via Authorization header**, não exposto em query string ou URL.
 - **HTTPS automático** pelo Netlify.
+- **SSL pro Aiven:** está com `rejectUnauthorized: false` no `db.js` — funciona, mas não valida o certificado da cadeia. Pra hardening máximo, baixe o `ca.pem` da Aiven (botão **Show CA certificate** no painel) e adicione a env var `PG_CA_CERT` com o conteúdo do cert; o código pode ser ajustado depois pra usar `ssl: { ca: process.env.PG_CA_CERT }` com `rejectUnauthorized: true`. Pra MVP, o atual está OK.
 
 ## Custos esperados (Free tier)
 
