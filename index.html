@@ -3,131 +3,137 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Franco Galvânica · Validadores de Romaneio</title>
+<title>Franco Galvânica · Painel de Validação</title>
 <style>
   :root {
-    --primary: #1a4d6e;
-    --primary-2: #2980b9;
-    --bg: #f5f7fa;
-    --surface: #fff;
-    --border: #e1e8ed;
-    --text-1: #1a2733;
-    --text-2: #5a6878;
-    --text-3: #8a98a8;
+    --primary: #1a4d6e; --primary-2: #2980b9; --accent: #e8a534;
+    --bg: #f3f5f8; --surface: #ffffff; --surface-2: #fafbfc;
+    --border: #e1e8ed; --text-1: #1a2733; --text-2: #5a6878; --text-3: #8a98a8;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.05);
+    --shadow-md: 0 4px 14px rgba(0,0,0,.08);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,.12);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; color: var(--text-1); }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--text-1);
+    background: radial-gradient(ellipse at top left, rgba(41,128,185,.08), transparent 50%),
+                radial-gradient(ellipse at top right, rgba(232,165,52,.06), transparent 50%), var(--bg);
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
   }
-  .container {
-    max-width: 720px;
-    width: 100%;
+  a { color: inherit; text-decoration: none; }
+  header.top { background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm); position: sticky; top: 0; z-index: 10; }
+  .top-inner { max-width: 1200px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, var(--primary), var(--primary-2)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 18px; box-shadow: var(--shadow-sm); }
+  .brand-text h1 { font-size: 16px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+  .brand-text h1 span { color: var(--primary-2); font-weight: 500; }
+  .brand-text p { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .user-box { display: flex; align-items: center; gap: 12px; }
+  .user-chip { display: flex; align-items: center; gap: 8px; padding: 7px 13px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 24px; font-size: 13px; }
+  .user-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #d18a1d); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+  .user-name { font-weight: 600; color: var(--text-1); }
+  .logout-btn { padding: 8px 14px; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; font-size: 13px; color: var(--text-2); cursor: pointer; font-family: inherit; transition: all .15s; }
+  .logout-btn:hover { border-color: #c0392b; color: #c0392b; background: #fdecea; }
+  .hero { max-width: 1200px; margin: 0 auto; padding: 48px 24px 24px; text-align: center; }
+  .hero h2 { font-size: 32px; font-weight: 700; color: var(--text-1); margin-bottom: 10px; letter-spacing: -0.5px; }
+  .hero p { font-size: 15px; color: var(--text-2); max-width: 580px; margin: 0 auto; line-height: 1.6; }
+  .grid-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 24px 64px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 26px 24px; transition: all .2s; cursor: pointer; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+  .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--cardColor, var(--primary-2)); opacity: 0; transition: opacity .2s; }
+  .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--cardColor, var(--primary-2)); }
+  .card:hover::before { opacity: 1; }
+  .card-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--cardBg, rgba(41,128,185,.1)); color: var(--cardColor, var(--primary-2)); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+  .card-icon svg { width: 24px; height: 24px; }
+  .card-title { font-size: 17px; font-weight: 700; color: var(--text-1); margin-bottom: 6px; }
+  .card-desc { font-size: 13px; color: var(--text-2); line-height: 1.6; flex: 1; }
+  .card-meta { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+  .card-version { color: var(--text-3); font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+  .card-arrow { color: var(--cardColor, var(--primary-2)); font-weight: 600; transition: transform .2s; }
+  .card:hover .card-arrow { transform: translateX(4px); }
+  .card-validador { --cardColor: #2980b9; --cardBg: rgba(41,128,185,.10); }
+  .card-monitor   { --cardColor: #27ae60; --cardBg: rgba(39,174,96,.10); }
+  .card-rp        { --cardColor: #d18a1d; --cardBg: rgba(232,165,52,.12); }
+  .card-dashboard { --cardColor: #8e44ad; --cardBg: rgba(142,68,173,.10); }
+  footer { max-width: 1200px; margin: 0 auto; padding: 24px; text-align: center; color: var(--text-3); font-size: 12px; border-top: 1px solid var(--border); }
+  footer a { color: var(--primary-2); }
+  footer a:hover { text-decoration: underline; }
+  @media (max-width: 640px) {
+    .hero h2 { font-size: 24px; }
+    .hero p { font-size: 14px; }
+    .brand-text p { display: none; }
+    .top-inner { padding: 12px 16px; }
+    .hero, .grid-wrap { padding-left: 16px; padding-right: 16px; }
   }
-  header {
-    text-align: center;
-    margin-bottom: 32px;
-  }
-  h1 {
-    font-size: 28px;
-    color: var(--primary);
-    margin-bottom: 8px;
-  }
-  h1 span { color: var(--primary-2); }
-  .sub {
-    font-size: 14px;
-    color: var(--text-3);
-  }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 14px;
-  }
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 18px 20px;
-    text-decoration: none;
-    color: var(--text-1);
-    transition: all 0.15s;
-    display: block;
-  }
-  .card:hover {
-    border-color: var(--primary-2);
-    box-shadow: 0 4px 12px rgba(41, 128, 185, 0.1);
-    transform: translateY(-1px);
-  }
-  .card-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--primary);
-    margin-bottom: 4px;
-  }
-  .card-desc {
-    font-size: 12.5px;
-    color: var(--text-3);
-    line-height: 1.5;
-  }
-  .footer {
-    text-align: center;
-    margin-top: 32px;
-    font-size: 12px;
-    color: var(--text-3);
-  }
-  .footer a {
-    color: var(--primary-2);
-    text-decoration: none;
-  }
-  .footer a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
-<div class="container">
-  <header>
-    <h1>Franco <span>Galvânica</span></h1>
-    <p class="sub">Validadores de Romaneio</p>
-  </header>
-
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <div class="brand-logo">F</div>
+      <div class="brand-text">
+        <h1>Franco <span>Galvânica</span></h1>
+        <p>Painel de Validação de Romaneios</p>
+      </div>
+    </div>
+    <div class="user-box">
+      <div class="user-chip">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <span class="user-name" id="userName">—</span>
+      </div>
+      <button class="logout-btn" id="logoutBtn">Sair</button>
+    </div>
+  </div>
+</header>
+<section class="hero">
+  <h2>Bem-vindo de volta</h2>
+  <p>Escolha um dos artefatos abaixo para validar romaneios, monitorar a operação ou comparar passagens com faturamento em tempo real.</p>
+</section>
+<main class="grid-wrap">
   <div class="grid">
-    <a class="card" href="/franco_validador_romaneio.html">
+    <a class="card card-validador" href="/franco_validador_romaneio.html">
+      <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
       <div class="card-title">Validador de Romaneio</div>
-      <div class="card-desc">Análise detalhada de 1 romaneio: 7 documentos, conciliação por bucket, alertas.</div>
+      <div class="card-desc">Análise profunda de um romaneio específico. Cruza os 7 documentos e calcula variações Rom×Pass×OS.</div>
+      <div class="card-meta"><span class="card-version">v3.17</span><span class="card-arrow">Abrir →</span></div>
     </a>
-    <a class="card" href="/monitor_romaneios.html">
+    <a class="card card-monitor" href="/monitor_romaneios.html">
+      <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
       <div class="card-title">Monitor de Romaneios</div>
-      <div class="card-desc">Lista todos os romaneios de um período com KPIs e variação Pass→Rom.</div>
+      <div class="card-desc">Visão diária e mensal de todos os romaneios com status automático: conciliado, variação média ou alta.</div>
+      <div class="card-meta"><span class="card-version">v2.9</span><span class="card-arrow">Abrir →</span></div>
     </a>
-    <a class="card" href="/franco_rp_fixed.html">
+    <a class="card card-rp" href="/franco_rp_fixed.html">
+      <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></div>
       <div class="card-title">Romaneio × Passagem</div>
-      <div class="card-desc">Comparativo Pass→Rom em modo Por Serviço ou Diário.</div>
+      <div class="card-desc">Comparativo Pass×Rom em dois modos: Por Serviço (romaneio com suas passagens) ou Diário (totais agregados).</div>
+      <div class="card-meta"><span class="card-version">v3.3</span><span class="card-arrow">Abrir →</span></div>
     </a>
-    <a class="card" href="/franco_dashboard.html">
+    <a class="card card-dashboard" href="/franco_dashboard.html">
+      <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div>
       <div class="card-title">Dashboard</div>
-      <div class="card-desc">Visão geral dos indicadores de produção.</div>
+      <div class="card-desc">Visão executiva consolidada dos indicadores de produção, faturamento e saldo passagem×serviço.</div>
+      <div class="card-meta"><span class="card-version">—</span><span class="card-arrow">Abrir →</span></div>
     </a>
   </div>
-
-  <div class="footer">
-    <a href="/_auth.html">Trocar token de acesso</a>
-  </div>
-</div>
-
+</main>
+<footer>Franco Galvânica · Dados ao vivo do PostgreSQL Aiven · <a href="/_auth.html">Gerenciar credenciais</a></footer>
 <script>
-// Se o usuário não tem credenciais salvas, redireciona pra login.
-(function() {
-  try {
-    if (!localStorage.getItem('franco_user') || !localStorage.getItem('franco_pass')) {
-      window.location.replace('/_auth.html');
-    }
-  } catch (e) { /* localStorage bloqueado: deixa a página renderizar normal */ }
+const STORAGE_USER = 'franco_user', STORAGE_PASS = 'franco_pass';
+(function init() {
+  const user = localStorage.getItem(STORAGE_USER);
+  const pass = localStorage.getItem(STORAGE_PASS);
+  if (!user || !pass) { window.location.replace('/_auth.html'); return; }
+  document.getElementById('userName').textContent = user;
+  document.getElementById('userAvatar').textContent = user.charAt(0).toUpperCase();
 })();
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  if (!confirm('Deseja sair?')) return;
+  localStorage.removeItem(STORAGE_USER);
+  localStorage.removeItem(STORAGE_PASS);
+  window.location.href = '/_auth.html';
+});
 </script>
 </body>
 </html>

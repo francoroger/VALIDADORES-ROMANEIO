@@ -147,15 +147,6 @@
 
   <div class="msg" id="msg"></div>
 
-  <div class="links" id="links" style="display:none">
-    <h3>Artefatos disponíveis</h3>
-    <a href="/franco_validador_romaneio.html">Validador de Romaneio</a>
-    <a href="/monitor_romaneios.html">Monitor de Romaneios</a>
-    <a href="/franco_rp_fixed.html">Romaneio × Passagem</a>
-    <a href="/franco_dashboard.html">Dashboard</a>
-    <span class="logout" id="logout">sair</span>
-  </div>
-
   <div class="footer">Suas credenciais ficam salvas no navegador.</div>
 </div>
 
@@ -165,32 +156,20 @@ const STORAGE_PASS = 'franco_pass';
 const userInput = document.getElementById('user');
 const passInput = document.getElementById('pass');
 const msgEl = document.getElementById('msg');
-const linksEl = document.getElementById('links');
 const formEl = document.getElementById('form');
 const btnEl = document.getElementById('btn');
-const logoutEl = document.getElementById('logout');
 
 function showMsg(text, kind) {
   msgEl.className = 'msg ' + (kind || 'error');
   msgEl.textContent = text;
 }
 
-// Ja logado?
+// Se ja tem credenciais salvas, manda direto pra home
 const savedU = localStorage.getItem(STORAGE_USER);
-if (savedU) {
-  userInput.value = savedU;
-  linksEl.style.display = 'block';
-  showMsg('Você já está conectado como "' + savedU + '". Pode acessar os artefatos abaixo.', 'success');
+const savedP = localStorage.getItem(STORAGE_PASS);
+if (savedU && savedP) {
+  window.location.replace('/');
 }
-
-logoutEl.addEventListener('click', () => {
-  localStorage.removeItem(STORAGE_USER);
-  localStorage.removeItem(STORAGE_PASS);
-  userInput.value = '';
-  passInput.value = '';
-  linksEl.style.display = 'none';
-  showMsg('Você saiu. Faça login novamente.', 'success');
-});
 
 formEl.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -199,8 +178,8 @@ formEl.addEventListener('submit', async (e) => {
   if (!user || !pass) return;
 
   btnEl.disabled = true;
-  btnEl.textContent = 'Validando...';
-  showMsg('Testando credenciais...', 'success');
+  btnEl.textContent = 'Entrando...';
+  msgEl.style.display = 'none';
 
   try {
     const basic = btoa(user + ':' + pass);
@@ -221,8 +200,8 @@ formEl.addEventListener('submit', async (e) => {
     } else {
       localStorage.setItem(STORAGE_USER, user);
       localStorage.setItem(STORAGE_PASS, pass);
-      showMsg('Login válido. Bem-vindo, ' + user + '!', 'success');
-      linksEl.style.display = 'block';
+      showMsg('Bem-vindo, ' + user + '! Redirecionando...', 'success');
+      setTimeout(() => window.location.replace('/'), 600);
     }
   } catch (err) {
     showMsg('Erro de rede: ' + (err.message || err), 'error');
