@@ -56,7 +56,9 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 6px;
+    margin-top: 14px;
   }
+  label:first-of-type { margin-top: 0; }
   input[type="password"], input[type="text"] {
     width: 100%;
     padding: 11px 13px;
@@ -67,12 +69,10 @@
     transition: border-color 0.15s;
     font-family: inherit;
   }
-  input:focus {
-    border-color: var(--primary-2);
-  }
+  input:focus { border-color: var(--primary-2); }
   button {
     width: 100%;
-    margin-top: 16px;
+    margin-top: 18px;
     padding: 11px;
     font-size: 14px;
     font-weight: 600;
@@ -120,6 +120,14 @@
     font-size: 11px;
     color: var(--text-3);
   }
+  .logout {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .logout:hover { color: var(--error); text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -128,8 +136,12 @@
   <p class="sub">Validadores de Romaneio — acesso restrito</p>
 
   <form id="form">
-    <label for="token">Token de acesso</label>
-    <input type="password" id="token" placeholder="Cole o token aqui" autocomplete="current-password" required>
+    <label for="user">Usuário</label>
+    <input type="text" id="user" placeholder="seu usuário" autocomplete="username" required autofocus>
+
+    <label for="pass">Senha</label>
+    <input type="password" id="pass" placeholder="••••••••" autocomplete="current-password" required>
+
     <button type="submit" id="btn">Entrar</button>
   </form>
 
@@ -141,60 +153,75 @@
     <a href="/monitor_romaneios.html">Monitor de Romaneios</a>
     <a href="/franco_rp_fixed.html">Romaneio × Passagem</a>
     <a href="/franco_dashboard.html">Dashboard</a>
+    <span class="logout" id="logout">sair</span>
   </div>
 
-  <div class="footer">Token fica salvo no navegador (localStorage). Não compartilhe.</div>
+  <div class="footer">Suas credenciais ficam salvas no navegador.</div>
 </div>
 
 <script>
-const STORAGE_KEY = 'franco_api_token';
-const tokenInput = document.getElementById('token');
+const STORAGE_USER = 'franco_user';
+const STORAGE_PASS = 'franco_pass';
+const userInput = document.getElementById('user');
+const passInput = document.getElementById('pass');
 const msgEl = document.getElementById('msg');
 const linksEl = document.getElementById('links');
 const formEl = document.getElementById('form');
 const btnEl = document.getElementById('btn');
+const logoutEl = document.getElementById('logout');
 
 function showMsg(text, kind) {
   msgEl.className = 'msg ' + (kind || 'error');
   msgEl.textContent = text;
 }
 
-// Se ja tem token salvo, preenche e mostra os links
-const saved = localStorage.getItem(STORAGE_KEY);
-if (saved) {
-  tokenInput.value = saved;
+// Ja logado?
+const savedU = localStorage.getItem(STORAGE_USER);
+if (savedU) {
+  userInput.value = savedU;
   linksEl.style.display = 'block';
-  showMsg('Você já tem um token salvo. Pode acessar os artefatos abaixo, ou cole outro pra trocar.', 'success');
+  showMsg('Você já está conectado como "' + savedU + '". Pode acessar os artefatos abaixo.', 'success');
 }
+
+logoutEl.addEventListener('click', () => {
+  localStorage.removeItem(STORAGE_USER);
+  localStorage.removeItem(STORAGE_PASS);
+  userInput.value = '';
+  passInput.value = '';
+  linksEl.style.display = 'none';
+  showMsg('Você saiu. Faça login novamente.', 'success');
+});
 
 formEl.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const token = tokenInput.value.trim();
-  if (!token) return;
+  const user = userInput.value.trim();
+  const pass = passInput.value;
+  if (!user || !pass) return;
 
   btnEl.disabled = true;
   btnEl.textContent = 'Validando...';
-  showMsg('Testando token...', 'success');
+  showMsg('Testando credenciais...', 'success');
 
   try {
-    // Testa o token com um SELECT trivial
+    const basic = btoa(user + ':' + pass);
     const resp = await fetch('/.netlify/functions/db', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token,
+        'Authorization': 'Basic ' + basic,
       },
       body: JSON.stringify({ sql: 'SELECT 1 AS ok' }),
     });
 
     if (resp.status === 401) {
-      showMsg('Token inválido. Confira com quem te passou.', 'error');
+      showMsg('Usuário ou senha inválidos.', 'error');
     } else if (!resp.ok) {
       const txt = await resp.text();
       showMsg('Erro: ' + txt.slice(0, 200), 'error');
     } else {
-      localStorage.setItem(STORAGE_KEY, token);
-      showMsg('Token válido. Bem-vindo!', 'success');
+      localStorage.setItem(STORAGE_USER, user);
+      localStorage.setItem(STORAGE_PASS, pass);
+      showMsg('Login válido. Bem-vindo, ' + user + '!', 'success');
       linksEl.style.display = 'block';
     }
   } catch (err) {

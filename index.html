@@ -120,11 +120,10 @@
 </div>
 
 <script>
-// Se o usuário não tem token salvo, redireciona pra login antes de mostrar a página.
-// (O shim já faria isso quando ele clicasse num artefato, mas é melhor levar direto.)
+// Se o usuário não tem credenciais salvas, redireciona pra login.
 (function() {
   try {
-    if (!localStorage.getItem('franco_api_token')) {
+    if (!localStorage.getItem('franco_user') || !localStorage.getItem('franco_pass')) {
       window.location.replace('/_auth.html');
     }
   } catch (e) { /* localStorage bloqueado: deixa a página renderizar normal */ }

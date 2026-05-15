@@ -5,48 +5,65 @@
 // `mcp__postgres-aiven__pg_consultar` retorna — pra o parseResult
 // dos artefatos continuar funcionando sem mudancas.
 //
-// Seguranca:
-//   - Exige header Authorization: Bearer <API_TOKEN>
-//   - Aceita apenas queries que comecam com SELECT ou WITH
-//   - Rejeita ; no meio (sem multi-statement)
-//   - Aplica statement_timeout de 10s (limite do Netlify Free)
+// Autenticacao:
+//   - Authorization: Basic base64(user:password)
+//   - Valida contra env var USERS no formato:
+//       usuario1:senha1,usuario2:senha2,usuario3:senha3
 //
 // Env vars necessarias no Netlify:
-//   PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASS, API_TOKEN
+//   PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASS, USERS
 
 import { Client } from 'pg';
 
 const ALLOWED_PREFIX = /^\s*(SELECT|WITH|EXPLAIN|SHOW|TABLE|VALUES)\b/i;
 const MAX_ROWS = 500;
 
-function badRequest(message) {
+function plainErr(status, message) {
   return {
-    statusCode: 400,
+    statusCode: status,
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     body: 'Erro: ' + message,
   };
 }
 
-function unauthorized() {
-  return {
-    statusCode: 401,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-    body: 'Erro: nao autorizado',
-  };
+function parseUsers(raw) {
+  if (!raw) return {};
+  const map = {};
+  for (const pair of raw.split(',')) {
+    const trimmed = pair.trim();
+    if (!trimmed) continue;
+    const idx = trimmed.indexOf(':');
+    if (idx < 1) continue;
+    const user = trimmed.slice(0, idx).trim();
+    const pass = trimmed.slice(idx + 1).trim();
+    if (user && pass) map[user] = pass;
+  }
+  return map;
+}
+
+function decodeBasicAuth(header) {
+  if (!header) return null;
+  const m = header.match(/^Basic\s+(.+)$/i);
+  if (!m) return null;
+  try {
+    const decoded = Buffer.from(m[1], 'base64').toString('utf8');
+    const idx = decoded.indexOf(':');
+    if (idx < 0) return null;
+    return { user: decoded.slice(0, idx), pass: decoded.slice(idx + 1) };
+  } catch (_) {
+    return null;
+  }
 }
 
 // Formata resultado pg.Result no formato do MCP:
 //   col1 | col2 | col3
 //   -----+------+-----
 //   v1   | v2   | v3
-//   v4   | v5   | v6
 //
 //   Total: N registro(s)
 function formatAsMcp(result) {
   const cols = result.fields.map(f => f.name);
   const rows = result.rows;
-
-  // Calcula largura de cada coluna (max entre header e valores)
   const widths = cols.map((c, i) => {
     let max = c.length;
     for (const row of rows) {
@@ -56,13 +73,10 @@ function formatAsMcp(result) {
     }
     return max;
   });
-
   const fmtRow = (vals) =>
     vals.map((v, i) => (v ?? '').toString().padEnd(widths[i])).join(' | ');
-
   const headerLine = fmtRow(cols);
   const sepLine = widths.map(w => '-'.repeat(w)).join('-+-');
-
   const lines = [headerLine, sepLine];
   for (const row of rows) {
     const vals = cols.map(c => {
@@ -73,12 +87,10 @@ function formatAsMcp(result) {
   }
   lines.push('');
   lines.push(`Total: ${rows.length} registro(s)`);
-
   return lines.join('\n');
 }
 
 export async function handler(event) {
-  // CORS — mesma origem, mas ok adicionar pra debug local
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -89,68 +101,64 @@ export async function handler(event) {
     return { statusCode: 204, headers: corsHeaders, body: '' };
   }
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers: corsHeaders, body: 'Method not allowed' };
+    return { ...plainErr(405, 'Method not allowed'), headers: { ...plainErr(405, '').headers, ...corsHeaders } };
   }
 
-  // Auth
+  // Auth: Basic
   const auth = event.headers.authorization || event.headers.Authorization || '';
-  const token = auth.replace(/^Bearer\s+/i, '').trim();
-  if (!token || token !== process.env.API_TOKEN) {
-    return { ...unauthorized(), headers: { ...corsHeaders, ...unauthorized().headers } };
+  const creds = decodeBasicAuth(auth);
+  if (!creds) {
+    return { ...plainErr(401, 'credenciais ausentes'), headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8', 'WWW-Authenticate': 'Basic realm="Franco"' } };
+  }
+
+  const users = parseUsers(process.env.USERS || '');
+  if (!users[creds.user] || users[creds.user] !== creds.pass) {
+    return { ...plainErr(401, 'usuario ou senha invalidos'), headers: { ...corsHeaders, 'Content-Type': 'text/plain; charset=utf-8' } };
   }
 
   // Parse body
   let body;
   try { body = JSON.parse(event.body || '{}'); }
-  catch (e) { return { ...badRequest('body invalido'), headers: { ...corsHeaders } }; }
+  catch (e) { return { ...plainErr(400, 'body invalido'), headers: { ...corsHeaders } }; }
 
   let { sql, params } = body;
-  // Compatibilidade: o callDB envia { params: { sql, limit } } como o MCP espera
   if (params && typeof params === 'object' && params.sql) {
     sql = params.sql;
   }
   if (!sql || typeof sql !== 'string') {
-    return { ...badRequest('sql ausente'), headers: { ...corsHeaders } };
+    return { ...plainErr(400, 'sql ausente'), headers: { ...corsHeaders } };
   }
-
-  // Validacao: so leitura
   if (!ALLOWED_PREFIX.test(sql)) {
-    return { ...badRequest('apenas SELECT/WITH/EXPLAIN/SHOW/TABLE/VALUES sao aceitos'), headers: { ...corsHeaders } };
+    return { ...plainErr(400, 'apenas SELECT/WITH/EXPLAIN/SHOW/TABLE/VALUES'), headers: { ...corsHeaders } };
   }
-  // Sem multi-statement (mas permite ; no fim)
   const trimmed = sql.trim().replace(/;\s*$/, '');
   if (trimmed.includes(';')) {
-    return { ...badRequest('multiplas declaracoes nao sao permitidas'), headers: { ...corsHeaders } };
+    return { ...plainErr(400, 'multiplas declaracoes nao sao permitidas'), headers: { ...corsHeaders } };
   }
 
-  // Conecta no Postgres
   const client = new Client({
     host: process.env.PG_HOST,
     port: parseInt(process.env.PG_PORT || '5432', 10),
     database: process.env.PG_DB,
     user: process.env.PG_USER,
     password: process.env.PG_PASS,
-    ssl: { rejectUnauthorized: false }, // Aiven exige SSL
-    statement_timeout: 9000, // 9s — antes do hard limit de 10s do Netlify
+    ssl: { rejectUnauthorized: false },
+    statement_timeout: 9000,
     connectionTimeoutMillis: 5000,
   });
 
   try {
     await client.connect();
-    // Forca read-only na sessao
     await client.query('SET TRANSACTION READ ONLY');
     const result = await client.query(trimmed);
-
-    // Trunca em MAX_ROWS pra alinhar com o MCP
     if (result.rows.length > MAX_ROWS) {
       result.rows = result.rows.slice(0, MAX_ROWS);
     }
-
     const txt = formatAsMcp(result);
     return {
       statusCode: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ result: txt }),
+      body: JSON.stringify({ result: txt, user: creds.user }),
     };
   } catch (err) {
     return {

@@ -49,7 +49,24 @@ Em **Site configuration → Environment variables → Add a variable**, criar:
 | `PG_DB` | nome do banco |
 | `PG_USER` | usuário read-only |
 | `PG_PASS` | senha |
-| `API_TOKEN` | gerar uma string secreta (ex: `openssl rand -hex 24`) |
+| `USERS` | lista de usuários+senhas no formato `user1:senha1,user2:senha2,user3:senha3` |
+
+### Como configurar `USERS`
+
+Esta env var é a sua "base de dados de usuários". Cada par `usuario:senha` separado por vírgula. Exemplo:
+
+```
+roger:R0g3rFranco2026,bia:B14Senha456,flavia:Fl4v14Pass789,marcia:M4rc14Forte
+```
+
+Regras:
+- Sem espaços antes ou depois dos `:` e `,`
+- Senha pode ter qualquer caractere, exceto vírgula (`,`) ou dois-pontos (`:`)
+- Pra **adicionar usuário**: edita a env var, adiciona `,novouser:novasenha` no final → Save → Trigger deploy
+- Pra **remover usuário**: edita a env var, remove o pedaço dele → Save → Trigger deploy
+- Pra **trocar senha de alguém**: edita a env var, muda só a senha daquele user → Save → Trigger deploy
+
+Quando alguém faz login no site, o backend verifica se o `usuario:senha` digitado bate com algum par dessa lista.
 
 ### Onde achar o hostname Aiven
 
@@ -69,11 +86,12 @@ Depois de adicionar, **Trigger deploy → Clear cache and deploy site** pra Func
 
 ### 3. Compartilhar com o time
 
-Mande para os funcionários:
-- URL: `https://seu-site.netlify.app/_auth.html`
-- Token: o valor de `API_TOKEN`
+Cada pessoa recebe:
+- URL: `https://seu-site.netlify.app/`
+- Usuário próprio (ex: `bia`)
+- Senha própria (ex: `B14Senha456`)
 
-Eles abrem a URL, colam o token uma vez e salva no navegador. A partir daí podem acessar os 4 artefatos como links normais.
+Ela abre a URL, digita usuário+senha uma vez, e salva no navegador. A partir daí acessa os 4 artefatos como links normais.
 
 ## Rotina pós-setup
 
@@ -85,15 +103,26 @@ Toda vez que mudar um artefato, o fluxo é o mesmo de sempre:
 
 Não precisa fazer nada manual no Netlify após o setup inicial.
 
-## Trocar o token (rotação)
+## Gerenciar usuários
 
-Quando alguém sai da equipe:
+Tudo via env var `USERS`:
 
-1. **Site configuration → Environment variables → API_TOKEN → Options → Edit** — coloca um valor novo
-2. **Deploys → Trigger deploy → Clear cache and deploy** — pra Function pegar o token novo
-3. Manda o token novo no chat do time
+**Adicionar pessoa nova:**
+1. **Site configuration → Environment variables → USERS → Options → Edit**
+2. Adiciona `,novousuario:novasenha` no final
+3. **Save**
+4. **Deploys → Trigger deploy → Clear cache and deploy site**
+5. Manda usuário+senha pra pessoa
 
-Quem tinha o token antigo será redirecionado pra tela de login na próxima requisição.
+**Remover pessoa (alguém saiu):**
+1. Edita `USERS`, remove o pedaço daquela pessoa (com a vírgula)
+2. Save + Trigger deploy
+3. Quem foi removido será redirecionado pra tela de login na próxima requisição e não vai conseguir entrar
+
+**Trocar senha:**
+1. Edita `USERS`, muda só a senha daquele user
+2. Save + Trigger deploy
+3. Avisa a pessoa pra entrar com a nova
 
 ## Segurança
 
