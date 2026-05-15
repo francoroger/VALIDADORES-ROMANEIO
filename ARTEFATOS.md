@@ -55,7 +55,7 @@
 
 **Função-chave:** `matchOsServico` com 4 níveis de fallback (a/b/c/d) para encontrar a OS correta de cada romaneio.
 
-### 4. Monitor de Demanda · `franco_demanda.html` · **v1.0**
+### 4. Monitor de Demanda · `franco_demanda.html` · **v1.1**
 
 **Objetivo:** monitorar o fluxo de **recebimentos** (entrada na operação) — o lado oposto ao que os 3 artefatos acima cobrem (saída/faturamento). É a **Fase 1** do plano de demanda/capacidade/prazo: depois vêm capacidade por setor (Fase 2) e previsão de prazo (Fase 3).
 
@@ -70,13 +70,13 @@
 | Já em produção | Recebimentos com separação iniciada · peso |
 | Estagnado | Qtd acima do threshold (clique abre Seção ⑤) |
 
-**Seções:**
+**Seções (ordem v1.1):**
 
 | # | Seção | O que mostra |
 |---|---|---|
-| ① | Entrada por dia | Linha por dia útil do período (sab/dom em cinza). Cada linha clicável expande os recebimentos do dia |
-| ② | Fila ativa | Toggle "Por recebimento" ↔ "Por cliente". Aging colorido (0-7d / 8-14d / 15-30d / >30d) |
-| ③ | Agregações | Abas Dia / Semana (seg-início) / Mês / Ano com mesmas métricas |
+| ① | Agregações | Abas Dia / Semana (seg-início) / Mês / Ano com qtd, peso, clientes, em fila, produção, lead médio |
+| ② | Entrada por dia | Linha por dia útil do período (sab/dom em cinza). Cada linha clicável expande os recebimentos do dia |
+| ③ | Fila ativa | Toggle "Por recebimento" ↔ "Por cliente". Aging colorido (0-7d / 8-14d / 15-30d / >30d) |
 | ④ | Rankings | Top 10 clientes (por peso, com % abertos), Top 10 fornecedores, Movimento por dia da semana |
 | ⑤ | Estagnados | Collapsed por padrão. Lista completa dos abertos > threshold (lixo histórico desde 2018) |
 

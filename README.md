@@ -11,7 +11,7 @@ Os artefatos rodam dentro do **Cowork** (Claude desktop) e fazem queries diretas
 | **Validador de Romaneio** | v3.16 | ~1.500 | Home com lista + filtros, análise detalhada de 1 romaneio (6 seções: 7 documentos, conciliação por bucket em 2 tabelas, itens retráteis, alertas, romaneio retrátil) |
 | **Monitor de Romaneios** | v2.9 | ~790 | Lista todos romaneios de um período com KPIs, variação Pass→Rom e scroll infinito |
 | **Romaneio × Passagem** | v3.3 | ~1.200 | Comparativo Por Serviço / Diário com filtros |
-| **Monitor de Demanda** | v1.0 | ~890 | Fluxo de recebimentos: KPIs, entrada por dia, fila ativa (2 modos), agregações, rankings, estagnados. **Fase 1** do plano de demanda/capacidade/prazo |
+| **Monitor de Demanda** | v1.1 | ~880 | Fluxo de recebimentos: KPIs, agregações no topo, entrada por dia, fila ativa (2 modos), rankings, estagnados. **Fase 1** do plano de demanda/capacidade/prazo |
 
 ## Conteúdo
 

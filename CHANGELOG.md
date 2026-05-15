@@ -4,6 +4,14 @@ Histórico consolidado das versões dos artefatos. Cada artefato também mantém
 
 ## 2026-05-14
 
+### Monitor de Demanda v1.0 → v1.1
+
+**Monitor de Demanda v1.1** — feedback de Roger logo após a v1.0:
+
+- 🎨 **Agregações movida para o topo** (era ③, agora ①). Roger curtiu muito a visão semanal/mensal e prefere ela em primeiro lugar. Nova ordem: ① Agregações · ② Entrada por dia · ③ Fila ativa · ④ Rankings · ⑤ Estagnados.
+- 🎨 **Removida coluna "Fornec."** (qtd de fornecedores distintos) das tabelas Entrada por dia e Agregações — métrica não estava sendo útil. Fornecedor segue presente nas linhas individuais e no ranking.
+- 📋 **Documentação do estado "Já em produção"**: KPI conta recebimentos que NÃO estão na fila e NÃO foram fechados sem separação — inclui em_separacao, em_banho e finalizado. Nome talvez fique como está; pode mudar pra "Saiu da fila" se confundir.
+
 ### Novo artefato: Monitor de Demanda v1.0
 
 **Monitor de Demanda v1.0** (`franco_demanda.html`) — primeira entrega da **Fase 1** do plano de demanda/capacidade/prazo.

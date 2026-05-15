@@ -193,23 +193,8 @@ footer{padding:8px 4px;font-size:10.5px;color:var(--text-3);text-align:right}
   <div class="kpi bad click" id="kpiEst"><div class="l">Estagnado &gt; <span id="thrLbl">90</span> dias</div><div class="v">—</div><div class="s">Clique para abrir lista</div></div>
 </div>
 
-<div class="section" id="secDia">
-  <h2 onclick="toggleSection('secDia')"><span>① Entrada por dia</span><span class="toggle">[ocultar]</span></h2>
-  <div class="body" id="secDiaBody"><div class="empty">Carregue dados para visualizar.</div></div>
-</div>
-
-<div class="section" id="secFila">
-  <h2 onclick="toggleSection('secFila')"><span>② Fila ativa</span><span class="toggle">[ocultar]</span></h2>
-  <div class="toggle-row">
-    <button class="btn ghost active" id="filaModoReceb">Por recebimento</button>
-    <button class="btn ghost" id="filaModoCli">Por cliente</button>
-    <span class="muted" style="margin-left:auto;align-self:center;font-size:11px">Recebimentos sem separação, dentro do período filtrado</span>
-  </div>
-  <div class="body" id="secFilaBody"><div class="empty">Carregue dados para visualizar.</div></div>
-</div>
-
 <div class="section" id="secAgg">
-  <h2 onclick="toggleSection('secAgg')"><span>③ Agregações</span><span class="toggle">[ocultar]</span></h2>
+  <h2 onclick="toggleSection('secAgg')"><span>① Agregações</span><span class="toggle">[ocultar]</span></h2>
   <div class="tabs">
     <div class="tab active" data-agg="d">Dia</div>
     <div class="tab" data-agg="w">Semana</div>
@@ -217,6 +202,21 @@ footer{padding:8px 4px;font-size:10.5px;color:var(--text-3);text-align:right}
     <div class="tab" data-agg="y">Ano</div>
   </div>
   <div class="body" id="secAggBody"><div class="empty">Carregue dados para visualizar.</div></div>
+</div>
+
+<div class="section" id="secDia">
+  <h2 onclick="toggleSection('secDia')"><span>② Entrada por dia</span><span class="toggle">[ocultar]</span></h2>
+  <div class="body" id="secDiaBody"><div class="empty">Carregue dados para visualizar.</div></div>
+</div>
+
+<div class="section" id="secFila">
+  <h2 onclick="toggleSection('secFila')"><span>③ Fila ativa</span><span class="toggle">[ocultar]</span></h2>
+  <div class="toggle-row">
+    <button class="btn ghost active" id="filaModoReceb">Por recebimento</button>
+    <button class="btn ghost" id="filaModoCli">Por cliente</button>
+    <span class="muted" style="margin-left:auto;align-self:center;font-size:11px">Recebimentos sem separação, dentro do período filtrado</span>
+  </div>
+  <div class="body" id="secFilaBody"><div class="empty">Carregue dados para visualizar.</div></div>
 </div>
 
 <div class="section" id="secRank">
@@ -235,6 +235,7 @@ footer{padding:8px 4px;font-size:10.5px;color:var(--text-3);text-align:right}
 
 <script>
 const VERSIONS = [
+  { v:'1.1', d:'14/05/2026', notes:'Reordenação e simplificação: ① Agregações movida para o topo (era ③). Removida coluna "Fornec." (qtd de fornecedores distintos) das tabelas de Entrada por dia e Agregações. Nova ordem: ① Agregações · ② Entrada por dia · ③ Fila ativa · ④ Rankings · ⑤ Estagnados.' },
   { v:'1.0', d:'14/05/2026', notes:'v1.0 inicial — Monitor de Demanda Fase 1. KPIs (entrada/fila/produção/estagnado), entrada por dia (com sab/dom em cinza), fila ativa em 2 modos (por recebimento ou por cliente), agregações dia/semana/mês/ano, rankings de clientes/fornecedores/dia-da-semana, lista de estagnados via threshold ajustável (30/60/90/180/365d). Carga via callDBAll paginado, sanitização CHR(13)/CHR(10) em obs e nome_cliente.' }
 ];
 
@@ -486,7 +487,7 @@ function renderSecDia(){
     byDia[k].push(r);
   }
   let html = `<table class="tbl"><thead><tr>
-    <th class="left">Dia</th><th>DS</th><th>Qtd</th><th>Peso</th><th>Clientes</th><th>Fornec.</th>
+    <th class="left">Dia</th><th>DS</th><th>Qtd</th><th>Peso</th><th>Clientes</th>
     <th>Em fila</th><th>Já produzido</th><th>Lead médio</th>
   </tr></thead><tbody>`;
   // mais recente em cima
@@ -496,13 +497,12 @@ function renderSecDia(){
     const isWeekend = (dow === 0 || dow === 6);
     const items = byDia[dia] || [];
     if (!items.length){
-      html += `<tr class="${isWeekend ? 'weekend' : ''}"><td class="left">${fmtData(dia)}</td><td>${dayName(dow)}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
+      html += `<tr class="${isWeekend ? 'weekend' : ''}"><td class="left">${fmtData(dia)}</td><td>${dayName(dow)}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
       continue;
     }
     const qtd = items.length;
     const peso = items.reduce((s,r) => s + r.peso, 0);
     const clis = new Set(items.map(r => r.idcliente)).size;
-    const forns = new Set(items.map(r => r.idfornec)).size;
     const fila = items.filter(r => r.estado === 'fila').length;
     const prod = items.filter(r => r.estado !== 'fila' && r.estado !== 'fechado_sem_sep').length;
     const leadAvg = avg(items.filter(r => r.lead_dias != null).map(r => r.lead_dias));
@@ -512,12 +512,11 @@ function renderSecDia(){
       <td>${fmtInt(qtd)}</td>
       <td>${fmtPeso(peso)}</td>
       <td>${fmtInt(clis)}</td>
-      <td>${fmtInt(forns)}</td>
       <td>${fila > 0 ? `<span class="age-tag age-1">${fila}</span>` : '—'}</td>
       <td>${prod > 0 ? `<span class="age-tag" style="background:var(--good-bg);color:var(--good)">${prod}</span>` : '—'}</td>
       <td>${leadAvg != null ? leadAvg.toFixed(1) + 'd' : '—'}</td>
     </tr>
-    <tr class="expand-row" data-dia-exp="${dia}" style="display:none"><td colspan="9" style="padding:0"><div class="expand open" style="display:block">${renderDiaExpand(items)}</div></td></tr>`;
+    <tr class="expand-row" data-dia-exp="${dia}" style="display:none"><td colspan="8" style="padding:0"><div class="expand open" style="display:block">${renderDiaExpand(items)}</div></td></tr>`;
   }
   html += '</tbody></table>';
   $('secDiaBody').innerHTML = html;
@@ -678,7 +677,7 @@ function renderSecAgg(){
   const keys = Object.keys(groups).sort().reverse();
   const labelHeader = { d:'Dia', w:'Semana (seg)', m:'Mês', y:'Ano' }[state.aggView];
   let html = `<table class="tbl"><thead><tr>
-    <th class="left">${labelHeader}</th><th>Qtd</th><th>Peso</th><th>Clientes</th><th>Fornec.</th>
+    <th class="left">${labelHeader}</th><th>Qtd</th><th>Peso</th><th>Clientes</th>
     <th>Em fila</th><th>Produção</th><th>Lead médio</th>
   </tr></thead><tbody>`;
   let totQtd = 0, totPeso = 0;
@@ -687,7 +686,6 @@ function renderSecAgg(){
     const qtd = items.length;
     const peso = items.reduce((s,r) => s + r.peso, 0);
     const clis = new Set(items.map(r => r.idcliente)).size;
-    const forns = new Set(items.map(r => r.idfornec)).size;
     const fila = items.filter(r => r.estado === 'fila').length;
     const prod = items.filter(r => r.estado !== 'fila' && r.estado !== 'fechado_sem_sep').length;
     const leadAvg = avg(items.filter(r => r.lead_dias != null).map(r => r.lead_dias));
@@ -700,13 +698,12 @@ function renderSecAgg(){
       <td>${fmtInt(qtd)}</td>
       <td>${fmtPeso(peso)}</td>
       <td>${fmtInt(clis)}</td>
-      <td>${fmtInt(forns)}</td>
       <td>${fila > 0 ? `<span class="age-tag age-1">${fila}</span>` : '—'}</td>
       <td>${prod > 0 ? `<span class="age-tag" style="background:var(--good-bg);color:var(--good)">${prod}</span>` : '—'}</td>
       <td>${leadAvg != null ? leadAvg.toFixed(1) + 'd' : '—'}</td>
     </tr>`;
   }
-  html += `<tr class="total-row"><td class="left">Total</td><td>${fmtInt(totQtd)}</td><td>${fmtPeso(totPeso)}</td><td colspan="5"></td></tr></tbody></table>`;
+  html += `<tr class="total-row"><td class="left">Total</td><td>${fmtInt(totQtd)}</td><td>${fmtPeso(totPeso)}</td><td colspan="4"></td></tr></tbody></table>`;
   $('secAggBody').innerHTML = html;
 }
 
