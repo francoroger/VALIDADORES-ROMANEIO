@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Franco · Acompanhamento de Lote</title>
+<script src="/netlify/shim.js"></script>
+<style>
+:root{
+  --primary:#1a4d6e;--primary-2:#2980b9;--accent:#e8a534;
+  --bg:#f3f5f8;--surface:#fff;--surface-2:#fafbfc;
+  --border:#e1e8ed;--border-2:#d4dde5;
+  --text-1:#1a2733;--text-2:#5a6878;--text-3:#8a98a8;
+  --ok:#27ae60;--warn:#e8a534;--err:#c0392b;--info:#2980b9;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.05);
+  --shadow-md:0 4px 14px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:var(--text-1);font-size:14px}
+body{background:var(--bg);min-height:100vh}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit;font-size:13px;outline:none}
+
+/* HEADER */
+header.top{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;box-shadow:var(--shadow-sm)}
+.top-inner{max-width:1400px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--primary),var(--primary-2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px}
+.brand-text h1{font-size:15px;font-weight:700;color:var(--primary)}
+.brand-text h1 span{color:var(--primary-2);font-weight:500}
+.brand-text p{font-size:11px;color:var(--text-3)}
+.version{font-size:11px;color:var(--text-3);margin-left:8px;font-family:ui-monospace,Menlo,monospace}
+.right-actions{display:flex;align-items:center;gap:10px}
+.home-link{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-2);font-size:12px;font-weight:600;transition:all .15s}
+.home-link:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.home-link svg{width:13px;height:13px}
+
+/* BUSCA */
+.search-card{max-width:1400px;margin:20px auto 0;padding:0 24px}
+.search-inner{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow-sm)}
+.search-title{font-size:14px;font-weight:700;color:var(--text-1);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.search-title svg{width:16px;height:16px;color:var(--primary-2)}
+.search-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr)) auto auto;gap:10px;align-items:end}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px}
+.field input{width:100%;padding:9px 11px;border:1px solid var(--border-2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--surface)}
+.field input:focus{border-color:var(--primary-2);box-shadow:0 0 0 3px rgba(41,128,185,.1)}
+.btn{padding:9px 18px;background:var(--primary);color:#fff;border:0;border-radius:8px;font-size:13px;font-weight:600;transition:background .15s}
+.btn:hover{background:var(--primary-2)}
+.btn.ghost{background:var(--surface);color:var(--text-2);border:1px solid var(--border-2)}
+.btn.ghost:hover{border-color:var(--primary-2);color:var(--primary-2);background:var(--surface)}
+
+/* FILTROS LISTA */
+.filters{max-width:1400px;margin:14px auto 0;padding:0 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.filters .field{flex:1;min-width:160px}
+.filters .field label{font-size:10.5px}
+.filters .field input,.filters .field select{padding:7px 10px;font-size:12.5px;border:1px solid var(--border-2);border-radius:7px;width:100%}
+
+/* CONTAINER LISTA */
+.list-wrap{max-width:1400px;margin:14px auto;padding:0 24px 40px}
+.list-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:0 4px}
+.list-title{font-size:13px;font-weight:700;color:var(--text-2)}
+.list-count{font-size:12px;color:var(--text-3)}
+.list-table{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:var(--shadow-sm)}
+.lot-row{display:grid;grid-template-columns:90px 1fr 140px 130px 110px 70px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;align-items:center;cursor:pointer;transition:background .12s}
+.lot-row:hover{background:var(--surface-2)}
+.lot-row:last-child{border-bottom:0}
+.lot-row.head{background:var(--surface-2);border-bottom:1px solid var(--border-2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-3);cursor:default}
+.lot-row.head:hover{background:var(--surface-2)}
+.lot-id{font-family:ui-monospace,Menlo,monospace;font-weight:600;color:var(--primary-2)}
+.lot-cli{font-weight:500;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lot-stage{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:11px;font-size:11px;font-weight:600;background:#eef2f5;color:var(--text-2)}
+.lot-stage.recebimento{background:#e8f4f9;color:#1f5f7e}
+.lot-stage.triagem{background:#fff4e0;color:#9c6915}
+.lot-stage.separacao{background:#f5e9f5;color:#6b2c91}
+.lot-stage.banho{background:#fdecea;color:#8d2a1e}
+.lot-stage.revisao{background:#e8f5e8;color:#1e6e2e}
+.lot-stage.expedicao{background:#e7eef7;color:#284a87}
+.lot-stage.romaneio{background:#e0f5e8;color:#15703c}
+.lot-stage.fechado{background:#e8e8e8;color:#555}
+.lot-days{font-size:12px;color:var(--text-3)}
+.lot-days.warn{color:var(--warn);font-weight:600}
+.lot-days.err{color:var(--err);font-weight:600}
+.empty{padding:32px;text-align:center;color:var(--text-3);font-size:13px}
+.empty-emoji{font-size:36px;display:block;margin-bottom:10px;opacity:.5}
+
+/* DETALHE DO LOTE */
+.detail{max-width:1400px;margin:14px auto;padding:0 24px 40px;display:none}
+.detail.show{display:grid;grid-template-columns:1fr 380px;gap:20px}
+@media(max-width:980px){.detail.show{grid-template-columns:1fr}}
+.timeline-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;box-shadow:var(--shadow-sm)}
+.side-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow-sm);height:fit-content}
+.detail-h{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.detail-h svg{width:17px;height:17px;color:var(--primary-2)}
+.timeline{position:relative;padding-left:36px}
+.timeline::before{content:'';position:absolute;left:14px;top:8px;bottom:8px;width:2px;background:var(--border)}
+.step{position:relative;padding:14px 0 14px 14px;border-bottom:1px dashed var(--border)}
+.step:last-child{border-bottom:0}
+.step::before{content:'';position:absolute;left:-36px;top:18px;width:30px;height:30px;border-radius:50%;background:var(--surface);border:2px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--text-3)}
+.step.ok::before{background:var(--ok);border-color:var(--ok);color:#fff;content:'✓'}
+.step.doing::before{background:var(--warn);border-color:var(--warn);color:#fff;content:'…';font-size:18px}
+.step.pending::before{background:var(--surface);border-color:var(--border-2);color:var(--text-3);content:'·';font-size:22px}
+.step.skipped::before{background:#eee;border-color:#ccc;color:#999;content:'—';font-size:16px}
+.step-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:3px}
+.step-name{font-size:14px;font-weight:700;color:var(--text-1)}
+.step-status{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.3px}
+.step-status.ok{background:#e0f5e8;color:var(--ok)}
+.step-status.doing{background:#fff4e0;color:var(--warn)}
+.step-status.pending{background:#eef2f5;color:var(--text-3)}
+.step-status.skipped{background:#eee;color:#999}
+.step-info{font-size:12.5px;color:var(--text-2);line-height:1.55}
+.step-info b{color:var(--text-1)}
+.step-info .dim{color:var(--text-3)}
+.step-meta{font-size:11.5px;color:var(--text-3);margin-top:3px}
+
+/* PAINEL LATERAL */
+.side-section{margin-bottom:20px}
+.side-section:last-child{margin-bottom:0}
+.side-section h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);margin-bottom:8px}
+.kv{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px dashed var(--border);font-size:13px}
+.kv:last-child{border:0}
+.kv .k{color:var(--text-2)}
+.kv .v{font-weight:600;color:var(--text-1)}
+.kv .v.mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+.weight-card{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.wbox{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+.wbox-label{font-size:10.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px}
+.wbox-val{font-size:14px;font-weight:700;color:var(--text-1);font-family:ui-monospace,Menlo,monospace}
+.wbox-val.dim{color:var(--text-3);font-weight:500}
+.alerts{display:flex;flex-direction:column;gap:7px}
+.alert{padding:9px 11px;border-radius:8px;font-size:12.5px;line-height:1.5;border:1px solid}
+.alert.ok{background:#f0faf3;border-color:#c3ecd4;color:#1e6e2e}
+.alert.warn{background:#fff8eb;border-color:#f5d896;color:#876215}
+.alert.err{background:#fdecea;border-color:#f8c9c5;color:#8d2a1e}
+.alert.info{background:#eff6fb;border-color:#c5dbed;color:#1f5f7e}
+
+/* LOADER */
+.loader{display:flex;flex-direction:column;align-items:center;gap:14px;padding:50px 20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:14px 24px}
+.spinner{width:34px;height:34px;border:3px solid var(--border-2);border-top-color:var(--primary-2);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-text{font-size:13px;color:var(--text-2)}
+
+/* MOBILE */
+@media(max-width:640px){
+  .top-inner{padding:10px 14px}
+  .brand-text p{display:none}
+  .search-card,.filters,.list-wrap,.detail{padding:0 14px}
+  .lot-row{grid-template-columns:1fr;gap:4px;padding:14px 16px}
+  .lot-row.head{display:none}
+  .lot-id::before{content:'#'}
+  .lot-cli{font-size:14px;font-weight:600}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <div class="brand-logo">F</div>
+      <div class="brand-text">
+        <h1>Franco <span>Galvânica</span> · Acompanhamento de Lote</h1>
+        <p>Veja o estágio de qualquer lote em produção ou já fechado</p>
+      </div>
+      <span class="version">v1.0</span>
+    </div>
+    <div class="right-actions">
+      <a class="home-link" href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12L12 3l9 9"/><path d="M5 10v10h14V10"/></svg>
+        <span>Painel</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- BUSCA -->
+<div class="search-card">
+  <div class="search-inner">
+    <div class="search-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <span>Buscar lote — digite QUALQUER um dos números</span>
+    </div>
+    <div class="search-grid">
+      <div class="field"><label>OS / Pedido</label><input type="number" id="fOS" placeholder="ex: 12921"></div>
+      <div class="field"><label>Catalogação</label><input type="number" id="fTri" placeholder="ex: 13535"></div>
+      <div class="field"><label>Separação</label><input type="number" id="fSep" placeholder="ex: 14938"></div>
+      <div class="field"><label>Romaneio</label><input type="number" id="fRom" placeholder="ex: 24878"></div>
+      <button class="btn" id="btnBuscar">Buscar</button>
+      <button class="btn ghost" id="btnLimpar">Limpar</button>
+    </div>
+  </div>
+</div>
+
+<!-- FILTROS DA LISTA -->
+<div class="filters" id="filters">
+  <div class="field"><label>Cliente</label><input type="text" id="fCli" placeholder="filtrar por nome..."></div>
+  <div class="field"><label>Etapa atual</label>
+    <select id="fStage">
+      <option value="">Todas as etapas</option>
+      <option value="recebimento">Recebimento</option>
+      <option value="triagem">Em triagem</option>
+      <option value="separacao">Separação</option>
+      <option value="banho">No banho</option>
+      <option value="revisao">Em revisão</option>
+      <option value="expedicao">Aguardando expedição</option>
+      <option value="aberto">Todos os abertos (sem romaneio)</option>
+      <option value="fechado">Fechados (com romaneio)</option>
+    </select>
+  </div>
+  <div class="field"><label>Dias mínimo no lote</label><input type="number" id="fMinDays" placeholder="ex: 5" min="0"></div>
+</div>
+
+<!-- LISTA -->
+<div class="list-wrap" id="listWrap">
+  <div class="list-header">
+    <div class="list-title">Lotes em andamento</div>
+    <div class="list-count" id="listCount">carregando...</div>
+  </div>
+  <div class="list-table" id="listTable"></div>
+</div>
+
+<!-- LOADER -->
+<div class="loader" id="loader" style="display:none">
+  <div class="spinner"></div>
+  <div class="loader-text" id="loaderText">Carregando lote...</div>
+</div>
+
+<!-- DETALHE -->
+<div class="detail" id="detail">
+  <div class="timeline-card">
+    <div class="detail-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      <span>Fluxo de produção</span>
+    </div>
+    <div class="timeline" id="timeline"></div>
+  </div>
+  <div class="side-card" id="sideCard"></div>
+</div>
+
+<script>
+// ============= CORE =============
+const state = { rows: [], detail: null };
+const fmt = {
+  date(d) { if(!d) return '—'; const x = new Date(d); return isNaN(x) ? '—' : x.toLocaleDateString('pt-BR'); },
+  dateTime(d) { if(!d) return '—'; const x = new Date(d); return isNaN(x) ? '—' : x.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); },
+  g(v) { const n = +v||0; return n.toLocaleString('pt-BR') + ' g'; },
+  brl(v) { return 'R$ ' + (+v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); },
+  pct(v) { const n = +v||0; const s = n>0?'+':''; return s+n.toFixed(1)+'%'; },
+  daysAgo(d) { if(!d) return null; const ms = Date.now() - new Date(d).getTime(); return Math.floor(ms / 86400000); }
+};
+
+function parseResult(t) {
+  if (!t || typeof t !== 'string') return [];
+  const lines = t.split('\n');
+  if (lines.length < 3) return [];
+  const headers = lines[0].split('|').map(h => h.trim());
+  const rows = [];
+  for (let i = 2; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    if (line.startsWith('Total:') || line.startsWith('Erro')) break;
+    const values = line.split('|').map(v => v.trim());
+    if (values.length === headers.length) {
+      const row = {};
+      headers.forEach((h, idx) => {
+        let v = values[idx];
+        if (v === 'NULL' || v === '') v = null;
+        else if (!isNaN(v) && v !== '') v = Number(v);
+        row[h] = v;
+      });
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+async function callDB(sql) {
+  let res;
+  try { res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit: 500 } }); }
+  catch (e) { throw new Error('Falha MCP: ' + (e?.message || e)); }
+  let txt = '';
+  if (typeof res === 'string') txt = res;
+  else if (res?.result) txt = res.result;
+  else if (res?.content?.[0]?.text) {
+    txt = res.content[0].text;
+    try { const j = JSON.parse(txt); if (j?.result) txt = j.result; } catch (e) {}
+  }
+  if (!txt) throw new Error('Resposta vazia');
+  if (txt.startsWith('Erro') || txt.startsWith('Bloqueado')) throw new Error(txt.split('\n')[0]);
+  return parseResult(txt);
+}
+
+// ============= BUSCA DO LOTE =============
+async function buscarLote() {
+  const os = +document.getElementById('fOS').value || null;
+  const tri = +document.getElementById('fTri').value || null;
+  const sep = +document.getElementById('fSep').value || null;
+  const rom = +document.getElementById('fRom').value || null;
+  if (!os && !tri && !sep && !rom) { alert('Digite ao menos um número'); return; }
+
+  showLoader('Buscando lote...');
+  try {
+    // 1. Resolver pra ID da separação
+    let sepId = null;
+    if (sep) sepId = sep;
+    else if (tri) {
+      const r = await callDB(`SELECT id FROM separacoes WHERE catalogacao_id = ${tri} LIMIT 1`);
+      sepId = r[0]?.id || null;
+    } else if (os) {
+      const r = await callDB(`SELECT s.id FROM separacoes s JOIN triagem t ON t.id = s.catalogacao_id WHERE t.observacoes ~* 'O\\\\.?S\\\\.?\\\\s*:?\\\\s*${os}\\\\b' AND s.cliente_id = (SELECT idcliente FROM ordemservico WHERE numero = ${os} AND flag_orcamento IS NULL LIMIT 1) ORDER BY s.id DESC LIMIT 1`);
+      sepId = r[0]?.id || null;
+    } else if (rom) {
+      // Romaneio -> achar separação via janela anchor
+      const r = await callDB(`SELECT sep.id FROM servico srv JOIN separacoes sep ON sep.cliente_id = srv.idcliente WHERE srv.id = ${rom} AND sep.data_inicio_expedicao IS NOT NULL AND sep.data_inicio_expedicao::date - INTERVAL '30 days' <= srv.datavenda::date AND srv.datavenda::date <= COALESCE(sep.data_fim_expedicao, sep.data_inicio_expedicao + INTERVAL '14 days')::date + INTERVAL '2 days' ORDER BY ABS(EXTRACT(EPOCH FROM (sep.data_inicio_expedicao - srv.datavenda::date))) LIMIT 1`);
+      sepId = r[0]?.id || null;
+    }
+
+    if (!sepId) {
+      hideLoader();
+      mostrarErro('Não encontrei lote com esses números. Confira se o número está correto.');
+      return;
+    }
+
+    await carregarDetalhe(sepId);
+  } catch (e) {
+    hideLoader();
+    mostrarErro('Erro: ' + e.message);
+  }
+}
+
+async function carregarDetalhe(sepId) {
+  showLoader('Carregando dados do lote #' + sepId + '...');
+
+  // Carrega todos os documentos relacionados em paralelo
+  const [sepRows, recRows, triRows, passRows, romRows, entRows] = await Promise.all([
+    callDB(`SELECT s.id, s.cliente_id, c.nome AS cliente, s.status, s.catalogacao_id, s.created_at::text AS criado, s.data_inicio_preparacao::text AS prep_ini, s.data_fim_preparacao::text AS prep_fim, s.data_inicio_banho::text AS banho_ini, s.data_fim_banho::text AS banho_fim, s.data_inicio_revisao::text AS rev_ini, s.data_fim_revisao::text AS rev_fim, s.data_inicio_expedicao::text AS exp_ini, s.data_fim_expedicao::text AS exp_fim, s.data_fim_separacao::text AS fim_sep, s.data_inicio_recebimento::text AS rec_ini, s.data_fim_recebimento::text AS rec_fim FROM separacoes s JOIN cliente c ON c.id = s.cliente_id WHERE s.id = ${sepId}`),
+    callDB(`SELECT rp.id, rp.data_receb::text AS data, rp.pesototal, rp.nome_fornec, REPLACE(REPLACE(COALESCE(rp.obs,''),CHR(13),' '),CHR(10),' ') AS obs FROM separacoes_recebimentos sr JOIN recebimento_pecas rp ON rp.id = sr.recebimento_id WHERE sr.separacao_id = ${sepId} ORDER BY rp.data_receb`),
+    callDB(`SELECT t.id, t.datacad::text AS data, t.datafim::text AS data_fim, t.valor_total, t.valor_cotacao, REPLACE(REPLACE(COALESCE(t.observacoes,''),CHR(13),' '),CHR(10),' ') AS obs, t.status, (SELECT COALESCE(SUM(it.peso),0) FROM itemtriagem it JOIN material m ON m.id=it.idmaterial WHERE it.idtriagem=t.id AND m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Ródio Caneta%' AND m.descricao NOT ILIKE 'Adicional%') AS peso_tri FROM triagem t WHERE t.id = (SELECT catalogacao_id FROM separacoes WHERE id = ${sepId})`),
+    callDB(`SELECT COUNT(*) AS qtd, COALESCE(SUM(p.peso),0) AS peso, MIN(p.data_servico::text) AS primeira, MAX(p.data_servico::text) AS ultima FROM passagem_pecas p JOIN tiposervico ts ON ts.id=p.tiposervico_id JOIN material m ON m.id=p.material_id WHERE p.deleted_at IS NULL AND p.cliente_id=(SELECT cliente_id FROM separacoes WHERE id=${sepId}) AND ts.descricao='Banho' AND m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Ródio Caneta%' AND m.descricao NOT ILIKE 'Adicional%' AND p.data_servico >= (SELECT COALESCE(data_inicio_banho, created_at) FROM separacoes WHERE id=${sepId}) AND p.data_servico <= LEAST(COALESCE((SELECT data_inicio_expedicao - INTERVAL '1 minute' FROM separacoes WHERE id=${sepId}), now()), COALESCE((SELECT data_fim_banho + INTERVAL '30 days' FROM separacoes WHERE id=${sepId}), now()), COALESCE((SELECT MIN(sep2.data_inicio_banho) - INTERVAL '1 minute' FROM separacoes sep2 WHERE sep2.cliente_id=(SELECT cliente_id FROM separacoes WHERE id=${sepId}) AND sep2.id<>${sepId} AND sep2.data_inicio_banho IS NOT NULL AND sep2.data_inicio_banho > (SELECT data_fim_banho FROM separacoes WHERE id=${sepId})), now()))`),
+    callDB(`SELECT srv.id, srv.datavenda::text AS data, srv.valor_com_desconto AS valor, (SELECT COALESCE(SUM(isv.peso),0) FROM itemservico isv JOIN tiposervico ts ON ts.id=isv.idtiposervico JOIN material m ON m.id=isv.idmaterial WHERE isv.idservico=srv.id AND ts.descricao='Banho' AND m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Ródio Caneta%' AND m.descricao NOT ILIKE 'Adicional%') AS peso_rom FROM servico srv WHERE srv.datavenda IS NOT NULL AND srv.idcliente = (SELECT cliente_id FROM separacoes WHERE id = ${sepId}) AND srv.datavenda::date BETWEEN COALESCE((SELECT data_inicio_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_fim_banho FROM separacoes WHERE id=${sepId}))::date - INTERVAL '1 day' AND COALESCE((SELECT data_fim_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_inicio_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_fim_banho FROM separacoes WHERE id=${sepId}))::date + INTERVAL '2 days' ORDER BY srv.datavenda LIMIT 5`),
+    callDB(`SELECT em.id, em.data_entrega::text AS data, em.valor, REPLACE(REPLACE(COALESCE(em.observacoes,''),CHR(13),' '),CHR(10),' ') AS obs FROM entregas_motoboy em JOIN servico_entrega se ON se.identrega = em.id WHERE se.idservico IN (SELECT srv.id FROM servico srv WHERE srv.idcliente=(SELECT cliente_id FROM separacoes WHERE id=${sepId}) AND srv.datavenda::date BETWEEN COALESCE((SELECT data_inicio_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_fim_banho FROM separacoes WHERE id=${sepId}))::date - INTERVAL '1 day' AND COALESCE((SELECT data_fim_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_inicio_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_fim_banho FROM separacoes WHERE id=${sepId}))::date + INTERVAL '2 days')`),
+  ]);
+
+  state.detail = {
+    sep: sepRows[0] || null,
+    recebs: recRows || [],
+    triagem: triRows[0] || null,
+    passagens: passRows[0] || null,
+    romaneios: romRows || [],
+    entregas: entRows || [],
+  };
+
+  // Carrega OS via "O.S:" da triagem
+  if (state.detail.triagem?.obs) {
+    const m = state.detail.triagem.obs.match(/O\.?\s*S\.?\s*:?\s*(\d{3,6})/i);
+    if (m) {
+      const osNum = m[1];
+      const cliId = state.detail.sep.cliente_id;
+      const osRows = await callDB(`SELECT o.id, o.numero, o.datavenda::text AS data, REPLACE(REPLACE(COALESCE(o.observacao,''),CHR(13),' '),CHR(10),' ') AS obs, o.pesototal, (SELECT COALESCE(SUM(io.peso),0) FROM itemordem io JOIN tiposervico ts ON ts.id=io.idtiposervico JOIN material m ON m.id=io.idmaterial WHERE io.idordem=o.id AND ts.descricao='Banho' AND m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Ródio Caneta%' AND m.descricao NOT ILIKE 'Adicional%') AS peso_banho FROM ordemservico o WHERE o.flag_orcamento IS NULL AND o.idcliente=${cliId} AND o.numero=${osNum} LIMIT 1`);
+      state.detail.os = osRows[0] || null;
+    }
+  }
+
+  renderDetalhe();
+  hideLoader();
+}
+
+// ============= RENDER DETALHE =============
+function renderDetalhe() {
+  const d = state.detail;
+  if (!d?.sep) { mostrarErro('Lote não encontrado.'); return; }
+
+  document.getElementById('listWrap').style.display = 'none';
+  document.getElementById('filters').style.display = 'none';
+  document.getElementById('detail').classList.add('show');
+
+  const sep = d.sep;
+  const tl = document.getElementById('timeline');
+  tl.innerHTML = '';
+
+  // 1) RECEBIMENTO
+  const recOk = d.recebs.length > 0;
+  tl.insertAdjacentHTML('beforeend', step({
+    name: '1. Recebimento',
+    state: recOk ? 'ok' : 'pending',
+    body: recOk ?
+      d.recebs.map(r => `<b>${fmt.date(r.data)}</b> — ${fmt.g(r.pesototal)}<div class="dim">de ${r.nome_fornec || '—'}${r.obs ? ' · ' + r.obs.slice(0,60) : ''}</div>`).join('<div style="height:6px"></div>') :
+      'Aguardando recebimento de peças'
+  }));
+
+  // 2) CATALOGAÇÃO
+  const tri = d.triagem;
+  const triState = tri?.data_fim ? 'ok' : tri?.data ? 'doing' : 'pending';
+  tl.insertAdjacentHTML('beforeend', step({
+    name: '2. Catalogação · Triagem',
+    state: triState,
+    body: tri ?
+      `Triagem #${tri.id} · iniciada em <b>${fmt.date(tri.data)}</b>${tri.data_fim ? ' · finalizada em <b>'+fmt.date(tri.data_fim)+'</b>' : '<span class="dim"> · ainda aberta</span>'}
+       <div style="margin-top:4px">Peso catalogado: <b>${fmt.g(tri.peso_tri)}</b> · Valor: <b>${fmt.brl(tri.valor_total)}</b> · Cotação: <b>${fmt.brl(tri.valor_cotacao)}</b></div>` :
+      'Aguardando catalogação'
+  }));
+
+  // 3) OS
+  const os = d.os;
+  tl.insertAdjacentHTML('beforeend', step({
+    name: '3. OS · Ordem de Serviço',
+    state: os ? 'ok' : 'pending',
+    body: os ?
+      `OS #<b>${os.numero}</b> · ${fmt.date(os.data)} · peso banho <b>${fmt.g(os.peso_banho)}</b>${os.obs ? '<div class="dim" style="margin-top:3px">'+os.obs.slice(0,100)+'</div>' : ''}` :
+      'OS não localizada (sem "O.S:NNNN" na obs da triagem)'
+  }));
+
+  // 4) SEPARAÇÃO
+  const sepState = sep.fim_sep ? 'ok' : sep.prep_ini ? 'doing' : 'pending';
+  tl.insertAdjacentHTML('beforeend', step({
+    name: '4. Separação · Preparação',
+    state: sepState,
+    body: `Sep #${sep.id} · status <b>${sep.status||'—'}</b>
+      ${sep.prep_ini ? '<div>Preparação: <b>'+fmt.date(sep.prep_ini)+'</b>' + (sep.prep_fim ? ' → <b>'+fmt.date(sep.prep_fim)+'</b>' : '') + '</div>' : ''}
+      ${sep.fim_sep ? '<div>Fim separação: <b>'+fmt.date(sep.fim_sep)+'</b></div>' : ''}`
+  }));
+
+  // 5) BANHO
+  const banhoState = sep.banho_fim ? 'ok' : sep.banho_ini ? 'doing' : 'pending';
+  tl.insertAdjacentHTML('beforeend', step({
+    name: '5. Banho',
+    state: banhoState,
+    body: sep.banho_ini ?
+      `Início: <b>${fmt.dateTime(sep.banho_ini)}</b>` + (sep.banho_fim ? `<br>Fim: <b>${fmt.dateTime(sep.banho_fim)}</b>` : '<div class="dim" style="margin-top:3px">ainda em andamento</div>') :
+      'Aguardando banho'
+  }));
+
+  // 6) PASSAGENS (escaneamento)
+  const p = d.passagens;
+  const passOk = p?.qtd > 0;
+  tl.insertAdjacentHTML('beforeend', step({
+    name: '6. Passagens (escaneamento)',
+    state: passOk ? 'ok' : sep.banho_ini ? 'doing' : 'pending',
+    body: passOk ?
+      `<b>${p.qtd}</b> escaneadas · <b>${fmt.g(p.peso)}</b> de banho<div class="dim">${fmt.date(p.primeira)}${p.primeira!==p.ultima ? ' → '+fmt.date(p.ultima) : ''}</div>` :
+      'Nenhuma passagem registrada ainda'
+  }));
+
+  // 7) REVISÃO
+  const revState = sep.rev_fim ? 'ok' : sep.rev_ini ? 'doing' : 'pending';
+  tl.insertAdjacentHTML('beforeend', step({
+    name: '7. Revisão',
+    state: revState,
+    body: sep.rev_ini ?
+      `Início: <b>${fmt.dateTime(sep.rev_ini)}</b>` + (sep.rev_fim ? `<br>Fim: <b>${fmt.dateTime(sep.rev_fim)}</b>` : '<div class="dim">em andamento</div>') :
+      'Aguardando revisão'
+  }));
+
+  // 8) ROMANEIO
+  const rom = d.romaneios[0];
+  tl.insertAdjacentHTML('beforeend', step({
+    name: '8. Romaneio · Faturamento',
+    state: rom ? 'ok' : (sep.banho_fim ? 'pending' : 'pending'),
+    body: rom ?
+      `Romaneio #<b>${rom.id}</b> · ${fmt.date(rom.data)} · peso banho <b>${fmt.g(rom.peso_rom)}</b> · <b>${fmt.brl(rom.valor)}</b>` :
+      'Aguardando faturamento'
+  }));
+
+  // 9) EXPEDIÇÃO
+  const expState = (sep.exp_fim || d.entregas.length > 0) ? 'ok' : sep.exp_ini ? 'doing' : 'pending';
+  tl.insertAdjacentHTML('beforeend', step({
+    name: '9. Expedição · Entrega',
+    state: expState,
+    body: d.entregas.length > 0 ?
+      d.entregas.map(e => `<b>${fmt.dateTime(e.data)}</b> · ${fmt.brl(e.valor)}${e.obs ? ' · ' + e.obs.slice(0,80) : ''}`).join('<br>') :
+      sep.exp_ini ?
+        `Expedição iniciada: <b>${fmt.dateTime(sep.exp_ini)}</b>` + (sep.exp_fim ? `<br>Concluída: <b>${fmt.dateTime(sep.exp_fim)}</b>` : ' <span class="dim">(sem motoboy registrado)</span>') :
+        'Aguardando expedição'
+  }));
+
+  renderSide();
+}
+
+function step({ name, state, body }) {
+  const labels = { ok: 'Concluído', doing: 'Em andamento', pending: 'Pendente', skipped: 'N/A' };
+  return `<div class="step ${state}">
+    <div class="step-head">
+      <div class="step-name">${name}</div>
+      <div class="step-status ${state}">${labels[state]}</div>
+    </div>
+    <div class="step-info">${body}</div>
+  </div>`;
+}
+
+function renderSide() {
+  const d = state.detail;
+  const sep = d.sep;
+  const rom = d.romaneios[0];
+  const os = d.os;
+  const p = d.passagens;
+
+  const pesoOs = +(os?.peso_banho) || 0;
+  const pesoPass = +(p?.peso) || 0;
+  const pesoRom = +(rom?.peso_rom) || 0;
+  const tri = d.triagem;
+
+  // Variação atual
+  let alertas = [];
+  if (pesoOs > 0 && pesoPass > 0) {
+    const v = (pesoPass - pesoOs) / pesoOs * 100;
+    if (Math.abs(v) > 15) alertas.push({k:'warn', m:`Passagens vs OS: ${fmt.pct(v)} de variação (${fmt.g(pesoPass-pesoOs)})`});
+    else if (Math.abs(v) <= 5) alertas.push({k:'ok', m:`Passagens vs OS conciliado: ${fmt.pct(v)}`});
+    else alertas.push({k:'info', m:`Passagens vs OS: ${fmt.pct(v)} (dentro do esperado)`});
+  }
+  if (pesoRom > 0 && pesoPass > 0) {
+    const v = (pesoRom - pesoPass) / pesoPass * 100;
+    if (Math.abs(v) > 15) alertas.push({k:'err', m:`Romaneio vs Passagens: ${fmt.pct(v)} — investigar`});
+  }
+
+  // Detectar etapa em atraso
+  if (sep.banho_ini && !sep.banho_fim) {
+    const d_banho = fmt.daysAgo(sep.banho_ini);
+    if (d_banho > 5) alertas.push({k:'warn', m:`No banho há ${d_banho} dias — verificar`});
+  }
+  if (sep.banho_fim && !rom) {
+    const d_rom = fmt.daysAgo(sep.banho_fim);
+    if (d_rom > 10) alertas.push({k:'warn', m:`Banho terminou há ${d_rom} dias mas sem romaneio ainda`});
+  }
+  if (!alertas.length) alertas.push({k:'ok', m:'Sem alertas — lote em ordem'});
+
+  const stage = currentStage(sep, d);
+
+  document.getElementById('sideCard').innerHTML = `
+    <div class="detail-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      <span>Status do lote</span>
+    </div>
+
+    <div class="side-section">
+      <h3>Identificação</h3>
+      <div class="kv"><span class="k">Cliente</span><span class="v">${sep.cliente}</span></div>
+      <div class="kv"><span class="k">Separação</span><span class="v mono">#${sep.id}</span></div>
+      <div class="kv"><span class="k">Catalogação</span><span class="v mono">#${tri?.id || '—'}</span></div>
+      <div class="kv"><span class="k">OS</span><span class="v mono">#${os?.numero || '—'}</span></div>
+      <div class="kv"><span class="k">Romaneio</span><span class="v mono">${rom ? '#'+rom.id : '<span class="dim">aguardando</span>'}</span></div>
+      <div class="kv"><span class="k">Etapa atual</span><span class="v"><span class="lot-stage ${stage.key}">${stage.label}</span></span></div>
+    </div>
+
+    <div class="side-section">
+      <h3>Pesos · banho</h3>
+      <div class="weight-card">
+        <div class="wbox">
+          <div class="wbox-label">OS</div>
+          <div class="wbox-val ${pesoOs?'':'dim'}">${pesoOs ? fmt.g(pesoOs) : '—'}</div>
+        </div>
+        <div class="wbox">
+          <div class="wbox-label">Passagens</div>
+          <div class="wbox-val ${pesoPass?'':'dim'}">${pesoPass ? fmt.g(pesoPass) : '—'}</div>
+        </div>
+        <div class="wbox">
+          <div class="wbox-label">Romaneio</div>
+          <div class="wbox-val ${pesoRom?'':'dim'}">${pesoRom ? fmt.g(pesoRom) : '—'}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-section">
+      <h3>Tempo</h3>
+      <div class="kv"><span class="k">Criação da separação</span><span class="v">${fmt.date(sep.criado)}</span></div>
+      ${sep.banho_ini ? `<div class="kv"><span class="k">Início do banho</span><span class="v">${fmt.date(sep.banho_ini)}</span></div>` : ''}
+      ${sep.banho_fim ? `<div class="kv"><span class="k">Fim do banho</span><span class="v">${fmt.date(sep.banho_fim)}</span></div>` : ''}
+      ${rom ? `<div class="kv"><span class="k">Faturado em</span><span class="v">${fmt.date(rom.data)}</span></div>` : ''}
+    </div>
+
+    <div class="side-section">
+      <h3>Alertas</h3>
+      <div class="alerts">
+        ${alertas.map(a => `<div class="alert ${a.k}">${a.m}</div>`).join('')}
+      </div>
+    </div>
+
+    ${rom ? `<div class="side-section">
+      <a href="/franco_validador_romaneio.html#rom=${rom.id}" class="btn" style="display:inline-block;text-align:center;width:100%;padding:10px;text-decoration:none">Abrir no Validador</a>
+    </div>` : ''}
+  `;
+}
+
+function currentStage(sep, d) {
+  if (d.romaneios[0]) {
+    if (sep.exp_fim || d.entregas.length > 0) return { key: 'fechado', label: 'Fechado' };
+    return { key: 'expedicao', label: 'Aguardando expedição' };
+  }
+  if (sep.banho_fim) return { key: 'revisao', label: 'Pós-banho · revisão' };
+  if (sep.banho_ini) return { key: 'banho', label: 'No banho' };
+  if (sep.prep_ini) return { key: 'separacao', label: 'Em separação' };
+  if (d.triagem?.data && !d.triagem?.data_fim) return { key: 'triagem', label: 'Em triagem' };
+  if (d.recebs.length > 0) return { key: 'triagem', label: 'Aguardando triagem' };
+  return { key: 'recebimento', label: 'Recebimento' };
+}
+
+// ============= LISTA DE LOTES ABERTOS =============
+async function carregarLista() {
+  const cli = (document.getElementById('fCli').value || '').trim().replace(/'/g, "''");
+  const stage = document.getElementById('fStage').value;
+  const minDays = +document.getElementById('fMinDays').value || 0;
+
+  const where = ['1=1'];
+  if (cli) where.push(`LOWER(c.nome) LIKE '%${cli.toLowerCase()}%'`);
+
+  // Por padrão lotes abertos = sem servico (romaneio) ou em estágio antes do romaneio
+  if (stage === 'fechado') {
+    where.push(`EXISTS (SELECT 1 FROM servico srv WHERE srv.idcliente=s.cliente_id AND srv.datavenda IS NOT NULL AND srv.datavenda::date BETWEEN COALESCE(s.data_inicio_expedicao, s.data_fim_banho)::date - INTERVAL '1 day' AND COALESCE(s.data_fim_expedicao, s.data_inicio_expedicao, s.data_fim_banho)::date + INTERVAL '2 days')`);
+  } else {
+    where.push(`NOT EXISTS (SELECT 1 FROM servico srv WHERE srv.idcliente=s.cliente_id AND srv.datavenda IS NOT NULL AND srv.datavenda::date BETWEEN COALESCE(s.data_inicio_expedicao, s.data_fim_banho)::date - INTERVAL '1 day' AND COALESCE(s.data_fim_expedicao, s.data_inicio_expedicao, s.data_fim_banho)::date + INTERVAL '2 days')`);
+  }
+  // Stage filter
+  if (stage === 'banho') where.push('s.data_inicio_banho IS NOT NULL AND s.data_fim_banho IS NULL');
+  else if (stage === 'separacao') where.push('s.data_inicio_preparacao IS NOT NULL AND s.data_fim_banho IS NULL AND s.data_inicio_banho IS NULL');
+  else if (stage === 'revisao') where.push('s.data_fim_banho IS NOT NULL AND s.data_fim_revisao IS NULL');
+  else if (stage === 'expedicao') where.push('s.data_fim_banho IS NOT NULL AND s.data_inicio_expedicao IS NOT NULL AND s.data_fim_expedicao IS NULL');
+
+  where.push(`s.created_at >= now() - INTERVAL '60 days'`);
+
+  const sql = `SELECT s.id, s.cliente_id, c.nome AS cliente, s.status, s.catalogacao_id, s.created_at::text AS criado, s.data_inicio_banho::text AS banho_ini, s.data_fim_banho::text AS banho_fim, s.data_inicio_expedicao::text AS exp_ini, s.data_fim_expedicao::text AS exp_fim, s.data_fim_revisao::text AS rev_fim, s.data_inicio_preparacao::text AS prep_ini FROM separacoes s JOIN cliente c ON c.id = s.cliente_id WHERE ${where.join(' AND ')} ORDER BY s.created_at DESC LIMIT 100`;
+
+  document.getElementById('listTable').innerHTML = '<div class="empty"><div class="empty-emoji">⏳</div>Carregando lotes...</div>';
+
+  try {
+    const rows = await callDB(sql);
+    let filtered = rows;
+    if (minDays > 0) {
+      filtered = rows.filter(r => fmt.daysAgo(r.criado) >= minDays);
+    }
+    state.rows = filtered;
+    renderLista();
+  } catch (e) {
+    document.getElementById('listTable').innerHTML = `<div class="empty">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderLista() {
+  const rows = state.rows;
+  document.getElementById('listCount').textContent = `${rows.length} ${rows.length===1?'lote':'lotes'}`;
+  const tbl = document.getElementById('listTable');
+  if (!rows.length) {
+    tbl.innerHTML = '<div class="empty"><div class="empty-emoji">✨</div>Nenhum lote com esses filtros</div>';
+    return;
+  }
+  let html = `<div class="lot-row head">
+    <div>Sep</div><div>Cliente</div><div>Etapa</div><div>Criado</div><div>Tempo</div><div>Ação</div>
+  </div>`;
+  for (const r of rows) {
+    const stage = stageFromRow(r);
+    const days = fmt.daysAgo(r.criado);
+    const daysClass = days > 14 ? 'err' : days > 7 ? 'warn' : '';
+    html += `<div class="lot-row" onclick="abrirLote(${r.id})">
+      <div class="lot-id">#${r.id}</div>
+      <div class="lot-cli" title="${r.cliente}">${r.cliente}</div>
+      <div><span class="lot-stage ${stage.key}">${stage.label}</span></div>
+      <div class="lot-days">${fmt.date(r.criado)}</div>
+      <div class="lot-days ${daysClass}">${days}d</div>
+      <div style="text-align:right;color:var(--primary-2);font-weight:600">Abrir →</div>
+    </div>`;
+  }
+  tbl.innerHTML = html;
+}
+
+function stageFromRow(r) {
+  if (r.exp_fim || r.banho_fim && r.rev_fim) return { key:'expedicao', label:'Aguardando entrega' };
+  if (r.exp_ini) return { key:'expedicao', label:'Em expedição' };
+  if (r.rev_fim) return { key:'revisao', label:'Pós-revisão' };
+  if (r.banho_fim) return { key:'revisao', label:'Em revisão' };
+  if (r.banho_ini) return { key:'banho', label:'No banho' };
+  if (r.prep_ini) return { key:'separacao', label:'Em separação' };
+  return { key:'triagem', label:'Aguardando produção' };
+}
+
+window.abrirLote = (id) => {
+  document.getElementById('fSep').value = id;
+  buscarLote();
+};
+
+function mostrarErro(msg) {
+  hideLoader();
+  document.getElementById('detail').classList.remove('show');
+  document.getElementById('listWrap').style.display = 'none';
+  document.getElementById('filters').style.display = 'none';
+  document.getElementById('loader').style.display = '';
+  document.getElementById('loaderText').textContent = msg;
+}
+
+function showLoader(msg) {
+  document.getElementById('loader').style.display = 'flex';
+  document.getElementById('loaderText').textContent = msg || 'Carregando...';
+  document.getElementById('detail').classList.remove('show');
+  document.getElementById('listWrap').style.display = 'none';
+  document.getElementById('filters').style.display = 'none';
+}
+function hideLoader() {
+  document.getElementById('loader').style.display = 'none';
+}
+
+function voltarLista() {
+  ['fOS','fTri','fSep','fRom'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('detail').classList.remove('show');
+  document.getElementById('listWrap').style.display = '';
+  document.getElementById('filters').style.display = '';
+  hideLoader();
+  carregarLista();
+}
+
+// ============= INIT =============
+document.getElementById('btnBuscar').onclick = buscarLote;
+document.getElementById('btnLimpar').onclick = voltarLista;
+['fCli','fStage','fMinDays'].forEach(id => {
+  document.getElementById(id).addEventListener('input', debounce(carregarLista, 400));
+});
+['fOS','fTri','fSep','fRom'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') buscarLote();
+  });
+});
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+carregarLista();
+</script>
+</body>
+</html>
