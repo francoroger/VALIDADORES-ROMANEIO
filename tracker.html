@@ -150,6 +150,40 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
   .lot-id::before{content:'#'}
   .lot-cli{font-size:14px;font-weight:600}
 }
+
+/* TOGGLE LISTA / KANBAN */
+.view-toggle{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:3px;gap:2px}
+.view-toggle button{padding:5px 12px;font-size:12px;font-weight:600;background:transparent;border:0;border-radius:6px;cursor:pointer;color:var(--text-3);transition:all .15s}
+.view-toggle button.active{background:var(--surface);color:var(--primary);box-shadow:var(--shadow-sm)}
+.view-toggle button:hover:not(.active){color:var(--text-1)}
+
+/* KANBAN */
+.kanban-wrap{max-width:1600px;margin:14px auto;padding:0 20px 40px;display:none}
+.kanban-wrap.show{display:block}
+.kanban{display:grid;grid-template-columns:repeat(7,minmax(220px,1fr));gap:10px;overflow-x:auto;padding-bottom:8px}
+@media(max-width:1200px){.kanban{grid-template-columns:repeat(7,260px);overflow-x:auto}}
+.kcol{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;min-height:200px;display:flex;flex-direction:column}
+.kcol-head{padding:10px 12px;border-bottom:1px solid var(--border);background:var(--surface);border-radius:10px 10px 0 0;display:flex;justify-content:space-between;align-items:center}
+.kcol-name{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-2)}
+.kcol-name::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--colColor,var(--primary-2));margin-right:7px;vertical-align:middle}
+.kcol-count{font-size:11px;font-weight:700;color:var(--text-3);background:var(--surface-2);padding:2px 8px;border-radius:10px;min-width:24px;text-align:center}
+.kcol-body{padding:8px;display:flex;flex-direction:column;gap:7px;overflow-y:auto;max-height:calc(100vh - 280px)}
+.kcard{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 11px;cursor:pointer;transition:all .12s;border-left:3px solid var(--colColor,var(--primary-2))}
+.kcard:hover{transform:translateX(2px);box-shadow:var(--shadow-md);border-color:var(--colColor,var(--primary-2))}
+.kcard-cli{font-size:12.5px;font-weight:600;color:var(--text-1);line-height:1.3;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kcard-meta{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--text-3);font-family:ui-monospace,Menlo,monospace}
+.kcard-id{color:var(--colColor,var(--primary-2));font-weight:700}
+.kcard-days{padding:1.5px 6px;border-radius:8px;font-weight:700;background:#eef2f5;color:var(--text-2)}
+.kcard-days.warn{background:#fff4e0;color:#9c6915}
+.kcard-days.err{background:#fdecea;color:#8d2a1e}
+.kcol[data-stage=recebimento]{--colColor:#1f5f7e}
+.kcol[data-stage=triagem]{--colColor:#9c6915}
+.kcol[data-stage=separacao]{--colColor:#6b2c91}
+.kcol[data-stage=banho]{--colColor:#c0392b}
+.kcol[data-stage=revisao]{--colColor:#1e6e2e}
+.kcol[data-stage=expedicao]{--colColor:#284a87}
+.kcol[data-stage=fechado]{--colColor:#555}
+.kcol-empty{padding:24px 12px;text-align:center;color:var(--text-3);font-size:11.5px;font-style:italic}
 </style>
 </head>
 <body>
@@ -214,9 +248,20 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
 <div class="list-wrap" id="listWrap">
   <div class="list-header">
     <div class="list-title">Lotes em andamento</div>
-    <div class="list-count" id="listCount">carregando...</div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div class="view-toggle">
+        <button id="vList" class="active" onclick="setView('list')">Lista</button>
+        <button id="vKanban" onclick="setView('kanban')">Kanban</button>
+      </div>
+      <div class="list-count" id="listCount">carregando...</div>
+    </div>
   </div>
   <div class="list-table" id="listTable"></div>
+</div>
+
+<!-- KANBAN -->
+<div class="kanban-wrap" id="kanbanWrap">
+  <div class="kanban" id="kanban"></div>
 </div>
 
 <!-- LOADER -->
@@ -703,6 +748,77 @@ function voltarLista() {
   hideLoader();
   carregarLista();
 }
+
+
+// ============= VIEW TOGGLE =============
+let currentView = 'list';
+window.setView = (view) => {
+  currentView = view;
+  document.getElementById('vList').classList.toggle('active', view === 'list');
+  document.getElementById('vKanban').classList.toggle('active', view === 'kanban');
+  document.getElementById('listWrap').style.display = view === 'list' ? '' : 'none';
+  document.getElementById('kanbanWrap').classList.toggle('show', view === 'kanban');
+  if (view === 'kanban') renderKanban();
+};
+
+function renderKanban() {
+  const rows = state.rows;
+  const stages = [
+    { key: 'recebimento', label: 'Recebimento' },
+    { key: 'triagem', label: 'Triagem' },
+    { key: 'separacao', label: 'Separação' },
+    { key: 'banho', label: 'No banho' },
+    { key: 'revisao', label: 'Revisão' },
+    { key: 'expedicao', label: 'Expedição' },
+    { key: 'fechado', label: 'Fechado' },
+  ];
+
+  // Agrupa lotes por etapa
+  const grouped = {};
+  for (const s of stages) grouped[s.key] = [];
+  for (const r of rows) {
+    const stage = stageFromRow(r);
+    const targetKey = stage.key === 'aberto' ? 'recebimento' : stage.key;
+    if (grouped[targetKey]) grouped[targetKey].push(r);
+    else grouped['recebimento'].push(r);
+  }
+
+  // Renderiza colunas
+  let html = '';
+  for (const s of stages) {
+    const items = grouped[s.key].sort((a, b) => new Date(a.criado) - new Date(b.criado));
+    html += `<div class="kcol" data-stage="${s.key}">
+      <div class="kcol-head">
+        <div class="kcol-name">${s.label}</div>
+        <div class="kcol-count">${items.length}</div>
+      </div>
+      <div class="kcol-body">`;
+    if (items.length === 0) {
+      html += '<div class="kcol-empty">— vazio —</div>';
+    } else {
+      for (const r of items) {
+        const days = fmt.daysAgo(r.criado);
+        const dCls = days > 14 ? 'err' : days > 7 ? 'warn' : '';
+        html += `<div class="kcard" onclick="abrirLote(${r.id})" title="${r.cliente} — Sep #${r.id}">
+          <div class="kcard-cli">${r.cliente}</div>
+          <div class="kcard-meta">
+            <span class="kcard-id">#${r.id}</span>
+            <span class="kcard-days ${dCls}">${days}d</span>
+          </div>
+        </div>`;
+      }
+    }
+    html += `</div></div>`;
+  }
+  document.getElementById('kanban').innerHTML = html;
+}
+
+// Re-render kanban tambem quando a lista atualiza (filtros)
+const _origRender = renderLista;
+renderLista = function () {
+  _origRender();
+  if (currentView === 'kanban') renderKanban();
+};
 
 // ============= INIT =============
 document.getElementById('btnBuscar').onclick = buscarLote;
