@@ -307,6 +307,7 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
 // ============= CORE =============
 // ============= VERSOES =============
 const VERSIONS = [
+  { v: '1.3', date: '2026-05-18 15:30', changes: 'BUGFIX CRÍTICO: lógica de match Sep↔Romaneio reescrita para usar mesma regra do validador (LATERAL JOIN, cada romaneio vota em UMA sep anchor pela menor distância de exp_ini). Antes a janela era apenas exp_ini-1d (apertada demais) e múltiplas seps de um mesmo cliente disputavam o mesmo romaneio. Caso #14706 ADRIANA HARUMI ONO: tinha romaneio #24672 (13/03) mas tracker dizia "aguardando faturamento" porque exp_ini era 16/03 e janela só pegava 15-18/03. Simulação contra 90 dias: 10 de 43 seps abertas no tracker JÁ tinham romaneio (23% falsos positivos). Janela agora vai de exp_ini-30d até exp_fim+2d, com tie-break por ABS(epoch). Aplicado em lista, kanban, detalhe e entregas_motoboy.' },
   { v: '1.2', date: '2026-05-18 14:00', changes: 'Lista e Kanban: mostra OS como identificador principal em vez de Sep (Sep vira info secundária em cinza). Extração via regex da observação da triagem com fallback para "OS pendente" quando triagem ainda não tem o número.' },
   { v: '1.1', date: '2026-05-18 13:30', changes: 'Filtro de dados sujos: lista padrão esconde separações onde sep.cliente_id ≠ triagem.idcliente (caso #14890 da Estefane vs Virtuosa). Checkbox "Mostrar inconsistentes" desliga. Scroll infinito (PAGE_SIZE=100). Ordenação por última atividade real (GREATEST das datas), não created_at. Alerta vermelho no detalhe quando dados inconsistentes. Janela ampliada de 60→90 dias.' },
   { v: '1.0', date: '2026-05-18 11:30', changes: 'Primeira versão. Acompanhamento de lote a partir de OS / Catalogação / Separação / Romaneio. Timeline de 9 estágios com status (concluído/em andamento/pendente). Lista de lotes abertos com filtros. Toggle Lista/Kanban com 7 colunas coloridas. Painel lateral com pesos, alertas e botão para abrir no Validador.' },
@@ -413,8 +414,8 @@ async function carregarDetalhe(sepId) {
     callDB(`SELECT rp.id, rp.data_receb::text AS data, rp.pesototal, rp.nome_fornec, REPLACE(REPLACE(COALESCE(rp.obs,''),CHR(13),' '),CHR(10),' ') AS obs FROM separacoes_recebimentos sr JOIN recebimento_pecas rp ON rp.id = sr.recebimento_id WHERE sr.separacao_id = ${sepId} ORDER BY rp.data_receb`),
     callDB(`SELECT t.id, t.datacad::text AS data, t.datafim::text AS data_fim, t.valor_total, t.valor_cotacao, REPLACE(REPLACE(COALESCE(t.observacoes,''),CHR(13),' '),CHR(10),' ') AS obs, t.status, (SELECT COALESCE(SUM(it.peso),0) FROM itemtriagem it JOIN material m ON m.id=it.idmaterial WHERE it.idtriagem=t.id AND m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Ródio Caneta%' AND m.descricao NOT ILIKE 'Adicional%') AS peso_tri FROM triagem t WHERE t.id = (SELECT catalogacao_id FROM separacoes WHERE id = ${sepId})`),
     callDB(`SELECT COUNT(*) AS qtd, COALESCE(SUM(p.peso),0) AS peso, MIN(p.data_servico::text) AS primeira, MAX(p.data_servico::text) AS ultima FROM passagem_pecas p JOIN tiposervico ts ON ts.id=p.tiposervico_id JOIN material m ON m.id=p.material_id WHERE p.deleted_at IS NULL AND p.cliente_id=(SELECT cliente_id FROM separacoes WHERE id=${sepId}) AND ts.descricao='Banho' AND m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Ródio Caneta%' AND m.descricao NOT ILIKE 'Adicional%' AND p.data_servico >= (SELECT COALESCE(data_inicio_banho, created_at) FROM separacoes WHERE id=${sepId}) AND p.data_servico <= LEAST(COALESCE((SELECT data_inicio_expedicao - INTERVAL '1 minute' FROM separacoes WHERE id=${sepId}), now()), COALESCE((SELECT data_fim_banho + INTERVAL '30 days' FROM separacoes WHERE id=${sepId}), now()), COALESCE((SELECT MIN(sep2.data_inicio_banho) - INTERVAL '1 minute' FROM separacoes sep2 WHERE sep2.cliente_id=(SELECT cliente_id FROM separacoes WHERE id=${sepId}) AND sep2.id<>${sepId} AND sep2.data_inicio_banho IS NOT NULL AND sep2.data_inicio_banho > (SELECT data_fim_banho FROM separacoes WHERE id=${sepId})), now()))`),
-    callDB(`SELECT srv.id, srv.datavenda::text AS data, srv.valor_com_desconto AS valor, (SELECT COALESCE(SUM(isv.peso),0) FROM itemservico isv JOIN tiposervico ts ON ts.id=isv.idtiposervico JOIN material m ON m.id=isv.idmaterial WHERE isv.idservico=srv.id AND ts.descricao='Banho' AND m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Ródio Caneta%' AND m.descricao NOT ILIKE 'Adicional%') AS peso_rom FROM servico srv WHERE srv.datavenda IS NOT NULL AND srv.idcliente = (SELECT cliente_id FROM separacoes WHERE id = ${sepId}) AND srv.datavenda::date BETWEEN COALESCE((SELECT data_inicio_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_fim_banho FROM separacoes WHERE id=${sepId}))::date - INTERVAL '1 day' AND COALESCE((SELECT data_fim_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_inicio_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_fim_banho FROM separacoes WHERE id=${sepId}))::date + INTERVAL '2 days' ORDER BY srv.datavenda LIMIT 5`),
-    callDB(`SELECT em.id, em.data_entrega::text AS data, em.valor, REPLACE(REPLACE(COALESCE(em.observacoes,''),CHR(13),' '),CHR(10),' ') AS obs FROM entregas_motoboy em JOIN servico_entrega se ON se.identrega = em.id WHERE se.idservico IN (SELECT srv.id FROM servico srv WHERE srv.idcliente=(SELECT cliente_id FROM separacoes WHERE id=${sepId}) AND srv.datavenda::date BETWEEN COALESCE((SELECT data_inicio_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_fim_banho FROM separacoes WHERE id=${sepId}))::date - INTERVAL '1 day' AND COALESCE((SELECT data_fim_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_inicio_expedicao FROM separacoes WHERE id=${sepId}), (SELECT data_fim_banho FROM separacoes WHERE id=${sepId}))::date + INTERVAL '2 days')`),
+    callDB(`SELECT srv.id, srv.datavenda::text AS data, srv.valor_com_desconto AS valor, (SELECT COALESCE(SUM(isv.peso),0) FROM itemservico isv JOIN tiposervico ts ON ts.id=isv.idtiposervico JOIN material m ON m.id=isv.idmaterial WHERE isv.idservico=srv.id AND ts.descricao='Banho' AND m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Ródio Caneta%' AND m.descricao NOT ILIKE 'Adicional%') AS peso_rom FROM servico srv WHERE srv.datavenda IS NOT NULL AND srv.idcliente = (SELECT cliente_id FROM separacoes WHERE id = ${sepId}) AND srv.datavenda >= now() - INTERVAL '120 days' AND ${sepId} = (SELECT s.id FROM separacoes s WHERE s.cliente_id = srv.idcliente AND s.data_inicio_expedicao IS NOT NULL AND s.data_inicio_expedicao::date - INTERVAL '30 days' <= srv.datavenda::date AND srv.datavenda::date <= COALESCE(s.data_fim_expedicao, s.data_inicio_expedicao + INTERVAL '14 days')::date + INTERVAL '2 days' ORDER BY ABS(EXTRACT(EPOCH FROM (s.data_inicio_expedicao - srv.datavenda::date))) ASC LIMIT 1) ORDER BY srv.datavenda LIMIT 5`),
+    callDB(`SELECT em.id, em.data_entrega::text AS data, em.valor, REPLACE(REPLACE(COALESCE(em.observacoes,''),CHR(13),' '),CHR(10),' ') AS obs FROM entregas_motoboy em JOIN servico_entrega se ON se.identrega = em.id WHERE se.idservico IN (SELECT srv.id FROM servico srv WHERE srv.idcliente=(SELECT cliente_id FROM separacoes WHERE id=${sepId}) AND srv.datavenda IS NOT NULL AND srv.datavenda >= now() - INTERVAL '120 days' AND ${sepId} = (SELECT s.id FROM separacoes s WHERE s.cliente_id = srv.idcliente AND s.data_inicio_expedicao IS NOT NULL AND s.data_inicio_expedicao::date - INTERVAL '30 days' <= srv.datavenda::date AND srv.datavenda::date <= COALESCE(s.data_fim_expedicao, s.data_inicio_expedicao + INTERVAL '14 days')::date + INTERVAL '2 days' ORDER BY ABS(EXTRACT(EPOCH FROM (s.data_inicio_expedicao - srv.datavenda::date))) ASC LIMIT 1))`),
   ]);
 
   state.detail = {
@@ -692,11 +693,11 @@ async function carregarLista(reset = true) {
   const where = ['1=1'];
   if (cli) where.push(`LOWER(c.nome) LIKE '%${cli.toLowerCase()}%'`);
 
-  // Por padrão lotes abertos = sem servico (romaneio) ou em estágio antes do romaneio
+  // v1.3: usa CTE rom_to_sep — rs.rom_id IS NULL significa nao tem romaneio anchored a essa sep
   if (stage === 'fechado') {
-    where.push(`EXISTS (SELECT 1 FROM servico srv WHERE srv.idcliente=s.cliente_id AND srv.datavenda IS NOT NULL AND srv.datavenda::date BETWEEN COALESCE(s.data_inicio_expedicao, s.data_fim_banho)::date - INTERVAL '1 day' AND COALESCE(s.data_fim_expedicao, s.data_inicio_expedicao, s.data_fim_banho)::date + INTERVAL '2 days')`);
+    where.push('rs.rom_id IS NOT NULL');
   } else {
-    where.push(`NOT EXISTS (SELECT 1 FROM servico srv WHERE srv.idcliente=s.cliente_id AND srv.datavenda IS NOT NULL AND srv.datavenda::date BETWEEN COALESCE(s.data_inicio_expedicao, s.data_fim_banho)::date - INTERVAL '1 day' AND COALESCE(s.data_fim_expedicao, s.data_inicio_expedicao, s.data_fim_banho)::date + INTERVAL '2 days')`);
+    where.push('rs.rom_id IS NULL');
   }
   // Stage filter
   if (stage === 'banho') where.push('s.data_inicio_banho IS NOT NULL AND s.data_fim_banho IS NULL');
@@ -711,7 +712,36 @@ async function carregarLista(reset = true) {
   }
   where.push(`s.created_at >= now() - INTERVAL '90 days'`);
 
-  const sql = `SELECT s.id, s.cliente_id, c.nome AS cliente, s.status, s.catalogacao_id, t.idcliente AS tri_cli, ct.nome AS tri_cli_nome, (regexp_match(COALESCE(t.observacoes,''), 'O\\.?\\s*S\\.?\\s*:?\\s*(\\d{3,6})', 'i'))[1] AS os_num, os.id AS os_id, s.created_at::text AS criado, s.data_inicio_banho::text AS banho_ini, s.data_fim_banho::text AS banho_fim, s.data_inicio_expedicao::text AS exp_ini, s.data_fim_expedicao::text AS exp_fim, s.data_fim_revisao::text AS rev_fim, s.data_inicio_preparacao::text AS prep_ini, GREATEST(s.created_at, COALESCE(s.data_inicio_preparacao, s.created_at), COALESCE(s.data_inicio_banho, s.created_at), COALESCE(s.data_fim_banho, s.created_at), COALESCE(s.data_inicio_expedicao, s.created_at), COALESCE(s.data_fim_expedicao, s.created_at)) AS ultima_atividade FROM separacoes s JOIN cliente c ON c.id = s.cliente_id LEFT JOIN triagem t ON t.id = s.catalogacao_id LEFT JOIN cliente ct ON ct.id = t.idcliente LEFT JOIN ordemservico os ON os.flag_orcamento IS NULL AND os.idcliente = s.cliente_id AND os.numero::text = (regexp_match(COALESCE(t.observacoes,''), 'O\\.?\\s*S\\.?\\s*:?\\s*(\\d{3,6})', 'i'))[1] WHERE ${where.join(' AND ')} ORDER BY ultima_atividade DESC, s.id DESC LIMIT ${PAGE_SIZE} OFFSET ${state.page * PAGE_SIZE}`;
+  // v1.3: usa CTE rom_to_sep — cada romaneio vota em UMA sep anchor (regra do validador).
+  // Garante que sep apareça como "fechada" só se EXISTE romaneio cuja sep anchor seja essa sep.
+  const sql = `WITH rom_to_sep AS (
+    SELECT srv.id AS rom_id, srv.datavenda::text AS rom_data, sep.id AS sep_id
+    FROM servico srv
+    CROSS JOIN LATERAL (
+      SELECT s.id FROM separacoes s
+      WHERE s.cliente_id = srv.idcliente AND s.data_inicio_expedicao IS NOT NULL
+        AND s.data_inicio_expedicao::date - INTERVAL '30 days' <= srv.datavenda::date
+        AND srv.datavenda::date <= COALESCE(s.data_fim_expedicao, s.data_inicio_expedicao + INTERVAL '14 days')::date + INTERVAL '2 days'
+      ORDER BY ABS(EXTRACT(EPOCH FROM (s.data_inicio_expedicao - srv.datavenda::date))) ASC LIMIT 1
+    ) sep
+    WHERE srv.datavenda IS NOT NULL AND srv.idcliente IS NOT NULL AND srv.datavenda >= now() - INTERVAL '120 days'
+  )
+  SELECT s.id, s.cliente_id, c.nome AS cliente, s.status, s.catalogacao_id, t.idcliente AS tri_cli, ct.nome AS tri_cli_nome,
+    (regexp_match(COALESCE(t.observacoes,''), 'O\\.?\\s*S\\.?\\s*:?\\s*(\\d{3,6})', 'i'))[1] AS os_num, os.id AS os_id,
+    rs.rom_id, rs.rom_data,
+    s.created_at::text AS criado, s.data_inicio_banho::text AS banho_ini, s.data_fim_banho::text AS banho_fim,
+    s.data_inicio_expedicao::text AS exp_ini, s.data_fim_expedicao::text AS exp_fim,
+    s.data_fim_revisao::text AS rev_fim, s.data_inicio_preparacao::text AS prep_ini,
+    GREATEST(s.created_at, COALESCE(s.data_inicio_preparacao, s.created_at), COALESCE(s.data_inicio_banho, s.created_at), COALESCE(s.data_fim_banho, s.created_at), COALESCE(s.data_inicio_expedicao, s.created_at), COALESCE(s.data_fim_expedicao, s.created_at)) AS ultima_atividade
+  FROM separacoes s
+  JOIN cliente c ON c.id = s.cliente_id
+  LEFT JOIN triagem t ON t.id = s.catalogacao_id
+  LEFT JOIN cliente ct ON ct.id = t.idcliente
+  LEFT JOIN ordemservico os ON os.flag_orcamento IS NULL AND os.idcliente = s.cliente_id AND os.numero::text = (regexp_match(COALESCE(t.observacoes,''), 'O\\.?\\s*S\\.?\\s*:?\\s*(\\d{3,6})', 'i'))[1]
+  LEFT JOIN rom_to_sep rs ON rs.sep_id = s.id
+  WHERE ${where.join(' AND ')}
+  ORDER BY ultima_atividade DESC, s.id DESC
+  LIMIT ${PAGE_SIZE} OFFSET ${state.page * PAGE_SIZE}`;
 
   document.getElementById('listTable').innerHTML = '<div class="empty"><div class="empty-emoji">⏳</div>Carregando lotes...</div>';
 
@@ -747,9 +777,18 @@ function renderLista() {
     const stage = stageFromRow(r);
     const days = fmt.daysAgo(r.criado);
     const daysClass = days > 14 ? 'err' : days > 7 ? 'warn' : '';
-    const idLabel = r.os_num
-      ? `<div class="lot-id">OS #${r.os_num}</div><div style="font-size:11px;color:var(--text-3);font-family:ui-monospace,Menlo,monospace">Sep #${r.id}</div>`
-      : `<div class="lot-id">Sep #${r.id}</div><div style="font-size:11px;color:var(--text-3)">— OS pendente</div>`;
+    let idMain, idSub;
+    if (r.rom_id) {
+      idMain = `Rom #${r.rom_id}`;
+      idSub = r.os_num ? `OS #${r.os_num} · Sep #${r.id}` : `Sep #${r.id}`;
+    } else if (r.os_num) {
+      idMain = `OS #${r.os_num}`;
+      idSub = `Sep #${r.id}`;
+    } else {
+      idMain = `Sep #${r.id}`;
+      idSub = '— OS pendente';
+    }
+    const idLabel = `<div class="lot-id">${idMain}</div><div style="font-size:11px;color:var(--text-3);font-family:ui-monospace,Menlo,monospace">${idSub}</div>`;
     html += `<div class="lot-row" onclick="abrirLote(${r.id})">
       <div>${idLabel}</div>
       <div class="lot-cli" title="${r.cliente}">${r.cliente}</div>
@@ -763,7 +802,8 @@ function renderLista() {
 }
 
 function stageFromRow(r) {
-  if (r.exp_fim || r.banho_fim && r.rev_fim) return { key:'expedicao', label:'Aguardando entrega' };
+  if (r.rom_id) return { key:'fechado', label:'Fechado · Rom #'+r.rom_id };
+  if (r.exp_fim) return { key:'expedicao', label:'Expedido (sem rom)' };
   if (r.exp_ini) return { key:'expedicao', label:'Em expedição' };
   if (r.rev_fim) return { key:'revisao', label:'Pós-revisão' };
   if (r.banho_fim) return { key:'revisao', label:'Em revisão' };
@@ -876,7 +916,7 @@ function renderKanban() {
       for (const r of items) {
         const days = fmt.daysAgo(r.criado);
         const dCls = days > 14 ? 'err' : days > 7 ? 'warn' : '';
-        const cardId = r.os_num ? `OS #${r.os_num}` : `Sep #${r.id}`;
+        const cardId = r.rom_id ? `Rom #${r.rom_id}` : (r.os_num ? `OS #${r.os_num}` : `Sep #${r.id}`);
         html += `<div class="kcard" onclick="abrirLote(${r.id})" title="${r.cliente} — ${cardId}">
           <div class="kcard-cli">${r.cliente}</div>
           <div class="kcard-meta">
