@@ -82,6 +82,10 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
 .lot-row:last-child{border-bottom:0}
 .lot-row.head{background:var(--surface-2);border-bottom:1px solid var(--border-2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-3);cursor:default}
 .lot-row.head:hover{background:var(--surface-2)}
+.lot-row.head .sortable{cursor:pointer;user-select:none;transition:color .12s}
+.lot-row.head .sortable:hover{color:var(--primary-2)}
+.lot-row.head .sort-ind{margin-left:3px;font-size:10px;color:var(--primary-2)}
+.scroll-loader{padding:14px;text-align:center;color:var(--text-3);font-size:12px}
 .lot-id{font-family:ui-monospace,Menlo,monospace;font-weight:600;color:var(--primary-2)}
 .lot-cli{font-weight:500;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lot-stage{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:11px;font-size:11px;font-weight:600;background:#eef2f5;color:var(--text-2)}
@@ -166,7 +170,10 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
   .lot-cli{font-size:14px;font-weight:600}
 }
 
-/* TOGGLE LISTA / KANBAN */
+/* VIEW BAR (toggle + count) */
+.view-bar{max-width:1400px;margin:14px auto 0;padding:0 24px;display:flex;justify-content:space-between;align-items:center;gap:14px}
+.view-title{font-size:13px;font-weight:700;color:var(--text-2);display:flex;align-items:center;gap:10px}
+.view-title .list-count{font-size:12px;font-weight:500;color:var(--text-3)}
 .view-toggle{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:3px;gap:2px}
 .view-toggle button{padding:5px 12px;font-size:12px;font-weight:600;background:transparent;border:0;border-radius:6px;cursor:pointer;color:var(--text-3);transition:all .15s}
 .view-toggle button.active{background:var(--surface);color:var(--primary);box-shadow:var(--shadow-sm)}
@@ -247,36 +254,32 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
 
 <!-- FILTROS DA LISTA -->
 <div class="filters" id="filters">
-  <div class="field"><label>Cliente</label><input type="text" id="fCli" placeholder="filtrar por nome..."></div>
-  <div class="field"><label>Etapa atual</label>
+  <div class="field" title="Busca parcial por nome do cliente"><label>Cliente</label><input type="text" id="fCli" placeholder="filtrar por nome..."></div>
+  <div class="field" title="Filtra pelo estágio atual do lote no fluxo de produção"><label>Etapa atual</label>
     <select id="fStage">
-      <option value="">Todas as etapas</option>
-      <option value="recebimento">Recebimento</option>
-      <option value="triagem">Em triagem</option>
-      <option value="separacao">Separação</option>
-      <option value="banho">No banho</option>
-      <option value="revisao">Em revisão</option>
-      <option value="expedicao">Aguardando expedição</option>
-      <option value="aberto">Todos os abertos (sem romaneio)</option>
-      <option value="fechado">Fechados (com romaneio)</option>
+      <option value="">Todas as etapas (abertas)</option>
+      <option value="banho">📍 No banho</option>
+      <option value="separacao">📍 Em separação</option>
+      <option value="revisao">📍 Em revisão</option>
+      <option value="expedicao">📍 Aguardando expedição</option>
+      <option value="fechado">✓ Fechados (com romaneio)</option>
     </select>
   </div>
-  <div class="field"><label>Dias mínimo no lote</label><input type="number" id="fMinDays" placeholder="ex: 5" min="0"></div>
-  <div class="field" style="display:flex;align-items:center;gap:6px;min-width:auto;padding-bottom:1px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text-2)"><input type="checkbox" id="fInconsist" style="margin:0"> Mostrar inconsistentes</label></div>
+  <div class="field" title="Filtra lotes que estão há pelo menos N dias no fluxo (desde a criação da separação)"><label>Dias mín. no fluxo</label><input type="number" id="fMinDays" placeholder="ex: 5" min="0"></div>
+  <div class="field" style="display:flex;align-items:center;gap:6px;min-width:auto;padding-bottom:1px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text-2)" title="Mostra também separações onde sep.cliente_id ≠ triagem.idcliente (erro de digitação no Delphi)"><input type="checkbox" id="fInconsist" style="margin:0"> Mostrar inconsistentes</label></div>
+</div>
+
+<!-- VIEW TOGGLE (fora do listWrap pra ficar visivel sempre) -->
+<div class="view-bar" id="viewBar">
+  <div class="view-title">Lotes em andamento <span class="list-count" id="listCount">carregando...</span></div>
+  <div class="view-toggle">
+    <button id="vList" class="active" onclick="setView('list')">Lista</button>
+    <button id="vKanban" onclick="setView('kanban')">Kanban</button>
+  </div>
 </div>
 
 <!-- LISTA -->
 <div class="list-wrap" id="listWrap">
-  <div class="list-header">
-    <div class="list-title">Lotes em andamento</div>
-    <div style="display:flex;align-items:center;gap:14px">
-      <div class="view-toggle">
-        <button id="vList" class="active" onclick="setView('list')">Lista</button>
-        <button id="vKanban" onclick="setView('kanban')">Kanban</button>
-      </div>
-      <div class="list-count" id="listCount">carregando...</div>
-    </div>
-  </div>
   <div class="list-table" id="listTable"></div>
 </div>
 
@@ -307,6 +310,7 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
 // ============= CORE =============
 // ============= VERSOES =============
 const VERSIONS = [
+  { v: '1.4', date: '2026-05-18 16:15', changes: 'UX: (1) Toggle Lista/Kanban agora fica num header próprio acima dos filtros — visível em ambos os modos, dá pra voltar pra Lista quando está no Kanban. (2) Cabeçalhos da Lista clicáveis para ordenar (Cliente, Etapa, Criado, Tempo) com indicador ▲▼. (3) Labels mais claras: "Criado" → "Início da Sep" e "Tempo" → "Há quantos dias". (4) Tooltips nos filtros explicando cada um. (5) Indicador visual quando carregando mais lotes (scroll infinito).' },
   { v: '1.3', date: '2026-05-18 15:30', changes: 'BUGFIX CRÍTICO: lógica de match Sep↔Romaneio reescrita para usar mesma regra do validador (LATERAL JOIN, cada romaneio vota em UMA sep anchor pela menor distância de exp_ini). Antes a janela era apenas exp_ini-1d (apertada demais) e múltiplas seps de um mesmo cliente disputavam o mesmo romaneio. Caso #14706 ADRIANA HARUMI ONO: tinha romaneio #24672 (13/03) mas tracker dizia "aguardando faturamento" porque exp_ini era 16/03 e janela só pegava 15-18/03. Simulação contra 90 dias: 10 de 43 seps abertas no tracker JÁ tinham romaneio (23% falsos positivos). Janela agora vai de exp_ini-30d até exp_fim+2d, com tie-break por ABS(epoch). Aplicado em lista, kanban, detalhe e entregas_motoboy.' },
   { v: '1.2', date: '2026-05-18 14:00', changes: 'Lista e Kanban: mostra OS como identificador principal em vez de Sep (Sep vira info secundária em cinza). Extração via regex da observação da triagem com fallback para "OS pendente" quando triagem ainda não tem o número.' },
   { v: '1.1', date: '2026-05-18 13:30', changes: 'Filtro de dados sujos: lista padrão esconde separações onde sep.cliente_id ≠ triagem.idcliente (caso #14890 da Estefane vs Virtuosa). Checkbox "Mostrar inconsistentes" desliga. Scroll infinito (PAGE_SIZE=100). Ordenação por última atividade real (GREATEST das datas), não created_at. Alerta vermelho no detalhe quando dados inconsistentes. Janela ampliada de 60→90 dias.' },
@@ -315,7 +319,7 @@ const VERSIONS = [
 const CURRENT_VERSION = VERSIONS[0];
 
 // ============= STATE =============
-const state = { rows: [], detail: null, page: 0, hasMore: true, loading: false };
+const state = { rows: [], detail: null, page: 0, hasMore: true, loading: false, sortBy: 'atividade', sortDir: 'desc' };
 const PAGE_SIZE = 100;
 const fmt = {
   date(d) { if(!d) return '—'; const x = new Date(d); return isNaN(x) ? '—' : x.toLocaleDateString('pt-BR'); },
@@ -754,7 +758,17 @@ async function carregarLista(reset = true) {
     if (filtered.length < PAGE_SIZE) state.hasMore = false;
     state.rows = (state.rows || []).concat(filtered);
     state.page++;
-    renderLista();
+    applySortAndRender();
+    // Indicador "carregando mais" se ainda tem páginas
+    if (state.hasMore && state.rows.length > 0) {
+      const tbl = document.getElementById('listTable');
+      if (!tbl.querySelector('.scroll-loader')) {
+        tbl.insertAdjacentHTML('beforeend', '<div class="scroll-loader">↓ role para carregar mais</div>');
+      }
+    } else {
+      const sl = document.querySelector('.scroll-loader');
+      if (sl) sl.remove();
+    }
   } catch (e) {
     document.getElementById('listTable').innerHTML = `<div class="empty">Erro: ${e.message}</div>`;
   } finally {
@@ -770,8 +784,17 @@ function renderLista() {
     tbl.innerHTML = '<div class="empty"><div class="empty-emoji">✨</div>Nenhum lote com esses filtros</div>';
     return;
   }
+  function sortInd(col) {
+    if (state.sortBy !== col) return '';
+    return `<span class="sort-ind">${state.sortDir === 'asc' ? '▲' : '▼'}</span>`;
+  }
   let html = `<div class="lot-row head">
-    <div>OS / Sep</div><div>Cliente</div><div>Etapa</div><div>Criado</div><div>Tempo</div><div>Ação</div>
+    <div class="sortable" onclick="setSort('id')">OS / Sep${sortInd('id')}</div>
+    <div class="sortable" onclick="setSort('cliente')">Cliente${sortInd('cliente')}</div>
+    <div class="sortable" onclick="setSort('etapa')">Etapa${sortInd('etapa')}</div>
+    <div class="sortable" onclick="setSort('criado')" title="Data de criação da separação no Delphi">Início da Sep${sortInd('criado')}</div>
+    <div class="sortable" onclick="setSort('dias')" title="Dias entre a criação da separação e hoje">Há quantos dias${sortInd('dias')}</div>
+    <div>Ação</div>
   </div>`;
   for (const r of rows) {
     const stage = stageFromRow(r);
@@ -799,6 +822,35 @@ function renderLista() {
     </div>`;
   }
   tbl.innerHTML = html;
+}
+
+window.setSort = (col) => {
+  if (state.sortBy === col) {
+    state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.sortBy = col;
+    state.sortDir = 'desc';
+  }
+  applySortAndRender();
+};
+
+function applySortAndRender() {
+  const dir = state.sortDir === 'asc' ? 1 : -1;
+  const sortBy = state.sortBy;
+  state.rows = (state.rows || []).slice().sort((a, b) => {
+    let va, vb;
+    if (sortBy === 'id') { va = a.rom_id || a.os_num || a.id; vb = b.rom_id || b.os_num || b.id; }
+    else if (sortBy === 'cliente') { va = (a.cliente||'').toLowerCase(); vb = (b.cliente||'').toLowerCase(); }
+    else if (sortBy === 'etapa') { va = stageFromRow(a).label; vb = stageFromRow(b).label; }
+    else if (sortBy === 'criado') { va = new Date(a.criado).getTime(); vb = new Date(b.criado).getTime(); }
+    else if (sortBy === 'dias') { va = fmt.daysAgo(a.criado); vb = fmt.daysAgo(b.criado); }
+    else { va = new Date(a.ultima_atividade||a.criado).getTime(); vb = new Date(b.ultima_atividade||b.criado).getTime(); }
+    if (va === vb) return 0;
+    if (typeof va === 'string') return va.localeCompare(vb) * dir;
+    return (va < vb ? -1 : 1) * dir;
+  });
+  renderLista();
+  if (currentView === 'kanban') renderKanban();
 }
 
 function stageFromRow(r) {
