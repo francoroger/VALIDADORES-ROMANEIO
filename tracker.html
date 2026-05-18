@@ -38,17 +38,32 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
 
 /* BUSCA */
 .search-card{max-width:1400px;margin:20px auto 0;padding:0 24px}
-.search-inner{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow-sm)}
-.search-title{font-size:14px;font-weight:700;color:var(--text-1);margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.search-title svg{width:16px;height:16px;color:var(--primary-2)}
-.search-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr)) auto auto;gap:10px;align-items:end}
-.field label{display:block;font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px}
-.field input{width:100%;padding:9px 11px;border:1px solid var(--border-2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--surface)}
+.search-inner{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow-sm)}
+.search-title{font-size:13px;font-weight:700;color:var(--text-1);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.search-title svg{width:15px;height:15px;color:var(--primary-2)}
+.search-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.search-bar .field{flex:0 0 auto;width:130px}
+.field label{display:block;font-size:10.5px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px}
+.field input{width:100%;padding:7px 10px;border:1px solid var(--border-2);border-radius:7px;font-size:13px;font-family:inherit;background:var(--surface)}
 .field input:focus{border-color:var(--primary-2);box-shadow:0 0 0 3px rgba(41,128,185,.1)}
-.btn{padding:9px 18px;background:var(--primary);color:#fff;border:0;border-radius:8px;font-size:13px;font-weight:600;transition:background .15s}
+.btn{padding:7px 16px;background:var(--primary);color:#fff;border:0;border-radius:7px;font-size:12.5px;font-weight:600;transition:background .15s;cursor:pointer}
 .btn:hover{background:var(--primary-2)}
 .btn.ghost{background:var(--surface);color:var(--text-2);border:1px solid var(--border-2)}
 .btn.ghost:hover{border-color:var(--primary-2);color:var(--primary-2);background:var(--surface)}
+
+/* VERSION MODAL (igual aos outros artefatos) */
+.version-info{font-size:11px;color:var(--text-3);margin-left:8px;font-family:ui-monospace,Menlo,monospace}
+.version-info a{color:var(--primary-2);cursor:pointer;text-decoration:none;margin-left:6px;font-family:inherit}
+.version-info a:hover{text-decoration:underline}
+.version-modal{position:fixed;top:60px;right:20px;width:480px;max-height:70vh;background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px 18px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:100;display:none;overflow-y:auto}
+.version-modal.open{display:block}
+.version-modal h3{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.version-modal h3 span{cursor:pointer;color:var(--text-3);font-weight:400}
+.version-entry{padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.version-entry:last-child{border-bottom:none}
+.version-entry strong{color:var(--primary)}
+.version-entry small{color:var(--text-3);margin-left:6px}
+.version-entry div{color:var(--text-2);margin-top:3px;line-height:1.5}
 
 /* FILTROS LISTA */
 .filters{max-width:1400px;margin:14px auto 0;padding:0 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -196,7 +211,7 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
         <h1>Franco <span>Galvânica</span> · Acompanhamento de Lote</h1>
         <p>Veja o estágio de qualquer lote em produção ou já fechado</p>
       </div>
-      <span class="version">v1.2</span>
+      <span class="version-info" id="versionInfo">v—</span>
     </div>
     <div class="right-actions">
       <a class="home-link" href="/">
@@ -207,6 +222,11 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
   </div>
 </header>
 
+<div class="version-modal" id="versionModal">
+  <h3>Histórico de versões <span onclick="document.getElementById('versionModal').classList.remove('open')">×</span></h3>
+  <div id="versionList"></div>
+</div>
+
 <!-- BUSCA -->
 <div class="search-card">
   <div class="search-inner">
@@ -214,8 +234,8 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       <span>Buscar lote — digite QUALQUER um dos números</span>
     </div>
-    <div class="search-grid">
-      <div class="field"><label>OS / Pedido</label><input type="number" id="fOS" placeholder="ex: 12921"></div>
+    <div class="search-bar">
+      <div class="field"><label>OS</label><input type="number" id="fOS" placeholder="ex: 12921"></div>
       <div class="field"><label>Catalogação</label><input type="number" id="fTri" placeholder="ex: 13535"></div>
       <div class="field"><label>Separação</label><input type="number" id="fSep" placeholder="ex: 14938"></div>
       <div class="field"><label>Romaneio</label><input type="number" id="fRom" placeholder="ex: 24878"></div>
@@ -285,6 +305,15 @@ header.top{background:var(--surface);border-bottom:1px solid var(--border);posit
 
 <script>
 // ============= CORE =============
+// ============= VERSOES =============
+const VERSIONS = [
+  { v: '1.2', date: '2026-05-18 14:00', changes: 'Lista e Kanban: mostra OS como identificador principal em vez de Sep (Sep vira info secundária em cinza). Extração via regex da observação da triagem com fallback para "OS pendente" quando triagem ainda não tem o número.' },
+  { v: '1.1', date: '2026-05-18 13:30', changes: 'Filtro de dados sujos: lista padrão esconde separações onde sep.cliente_id ≠ triagem.idcliente (caso #14890 da Estefane vs Virtuosa). Checkbox "Mostrar inconsistentes" desliga. Scroll infinito (PAGE_SIZE=100). Ordenação por última atividade real (GREATEST das datas), não created_at. Alerta vermelho no detalhe quando dados inconsistentes. Janela ampliada de 60→90 dias.' },
+  { v: '1.0', date: '2026-05-18 11:30', changes: 'Primeira versão. Acompanhamento de lote a partir de OS / Catalogação / Separação / Romaneio. Timeline de 9 estágios com status (concluído/em andamento/pendente). Lista de lotes abertos com filtros. Toggle Lista/Kanban com 7 colunas coloridas. Painel lateral com pesos, alertas e botão para abrir no Validador.' },
+];
+const CURRENT_VERSION = VERSIONS[0];
+
+// ============= STATE =============
 const state = { rows: [], detail: null, page: 0, hasMore: true, loading: false };
 const PAGE_SIZE = 100;
 const fmt = {
@@ -870,6 +899,21 @@ renderLista = function () {
 };
 
 // ============= INIT =============
+document.getElementById('versionInfo').innerHTML = `v${CURRENT_VERSION.v} · editado ${CURRENT_VERSION.date} · <a onclick="toggleVersionLog()">histórico</a>`;
+window.toggleVersionLog = () => {
+  const m = document.getElementById('versionModal');
+  if (!m.classList.contains('open')) {
+    document.getElementById('versionList').innerHTML = VERSIONS.map(v => `<div class="version-entry"><strong>v${v.v}</strong><small>${v.date}</small><div>${v.changes}</div></div>`).join('');
+  }
+  m.classList.toggle('open');
+};
+document.addEventListener('click', e => {
+  const m = document.getElementById('versionModal');
+  if (m.classList.contains('open') && !m.contains(e.target) && !e.target.closest('.version-info')) {
+    m.classList.remove('open');
+  }
+});
+
 document.getElementById('btnBuscar').onclick = buscarLote;
 document.getElementById('btnLimpar').onclick = voltarLista;
 ['fCli','fStage','fMinDays'].forEach(id => {
