@@ -269,6 +269,7 @@ canvas{max-height:340px}
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '3.4', date: '2026-05-18 17:00', changes: 'BUGFIX anchor empate: regra ORDER BY ABS() não diferenciava romaneio DEPOIS de exp_ini (incomum) vs ANTES (natural). Quando havia 2 separações concorrentes do mesmo cliente equidistantes do romaneio, escolhia arbitrariamente. Nova regra: rom DEPOIS de exp_ini pesa 3× (penalidade). Caso #24901 ANA BEATRIZ: rom 13/05 entre sep 14938 (exp 07/05, 6d depois) e sep 14939 (exp 19/05, 6d antes) — antes escolhia 14938 (errado), agora escolhe 14939 (correto, OS 12939 Triagem 13554). Validado contra últimos 100 romaneios: apenas este caso muda, outros 99 idênticos.' },
   { v: '3.3', date: '2026-05-11 10:30', changes: 'BUGFIX anchor: tolIni -1d → -30d (aceita romaneio antes da expedição).' },
   { v: '3.2', date: '2026-05-11 00:30', changes: 'BUGFIX CRÍTICO: sqlOs agora filtra flag_orcamento IS NULL (só OS reais, não Pré-Orçamentos).' },
   { v: '3.1', date: '2026-05-10 22:45', changes: 'BUGFIX limit cap MCP: cap é 500. Implementada paginação callDBAll via OFFSET.' },
@@ -639,7 +640,13 @@ function attachPassagensWindowToServicos(){
       const tolIni = new Date(eIni.getTime() - 30*86400000); // 30d antes do exp_ini (caso #24713: romaneio antes da expedição)
       return ate >= tolIni && ate <= tolFim;
     });
-    sv._separacao = candSeps.sort((a,b) => Math.abs(new Date(a.exp_ini)-ate) - Math.abs(new Date(b.exp_ini)-ate))[0] || null;
+    sv._separacao = candSeps.sort((a,b) => {
+      const da = new Date(a.exp_ini) - ate; const db = new Date(b.exp_ini) - ate;
+      // v3.4 fix anchor empate: pesa 3x quando data é DEPOIS de exp_ini (incomum). Caso #24901 ANA BEATRIZ.
+      const sa = da < 0 ? -da * 3 : da;
+      const sb = db < 0 ? -db * 3 : db;
+      return sa - sb;
+    })[0] || null;
     // Quando banho_ini é NULL (operador esqueceu de marcar), estimar via banho_fim_sep_anterior ou banho_fim - 4d
     let bIni = null, bFim = null, banhoEstimado = false;
     if (sv._separacao){

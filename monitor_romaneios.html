@@ -205,6 +205,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:14px;pa
 <script>
 // ============= LOG DE VERSÕES =============
 const VERSIONS = [
+  { v: '2.10', date: '2026-05-18 17:00', changes: 'BUGFIX anchor empate: regra ORDER BY ABS() não diferenciava romaneio DEPOIS de exp_ini (incomum) vs ANTES (natural). Quando havia 2 separações concorrentes do mesmo cliente equidistantes do romaneio, escolhia arbitrariamente. Nova regra: rom DEPOIS de exp_ini pesa 3× (penalidade). Caso #24901 ANA BEATRIZ: rom 13/05 entre sep 14938 (exp 07/05, 6d depois) e sep 14939 (exp 19/05, 6d antes) — antes escolhia 14938 (errado), agora escolhe 14939 (correto, OS 12939 Triagem 13554). Validado contra últimos 100 romaneios: apenas este caso muda, outros 99 idênticos.' },
   { v: '2.9', date: '2026-05-11 16:30', changes: 'BUGFIX timeout: existem 327 romaneios com datavenda=NULL e idcliente=NULL no banco. Por padrão Postgres ordena NULLs PRIMEIRO em DESC → primeira página do monitor pegava só NULLs, queries de OS/Pass ficavam vazias mas as joins demoravam (timeout). Fix: WHERE s.datavenda IS NOT NULL AND s.idcliente IS NOT NULL na query principal.' },
   { v: '2.8', date: '2026-05-11 16:00', changes: 'PERFORMANCE: monitor estava muito lento porque quando datas vazias usava dFrom=2020-01-01, fazendo queries de OS/Passagens/Separações de 6 anos. Agora datas de OS/Pass/Sep derivam do BATCH atual (range das datas dos 50 romaneios carregados), reduzindo drasticamente o volume de dados. Janelas: OS 60d antes, Pass 60d antes (era 180d).' },
   { v: '2.7', date: '2026-05-11 14:30', changes: 'Scroll infinito: removido preenchimento automático das datas De/Até. Lista de romaneios agora carrega 50 por vez do mais recente pro mais antigo. Ao rolar perto do fim da tela, carrega +50 automaticamente. Filtros de cliente/data/status aplicam normalmente. Status mostra "X romaneios · role pra carregar mais" enquanto há mais; "fim" quando acaba.' },
@@ -450,7 +451,13 @@ function buildModel(){
       const tolIni = new Date(eIni.getTime() - 30*86400000); // 30d antes do exp_ini (caso #24713: romaneio antes da expedição)
       return dRom >= tolIni && dRom <= tolFim;
     });
-    rom.separacao = candSeps.sort((a,b) => Math.abs(new Date(a.exp_ini)-dRom) - Math.abs(new Date(b.exp_ini)-dRom))[0] || null;
+    rom.separacao = candSeps.sort((a,b) => {
+      const da = new Date(a.exp_ini) - dRom; const db = new Date(b.exp_ini) - dRom;
+      // v2.7 fix anchor empate: pesa 3x quando rom é DEPOIS de exp_ini (incomum). Caso #24901 ANA BEATRIZ.
+      const sa = da < 0 ? -da * 3 : da;
+      const sb = db < 0 ? -db * 3 : db;
+      return sa - sb;
+    })[0] || null;
 
     // PASSAGENS — preferir janela exata da separação (timestamp banho_ini→banho_fim).
     // Quando banho_ini é NULL mas banho_fim existe, estimar banho_ini = max(banho_fim_sep_anterior, banho_fim - 4d).
