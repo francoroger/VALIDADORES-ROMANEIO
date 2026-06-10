@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BANHO VS ANOS ROMANEIO E PRODUÇÃO</title>
+<script src="/netlify/shim.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+:root { color-scheme: dark;
+  --bg:#070a10;
+  --surface:#111722;
+  --surface-2:#19212f;
+  --border:#27303f;
+  --border-2:#39455c;
+  --text:#f2f5fa;
+  --text-2:#b9c2d4;
+  --text-3:#76829a;
+  --gold:#ffd34d; --gold-2:#e3a812; --gold-dim:rgba(255,211,77,.14);
+  --cyan:#38bdf8; --cyan-dim:rgba(56,189,248,.13);
+  --green:#34d399; --green-bg:rgba(52,211,153,.13);
+  --red:#f87171; --red-bg:rgba(248,113,113,.13);
+  --violet:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',Roboto,sans-serif;font-size:13px;line-height:1.45;color:var(--text);background:var(--bg)}
+body::before{content:'';position:fixed;inset:0;background:
+  radial-gradient(900px 400px at 80% -10%, rgba(255,211,77,.07), transparent 55%),
+  radial-gradient(700px 360px at -5% 110%, rgba(56,189,248,.06), transparent 55%);
+  pointer-events:none;z-index:0}
+.app{position:relative;z-index:1;max-width:1560px;margin:0 auto;padding:16px 20px}
+
+/* HEADER */
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#e3a812,#ffd34d);color:#191204;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;box-shadow:0 4px 18px rgba(255,211,77,.30)}
+header h1{font-size:15px;font-weight:800;letter-spacing:.4px}
+header h1 small{display:block;font-size:11px;font-weight:500;color:var(--text-3);letter-spacing:0}
+.ver{font-size:11px;font-weight:800;color:var(--gold);background:var(--gold-dim);border:1px solid rgba(255,211,77,.30);padding:3px 10px;border-radius:999px;cursor:pointer}
+.ver:hover{background:rgba(255,211,77,.25)}
+.status{margin-left:auto;font-size:11px;color:var(--text-2);background:var(--surface);border:1px solid var(--border);padding:5px 12px;border-radius:999px;display:inline-flex;align-items:center;gap:7px}
+.status .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(52,211,153,.18)}
+.status.loading .dot{background:var(--gold);box-shadow:0 0 0 3px rgba(255,211,77,.18);animation:pulse 1.1s infinite}
+.status.error .dot{background:var(--red);box-shadow:0 0 0 3px rgba(248,113,113,.18)}
+@keyframes pulse{50%{opacity:.4}}
+header select,header button{font-family:inherit;font-size:12.5px;padding:7px 12px;border:1px solid var(--border-2);border-radius:9px;background:var(--surface-2);color:var(--text);cursor:pointer;outline:none;font-weight:600}
+header select:focus{border-color:var(--gold-2)}
+header button.primary{background:linear-gradient(135deg,#e3a812,#ffd34d);color:#191204;border:none;font-weight:800;padding:8px 17px;box-shadow:0 4px 16px rgba(255,211,77,.25)}
+header button.primary:hover{transform:translateY(-1px)}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:linear-gradient(180deg,var(--surface-2),var(--surface));border:1px solid var(--border);border-radius:13px;padding:13px 16px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--c1,var(--gold))}
+.kpi .l{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--text-3);font-weight:800}
+.kpi .v{font-size:21px;font-weight:800;margin-top:4px;letter-spacing:-.3px;color:var(--c1,var(--gold))}
+.kpi .v.neutral{color:var(--text)}
+.kpi .s{font-size:11px;color:var(--text-2);margin-top:3px}
+.kpi.gold{--c1:#ffd34d}
+.kpi.cyan{--c1:#38bdf8}
+.kpi.green{--c1:#34d399}
+.kpi.red{--c1:#f87171}
+.kpi.violet{--c1:#a78bfa}
+.kpi.silver{--c1:#cfd6e0}
+
+/* SEÇÕES one-page */
+.sec{display:flex;align-items:center;gap:10px;margin:22px 2px 11px}
+.sec .bar{width:5px;height:20px;border-radius:3px;background:var(--c,var(--gold))}
+.sec h2{font-size:15px;font-weight:800;letter-spacing:.3px}
+.sec .badge{font-size:10.5px;font-weight:700;color:var(--text-3);background:var(--surface-2);padding:2px 9px;border-radius:999px;border:1px solid var(--border)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px 17px;margin-bottom:13px;box-shadow:0 4px 20px rgba(0,0,0,.35)}
+.card h3{font-size:12.5px;font-weight:700;color:var(--text-2);margin-bottom:10px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+@media (max-width: 980px){ .row2{grid-template-columns:1fr} }
+
+/* TABELAS */
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-3);font-weight:800;padding:7px 8px;border-bottom:2px solid var(--border-2);text-align:center;white-space:nowrap}
+th.left,td.left{text-align:left}
+td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap}
+tbody tr:nth-child(odd){background:rgba(255,255,255,.018)}
+tbody tr:hover{background:var(--surface-2)}
+tr.totalrow td{font-weight:800;border-top:2px solid var(--border-2);background:var(--gold-dim);color:var(--gold)}
+.pos{color:var(--green);font-weight:700}
+.neg{color:var(--red);font-weight:700}
+.neutro{color:var(--text-3)}
+.muted{color:var(--text-3)}
+.chartbox{position:relative;height:270px}
+.empty{text-align:center;color:var(--text-3);padding:26px;font-size:12.5px}
+
+/* MODAL changelog */
+.modal{display:none;position:fixed;inset:0;background:rgba(2,4,8,.72);backdrop-filter:blur(3px);z-index:50;align-items:center;justify-content:center;padding:20px}
+.modal.show{display:flex}
+.modal-box{background:var(--surface);border:1px solid var(--border-2);border-radius:14px;max-width:600px;width:100%;max-height:75vh;overflow-y:auto;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.modal-box h3{font-size:14px;margin-bottom:12px;color:var(--gold)}
+.modal-box .vitem{padding:9px 0;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--text-2)}
+.modal-box .vitem b{color:var(--gold)}
+.modal-box button{margin-top:14px;font-family:inherit;font-size:12px;padding:7px 14px;border:1px solid var(--border-2);border-radius:9px;background:var(--surface-2);color:var(--text);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="logo">FG</div>
+  <h1>BANHO VS ANOS · ROMANEIO E PRODUÇÃO<small id="subTitle">Dashboard one-page · Visão Mensal + Histórico · banco Aiven</small></h1>
+  <span class="ver" id="verBadge" onclick="document.getElementById('modalVer').classList.add('show')">v2.0</span>
+  <select id="selAno"></select>
+  <button class="primary" onclick="carregarTudo()">Atualizar</button>
+  <span class="status loading" id="status"><span class="dot"></span><span id="statusTxt">Carregando…</span></span>
+</header>
+
+<div class="kpis" id="kpis"></div>
+
+<!-- ===== VISÃO MENSAL ===== -->
+<div class="sec" style="--c:#ffd34d"><span class="bar"></span><h2>📊 Visão Mensal</h2><span class="badge" id="bMensalAno"></span></div>
+<div class="card">
+  <div class="tablewrap"><div id="tbMensal" class="empty">Carregando…</div></div>
+  <p class="muted" style="margin-top:8px;font-size:11.5px">Passagem = peso que passou na produção (tipo de serviço Banho, todos os materiais). Faturado = peso dos romaneios sem Vernizes, Canetas e Adicionais. Saldo = Produção real − Faturado (positivo: em produção a faturar · negativo: faturou estoque de meses anteriores).</p>
+</div>
+<div class="row2">
+  <div class="card"><h3>Produção real × Faturado (g)</h3><div class="chartbox"><canvas id="chPeso"></canvas></div></div>
+  <div class="card"><h3>Faturamento (R$) — ano atual × ano anterior</h3><div class="chartbox"><canvas id="chValor"></canvas></div></div>
+</div>
+
+<!-- ===== HISTÓRICO ===== -->
+<div class="sec" style="--c:#38bdf8"><span class="bar"></span><h2>📅 Histórico Anual</h2><span class="badge">2020 → hoje</span></div>
+<div class="card">
+  <div class="tablewrap"><div id="tbAnual" class="empty">Carregando…</div></div>
+</div>
+<div class="card"><h3>Faturamento (R$, barras) × Peso faturado (kg, linha)</h3><div class="chartbox"><canvas id="chAnual"></canvas></div></div>
+
+<!-- ===== HEATMAPS ===== -->
+<div class="sec" style="--c:#34d399"><span class="bar"></span><h2>🔥 Heatmaps mensais</h2><span class="badge">todos os anos</span></div>
+<div class="row2">
+  <div class="card"><h3 style="color:var(--gold)">Faturamento por mês (mil R$)</h3><div class="tablewrap"><div id="tbHeatRS" class="empty">Carregando…</div></div></div>
+  <div class="card"><h3 style="color:var(--cyan)">Peso faturado por mês (kg)</h3><div class="tablewrap"><div id="tbHeatKG" class="empty">Carregando…</div></div></div>
+</div>
+
+</div><!-- /app -->
+
+<!-- MODAL VERSÕES -->
+<div class="modal" id="modalVer" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal-box">
+    <h3>Log de versões</h3>
+    <div id="verList"></div>
+    <button onclick="document.getElementById('modalVer').classList.remove('show')">Fechar</button>
+  </div>
+</div>
+
+<script>
+// ================= VERSÕES =================
+const VERSIONS = [
+  { v:'2.0', d:'10/06/2026', notes:'Refeito como dashboard ONE-PAGE (sem abas): Visão Mensal + Histórico Anual na mesma tela, cores de alto contraste (dourado/ciano/verde sobre grafite escuro), números maiores nos KPIs. NOVO heatmap de PESO faturado mensal (kg, escala ciano) lado a lado com o heatmap de R$ (escala dourada). Gráfico de R$ mensal agora compara o ano selecionado com o ano anterior (linha). Publicado também no Netlify (validadorfranco.netlify.app) via shim — a mesma página roda dentro do Cowork e em qualquer navegador com login. As abas Produção Diária, Clientes e Saldo Acumulado da v1.2 ficaram preservadas em SISTEMA FRANCO/DASHBOARD/franco_banhos_financeiro.html (dá pra restaurar ou virar página própria depois).' },
+  { v:'1.2', d:'10/06/2026', notes:'Layout dark moderno e conexão trocada do galvanica local para o Aiven (mirror online, SSL) que voltou ao ar — validado: Mai/2026 R$ 715.269,06 idêntico ao local. Lógica das queries inalterada.' },
+  { v:'1.1', d:'10/06/2026', notes:'Renomeado para BANHO VS ANOS · ROMANEIO E PRODUÇÃO, a pedido do Roger.' },
+  { v:'1.0', d:'10/06/2026', notes:'Versão inicial — 5 abas (Visão Mensal, Histórico, Produção Diária, Clientes, Saldo Acumulado), conectado ao galvanica local. Regras validadas contra fechamento de Mar e Abr/2026: faturado exclui Vernizes/Canetas/Adicionais; passagem = tipo de serviço Banho; retrabalho = cliente RETRABALHO TAMIRES (id 33); alerta de duplicatas de passagem.' }
+];
+document.getElementById('verBadge').textContent = 'v' + VERSIONS[0].v;
+document.getElementById('verList').innerHTML = VERSIONS.map(x => `<div class="vitem"><b>v${x.v}</b> · ${x.d}<br>${x.notes}</div>`).join('');
+
+// ================= HELPERS =================
+const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const RETRAB_ID = 33;
+function $(id){ return document.getElementById(id); }
+function setStatus(t, cls){ $('status').className = 'status' + (cls ? ' ' + cls : ''); $('statusTxt').textContent = t; }
+function fmtG(n){ if (n == null || isNaN(n)) return '—'; return Number(n).toLocaleString('pt-BR', {maximumFractionDigits:0}); }
+function fmtG1(n){ if (n == null || isNaN(n)) return '—'; return Number(n).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtR(n){ if (n == null || isNaN(n)) return '—'; return 'R$ ' + Number(n).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtRk(n){ if (n == null || isNaN(n)) return '—'; return Number(n/1000).toLocaleString('pt-BR', {maximumFractionDigits:0}); }
+function fmtKg(n){ if (n == null || isNaN(n)) return '—'; return Number(n/1000).toLocaleString('pt-BR', {maximumFractionDigits:0}); }
+function fmtPct(p){ if (p == null || isNaN(p) || !isFinite(p)) return '—'; return (p>0?'+':'') + Number(p).toFixed(1) + '%'; }
+function clsSaldo(v){ if (v == null) return ''; if (Math.abs(v) < 0.5) return 'neutro'; return v > 0 ? 'pos' : 'neg'; }
+function esc(s){ return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function hoje(){ return new Date(); }
+
+if (window.Chart) {
+  Chart.defaults.color = '#b9c2d4';
+  Chart.defaults.borderColor = 'rgba(255,255,255,.08)';
+  Chart.defaults.font.family = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+}
+
+// ================= BANCO =================
+function parseResult(t) {
+  if (!t || typeof t !== 'string') return [];
+  const lines = t.split('\n');
+  if (lines.length < 3) return [];
+  const headers = lines[0].split('|').map(h => h.trim());
+  const rows = [];
+  for (let i = 2; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    if (line.startsWith('Total:') || line.startsWith('Erro')) break;
+    const values = line.split('|').map(v => v.trim());
+    if (values.length === headers.length) {
+      const row = {};
+      headers.forEach((h, idx) => {
+        let v = values[idx];
+        if (v === 'NULL' || v === '') v = null;
+        else if (!isNaN(v) && v !== '') v = Number(v);
+        row[h] = v;
+      });
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+async function callDB(sql) {
+  let res;
+  try { res = await window.cowork.callMcpTool('mcp__postgres-aiven__pg_consultar', { params: { sql, limit: 500 } }); }
+  catch (e) { throw new Error('Falha MCP: ' + (e?.message || e)); }
+  let txt = '';
+  if (typeof res === 'string') txt = res;
+  else if (res?.result) txt = res.result;
+  else if (res?.content?.[0]?.text) {
+    txt = res.content[0].text;
+    try { const j = JSON.parse(txt); if (j?.result) txt = j.result; } catch (e) {}
+  }
+  if (!txt) throw new Error('Resposta vazia');
+  if (txt.startsWith('Erro') || txt.startsWith('Bloqueado')) throw new Error(txt.split('\n')[0]);
+  return parseResult(txt);
+}
+
+// Exclusões de peso no FATURADO (regra validada Mar/Abr 2026)
+const EXCL_FAT = `m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Caneta%' AND m.descricao NOT ILIKE 'Adicional%'`;
+
+// ================= STATE =================
+const state = { ano: hoje().getFullYear(), mensal: [], mensalPrev: [], anual: [], heatRS: [], heatKG: [], charts: {} };
+
+// ================= QUERIES =================
+function qMensal(ano) {
+  return `WITH fat AS (
+    SELECT date_trunc('month', s.datavenda)::date AS mes,
+      SUM(i.peso) FILTER (WHERE ${EXCL_FAT}) AS fat_peso,
+      SUM(i.valor) AS fat_valor,
+      ROUND(SUM(i.peso*i.milesimos/1000.0) FILTER (WHERE m.descricao ILIKE 'Dourado%'),2) AS au_real,
+      ROUND(SUM(i.peso*i.milesimos/1000.0) FILTER (WHERE m.descricao ILIKE 'Prateado%'),2) AS ag_real,
+      COUNT(DISTINCT s.id) AS romaneios, COUNT(DISTINCT s.idcliente) AS clientes
+    FROM itemservico i JOIN servico s ON s.id=i.idservico JOIN material m ON m.id=i.idmaterial
+    WHERE s.datavenda >= '${ano}-01-01' AND s.datavenda < '${ano+1}-01-01' GROUP BY 1
+  ), pass AS (
+    SELECT date_trunc('month', p.data_servico)::date AS mes,
+      SUM(p.peso) AS pass_total,
+      COALESCE(SUM(p.peso) FILTER (WHERE p.cliente_id=${RETRAB_ID}),0) AS retrabalho,
+      ROUND(SUM(p.peso*p.milesimos/1000.0) FILTER (WHERE m.descricao ILIKE 'Dourado%'),2) AS au_teorico,
+      ROUND(SUM(p.peso*p.milesimos/1000.0) FILTER (WHERE m.descricao ILIKE 'Prateado%'),2) AS ag_teorico
+    FROM passagem_pecas p JOIN tiposervico ts ON ts.id=p.tiposervico_id JOIN material m ON m.id=p.material_id
+    WHERE p.deleted_at IS NULL AND ts.descricao='Banho' AND p.data_servico >= '${ano}-01-01' AND p.data_servico < '${ano+1}-01-01' GROUP BY 1
+  )
+  SELECT COALESCE(f.mes, p.mes)::text AS mes,
+    COALESCE(p.pass_total,0) AS pass_total, COALESCE(p.retrabalho,0) AS retrabalho,
+    COALESCE(p.pass_total,0)-COALESCE(p.retrabalho,0) AS prod_real,
+    COALESCE(f.fat_peso,0) AS fat_peso, COALESCE(f.fat_valor,0) AS fat_valor,
+    COALESCE(f.romaneios,0) AS romaneios, COALESCE(f.clientes,0) AS clientes,
+    p.au_teorico, f.au_real, p.ag_teorico, f.ag_real
+  FROM fat f FULL JOIN pass p ON p.mes = f.mes ORDER BY 1`;
+}
+
+function qAnual() {
+  return `WITH fat AS (
+    SELECT EXTRACT(YEAR FROM s.datavenda)::int AS ano,
+      SUM(i.peso) FILTER (WHERE ${EXCL_FAT}) AS fat_peso,
+      SUM(i.valor) AS fat_valor,
+      ROUND(SUM(i.peso*i.milesimos/1000.0) FILTER (WHERE m.descricao ILIKE 'Dourado%'),2) AS au_real,
+      ROUND(SUM(i.peso*i.milesimos/1000.0) FILTER (WHERE m.descricao ILIKE 'Prateado%'),2) AS ag_real,
+      COUNT(DISTINCT s.id) AS romaneios
+    FROM itemservico i JOIN servico s ON s.id=i.idservico JOIN material m ON m.id=i.idmaterial
+    WHERE s.datavenda >= '2020-01-01' GROUP BY 1
+  ), pass AS (
+    SELECT EXTRACT(YEAR FROM p.data_servico)::int AS ano,
+      SUM(p.peso) AS pass_total,
+      COALESCE(SUM(p.peso) FILTER (WHERE p.cliente_id=${RETRAB_ID}),0) AS retrabalho
+    FROM passagem_pecas p JOIN tiposervico ts ON ts.id=p.tiposervico_id
+    WHERE p.deleted_at IS NULL AND ts.descricao='Banho' AND p.data_servico >= '2020-01-01' GROUP BY 1
+  )
+  SELECT f.ano, COALESCE(p.pass_total,0) AS pass_total, COALESCE(p.retrabalho,0) AS retrabalho,
+    f.fat_peso, f.fat_valor, f.romaneios, f.au_real, f.ag_real
+  FROM fat f LEFT JOIN pass p ON p.ano = f.ano ORDER BY 1`;
+}
+
+function qHeatRS() {
+  return `SELECT EXTRACT(YEAR FROM s.datavenda)::int AS ano, EXTRACT(MONTH FROM s.datavenda)::int AS mes, SUM(i.valor) AS v
+    FROM itemservico i JOIN servico s ON s.id=i.idservico
+    WHERE s.datavenda >= '2020-01-01' GROUP BY 1,2 ORDER BY 1,2`;
+}
+
+function qHeatKG() {
+  return `SELECT EXTRACT(YEAR FROM s.datavenda)::int AS ano, EXTRACT(MONTH FROM s.datavenda)::int AS mes,
+    SUM(i.peso) FILTER (WHERE ${EXCL_FAT}) AS v
+    FROM itemservico i JOIN servico s ON s.id=i.idservico JOIN material m ON m.id=i.idmaterial
+    WHERE s.datavenda >= '2020-01-01' GROUP BY 1,2 ORDER BY 1,2`;
+}
+
+// ================= CARGA (one-page: tudo de uma vez) =================
+async function carregarTudo() {
+  state.ano = +$('selAno').value;
+  setStatus('Carregando ' + state.ano + '…', 'loading');
+  try {
+    const [mensal, mensalPrev, anual, heatRS, heatKG] = await Promise.all([
+      callDB(qMensal(state.ano)),
+      state.ano > 2020 ? callDB(qMensal(state.ano - 1)) : Promise.resolve([]),
+      callDB(qAnual()),
+      callDB(qHeatRS()),
+      callDB(qHeatKG()),
+    ]);
+    state.mensal = mensal; state.mensalPrev = mensalPrev; state.anual = anual;
+    state.heatRS = heatRS; state.heatKG = heatKG;
+    renderKpis(); renderMensal(); renderAnual(); renderHeatmaps();
+    setStatus('Atualizado ' + new Date().toLocaleString('pt-BR'), '');
+  } catch (e) { setStatus('Erro: ' + e.message, 'error'); }
+}
+
+// ================= KPIs =================
+function renderKpis() {
+  const M = state.mensal;
+  const sum = k => M.reduce((a, r) => a + (+r[k] || 0), 0);
+  const passT = sum('pass_total'), ret = sum('retrabalho'), prod = sum('prod_real');
+  const fatP = sum('fat_peso'), fatV = sum('fat_valor');
+  const auT = sum('au_teorico'), auR = sum('au_real'), agT = sum('ag_teorico'), agR = sum('ag_real');
+  const saldo = prod - fatP;
+  $('kpis').innerHTML = `
+    <div class="kpi gold"><div class="l">Faturamento ${state.ano}</div><div class="v">${fmtR(fatV)}</div><div class="s">${fmtG(sum('romaneios'))} romaneios</div></div>
+    <div class="kpi cyan"><div class="l">Peso faturado</div><div class="v">${fmtG(fatP)} g</div><div class="s">sem vernizes/canetas/adicionais</div></div>
+    <div class="kpi green"><div class="l">Produção real</div><div class="v">${fmtG(prod)} g</div><div class="s">passagem ${fmtG(passT)} − retrabalho ${fmtG(ret)}</div></div>
+    <div class="kpi ${saldo >= 0 ? 'violet' : 'red'}"><div class="l">Saldo produção − faturado</div><div class="v">${(saldo>0?'+':'') + fmtG(saldo)} g</div><div class="s">${saldo > 0 ? 'em produção, a faturar' : 'faturou estoque anterior'}</div></div>
+    <div class="kpi gold"><div class="l">Au consumido</div><div class="v">${fmtG1(auR)} g</div><div class="s">teórico passagem ${fmtG1(auT)} g</div></div>
+    <div class="kpi silver"><div class="l">Ag consumido</div><div class="v">${fmtG1(agR)} g</div><div class="s">teórico passagem ${fmtG1(agT)} g</div></div>`;
+}
+
+// ================= VISÃO MENSAL =================
+function renderMensal() {
+  $('bMensalAno').textContent = state.ano;
+  const M = state.mensal;
+  if (!M.length) { $('tbMensal').innerHTML = '<div class="empty">Sem dados para ' + state.ano + '</div>'; desenharChartsMensal(); return; }
+  let h = `<table><thead><tr>
+    <th class="left">Mês</th><th>Passagem (g)</th><th>Retrabalho (g)</th><th>Produção real (g)</th>
+    <th>Faturado (g)</th><th>Saldo (g)</th><th>Faturado (R$)</th><th>Romaneios</th><th>Clientes</th>
+    <th>Au teórico</th><th>Au real</th><th>Ag teórico</th><th>Ag real</th></tr></thead><tbody>`;
+  const tot = { pass:0, ret:0, prod:0, fat:0, val:0, rom:0, auT:0, auR:0, agT:0, agR:0 };
+  M.forEach(r => {
+    const saldo = (+r.prod_real || 0) - (+r.fat_peso || 0);
+    const mIdx = +r.mes.slice(5,7) - 1;
+    tot.pass += +r.pass_total||0; tot.ret += +r.retrabalho||0; tot.prod += +r.prod_real||0;
+    tot.fat += +r.fat_peso||0; tot.val += +r.fat_valor||0; tot.rom += +r.romaneios||0;
+    tot.auT += +r.au_teorico||0; tot.auR += +r.au_real||0; tot.agT += +r.ag_teorico||0; tot.agR += +r.ag_real||0;
+    h += `<tr><td class="left"><b>${MESES[mIdx]}</b></td>
+      <td>${fmtG(r.pass_total)}</td><td>${fmtG(r.retrabalho)}</td><td><b>${fmtG(r.prod_real)}</b></td>
+      <td><b>${fmtG(r.fat_peso)}</b></td><td class="${clsSaldo(saldo)}">${(saldo>0?'+':'')+fmtG(saldo)}</td>
+      <td><b>${fmtR(r.fat_valor)}</b></td><td>${fmtG(r.romaneios)}</td><td>${fmtG(r.clientes)}</td>
+      <td>${fmtG1(r.au_teorico)}</td><td>${fmtG1(r.au_real)}</td><td>${fmtG1(r.ag_teorico)}</td><td>${fmtG1(r.ag_real)}</td></tr>`;
+  });
+  const saldoT = tot.prod - tot.fat;
+  h += `<tr class="totalrow"><td class="left">TOTAL</td><td>${fmtG(tot.pass)}</td><td>${fmtG(tot.ret)}</td><td>${fmtG(tot.prod)}</td>
+    <td>${fmtG(tot.fat)}</td><td class="${clsSaldo(saldoT)}">${(saldoT>0?'+':'')+fmtG(saldoT)}</td><td>${fmtR(tot.val)}</td>
+    <td>${fmtG(tot.rom)}</td><td></td><td>${fmtG1(tot.auT)}</td><td>${fmtG1(tot.auR)}</td><td>${fmtG1(tot.agT)}</td><td>${fmtG1(tot.agR)}</td></tr>`;
+  h += '</tbody></table>';
+  $('tbMensal').innerHTML = h;
+  desenharChartsMensal();
+}
+
+function porMes(rows, key) {
+  const arr = new Array(12).fill(null);
+  rows.forEach(r => { arr[+r.mes.slice(5,7) - 1] = +r[key] || 0; });
+  return arr;
+}
+
+function desenharChartsMensal() {
+  novoChart('chPeso', {
+    type: 'bar',
+    data: { labels: MESES, datasets: [
+      { label: 'Produção real (g)', data: porMes(state.mensal, 'prod_real'), backgroundColor: 'rgba(255,211,77,.90)', borderRadius: 4 },
+      { label: 'Faturado (g)', data: porMes(state.mensal, 'fat_peso'), backgroundColor: 'rgba(56,189,248,.85)', borderRadius: 4 }
+    ]},
+    options: optBase()
+  });
+  novoChart('chValor', {
+    type: 'bar',
+    data: { labels: MESES, datasets: [
+      { label: 'R$ ' + state.ano, data: porMes(state.mensal, 'fat_valor'), backgroundColor: 'rgba(52,211,153,.85)', borderRadius: 4, order: 2 },
+      { type: 'line', label: 'R$ ' + (state.ano - 1), data: porMes(state.mensalPrev, 'fat_valor'), borderColor: 'rgba(167,139,250,.95)', backgroundColor: 'rgba(167,139,250,.95)', tension: .3, pointRadius: 3, order: 1 }
+    ]},
+    options: optBase(v => 'R$ ' + (v/1000).toLocaleString('pt-BR') + ' mil')
+  });
+}
+
+function optBase(tickFmt) {
+  return { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { font: { size: 11 } } } },
+    scales: { x: { ticks: { font: { size: 11 } }, grid: { display: false } },
+      y: { ticks: { font: { size: 10 }, callback: tickFmt || (v => v.toLocaleString('pt-BR')) } } } };
+}
+
+function novoChart(id, cfg) {
+  if (state.charts[id]) { state.charts[id].destroy(); }
+  state.charts[id] = new Chart($(id).getContext('2d'), cfg);
+}
+
+// ================= HISTÓRICO =================
+function renderAnual() {
+  const A = state.anual;
+  let h = `<table><thead><tr><th class="left">Ano</th><th>Passagem (g)</th><th>Retrabalho (g)</th><th>Faturado (g)</th><th>Saldo (g)</th><th>Faturado (R$)</th><th>Variação R$</th><th>Romaneios</th><th>Au real (g)</th><th>Ag real (g)</th></tr></thead><tbody>`;
+  A.forEach((r, i) => {
+    const saldo = (+r.pass_total||0) - (+r.retrabalho||0) - (+r.fat_peso||0);
+    const ant = i > 0 ? +A[i-1].fat_valor : null;
+    const varR = ant ? ((+r.fat_valor - ant) / ant * 100) : null;
+    const passTxt = (+r.ano === 2020) ? fmtG(r.pass_total) + ' *' : fmtG(r.pass_total);
+    const atual = +r.ano === state.ano ? ' style="outline:1px solid rgba(255,211,77,.4);outline-offset:-1px"' : '';
+    h += `<tr${atual}><td class="left"><b>${r.ano}</b></td><td>${passTxt}</td><td>${fmtG(r.retrabalho)}</td>
+      <td><b>${fmtG(r.fat_peso)}</b></td><td class="${clsSaldo(saldo)}">${(saldo>0?'+':'')+fmtG(saldo)}</td>
+      <td><b>${fmtR(r.fat_valor)}</b></td><td class="${clsSaldo(varR)}">${fmtPct(varR)}</td>
+      <td>${fmtG(r.romaneios)}</td><td>${fmtG1(r.au_real)}</td><td>${fmtG1(r.ag_real)}</td></tr>`;
+  });
+  h += '</tbody></table><p class="muted" style="margin-top:7px;font-size:11px">* passagem registrada só a partir de Mar/2020 — saldo de 2020 não é comparável. Ano corrente é parcial.</p>';
+  $('tbAnual').innerHTML = h;
+
+  novoChart('chAnual', {
+    type: 'bar',
+    data: { labels: A.map(r => r.ano), datasets: [
+      { label: 'Faturado (R$)', data: A.map(r => +r.fat_valor||0), backgroundColor: 'rgba(255,211,77,.88)', borderRadius: 5, yAxisID: 'y' },
+      { type: 'line', label: 'Peso faturado (kg)', data: A.map(r => (+r.fat_peso||0)/1000), borderColor: 'rgba(56,189,248,.95)', backgroundColor: 'rgba(56,189,248,.95)', tension: .3, pointRadius: 4, yAxisID: 'y1' }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { font: { size: 11 } }, grid: { display: false } },
+        y: { position: 'left', ticks: { font: { size: 10 }, callback: v => 'R$ ' + (v/1000000).toLocaleString('pt-BR', {maximumFractionDigits:1}) + ' mi' } },
+        y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { size: 10 }, callback: v => v.toLocaleString('pt-BR') + ' kg' } }
+      } }
+  });
+}
+
+// ================= HEATMAPS =================
+function heatTable(rows, corRGB, fmt, txtEscuro) {
+  const anos = [...new Set(rows.map(r => +r.ano))].sort();
+  const byAno = {};
+  rows.forEach(r => { (byAno[r.ano] = byAno[r.ano] || {})[r.mes] = +r.v; });
+  const maxV = Math.max(...rows.map(r => +r.v || 0));
+  let hh = '<table><thead><tr><th class="left">Ano</th>' + MESES.map(m => `<th>${m}</th>`).join('') + '</tr></thead><tbody>';
+  anos.forEach(a => {
+    hh += `<tr><td class="left"><b>${a}</b></td>`;
+    for (let m = 1; m <= 12; m++) {
+      const v = byAno[a]?.[m];
+      if (v == null) { hh += '<td class="muted">–</td>'; continue; }
+      const alpha = Math.max(.05, Math.min(.95, v / maxV));
+      const txtCol = alpha > .45 ? txtEscuro : 'var(--text-2)';
+      hh += `<td style="background:rgba(${corRGB},${alpha.toFixed(2)});color:${txtCol};font-weight:700">${fmt(v)}</td>`;
+    }
+    hh += '</tr>';
+  });
+  hh += '</tbody></table>';
+  return hh;
+}
+
+function renderHeatmaps() {
+  $('tbHeatRS').innerHTML = heatTable(state.heatRS, '255,211,77', fmtRk, '#191204')
+    + '<p class="muted" style="margin-top:7px;font-size:11px">Quanto mais dourado, maior o faturamento. Out/Nov são historicamente os picos.</p>';
+  $('tbHeatKG').innerHTML = heatTable(state.heatKG, '56,189,248', fmtKg, '#04131c')
+    + '<p class="muted" style="margin-top:7px;font-size:11px">Peso faturado (sem vernizes/canetas/adicionais). Quanto mais ciano, mais kg no mês.</p>';
+}
+
+// ================= INIT =================
+(function init() {
+  const anoAtual = hoje().getFullYear();
+  const sel = $('selAno');
+  for (let a = anoAtual; a >= 2020; a--) {
+    const o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o);
+  }
+  sel.value = anoAtual;
+  carregarTudo();
+})();
+</script>
+</body>
+</html>
