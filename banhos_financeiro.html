@@ -20,6 +20,8 @@
   --cyan:#38bdf8; --cyan-dim:rgba(56,189,248,.13);
   --green:#34d399; --green-bg:rgba(52,211,153,.13);
   --red:#f87171; --red-bg:rgba(248,113,113,.13);
+  --amber:#fbbf24; --amber-bg:rgba(251,191,36,.13);
+  --blue:#5ea2ff; --blue-bg:rgba(94,162,255,.13);
   --violet:#a78bfa;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -47,13 +49,17 @@ header select:focus{border-color:var(--gold-2)}
 header button.primary{background:linear-gradient(135deg,#e3a812,#ffd34d);color:#191204;border:none;font-weight:800;padding:8px 17px;box-shadow:0 4px 16px rgba(255,211,77,.25)}
 header button.primary:hover{transform:translateY(-1px)}
 
+/* NAV âncoras */
+.nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.nav a{font-size:11.5px;font-weight:700;color:var(--text-2);background:var(--surface);border:1px solid var(--border);padding:5px 12px;border-radius:999px;text-decoration:none}
+.nav a:hover{color:var(--gold);border-color:rgba(255,211,77,.35)}
+
 /* KPIs */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;margin-bottom:16px}
 .kpi{background:linear-gradient(180deg,var(--surface-2),var(--surface));border:1px solid var(--border);border-radius:13px;padding:13px 16px;position:relative;overflow:hidden}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--c1,var(--gold))}
 .kpi .l{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--text-3);font-weight:800}
 .kpi .v{font-size:21px;font-weight:800;margin-top:4px;letter-spacing:-.3px;color:var(--c1,var(--gold))}
-.kpi .v.neutral{color:var(--text)}
 .kpi .s{font-size:11px;color:var(--text-2);margin-top:3px}
 .kpi.gold{--c1:#ffd34d}
 .kpi.cyan{--c1:#38bdf8}
@@ -63,7 +69,7 @@ header button.primary:hover{transform:translateY(-1px)}
 .kpi.silver{--c1:#cfd6e0}
 
 /* SEÇÕES one-page */
-.sec{display:flex;align-items:center;gap:10px;margin:22px 2px 11px}
+.sec{display:flex;align-items:center;gap:10px;margin:24px 2px 11px;scroll-margin-top:12px}
 .sec .bar{width:5px;height:20px;border-radius:3px;background:var(--c,var(--gold))}
 .sec h2{font-size:15px;font-weight:800;letter-spacing:.3px}
 .sec .badge{font-size:10.5px;font-weight:700;color:var(--text-3);background:var(--surface-2);padding:2px 9px;border-radius:999px;border:1px solid var(--border)}
@@ -80,18 +86,37 @@ th.left,td.left{text-align:left}
 td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap}
 tbody tr:nth-child(odd){background:rgba(255,255,255,.018)}
 tbody tr:hover{background:var(--surface-2)}
+tr.clickable{cursor:pointer}
 tr.totalrow td{font-weight:800;border-top:2px solid var(--border-2);background:var(--gold-dim);color:var(--gold)}
 .pos{color:var(--green);font-weight:700}
 .neg{color:var(--red);font-weight:700}
 .neutro{color:var(--text-3)}
 .muted{color:var(--text-3)}
+.tag{font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;display:inline-block}
+.tag.aberto{color:var(--amber);background:var(--amber-bg)}
+.tag.sinc{color:var(--green);background:var(--green-bg)}
+.tag.antec{color:var(--blue);background:var(--blue-bg)}
+.tag.semfat{color:var(--red);background:var(--red-bg)}
+.tag.sim{color:var(--green);background:var(--green-bg)}
+.tag.nao{color:var(--text-3);background:var(--surface-2)}
+.detail-row td{background:var(--surface-2);padding:10px 14px;text-align:left}
+.detail-row table{font-size:12px}
 .chartbox{position:relative;height:270px}
+.filters{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:10px}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3)}
+.field input,.field select{font-family:inherit;font-size:12.5px;padding:8px 11px;border:1px solid var(--border-2);border-radius:9px;background:var(--surface-2);color:var(--text);outline:none}
+.field input:focus,.field select:focus{border-color:var(--gold-2)}
+.btn{font-family:inherit;font-size:12.5px;font-weight:800;padding:9px 16px;border:none;border-radius:9px;cursor:pointer;background:linear-gradient(135deg,#e3a812,#ffd34d);color:#191204;box-shadow:0 4px 16px rgba(255,211,77,.22)}
+.btn:hover{transform:translateY(-1px)}
+.alert{font-size:12px;padding:9px 13px;border-radius:10px;margin-bottom:10px;border:1px solid}
+.alert.warn{color:var(--amber);background:var(--amber-bg);border-color:rgba(251,191,36,.32)}
 .empty{text-align:center;color:var(--text-3);padding:26px;font-size:12.5px}
 
 /* MODAL changelog */
 .modal{display:none;position:fixed;inset:0;background:rgba(2,4,8,.72);backdrop-filter:blur(3px);z-index:50;align-items:center;justify-content:center;padding:20px}
 .modal.show{display:flex}
-.modal-box{background:var(--surface);border:1px solid var(--border-2);border-radius:14px;max-width:600px;width:100%;max-height:75vh;overflow-y:auto;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.modal-box{background:var(--surface);border:1px solid var(--border-2);border-radius:14px;max-width:620px;width:100%;max-height:75vh;overflow-y:auto;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.55)}
 .modal-box h3{font-size:14px;margin-bottom:12px;color:var(--gold)}
 .modal-box .vitem{padding:9px 0;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--text-2)}
 .modal-box .vitem b{color:var(--gold)}
@@ -103,17 +128,21 @@ tr.totalrow td{font-weight:800;border-top:2px solid var(--border-2);background:v
 
 <header>
   <div class="logo">FG</div>
-  <h1>BANHO VS ANOS · ROMANEIO E PRODUÇÃO<small id="subTitle">Dashboard one-page · Visão Mensal + Histórico · banco Aiven</small></h1>
-  <span class="ver" id="verBadge" onclick="document.getElementById('modalVer').classList.add('show')">v2.0</span>
+  <h1>BANHO VS ANOS · ROMANEIO E PRODUÇÃO<small id="subTitle">Dashboard one-page completo · banco Aiven</small></h1>
+  <span class="ver" id="verBadge" onclick="document.getElementById('modalVer').classList.add('show')">v3.0</span>
   <select id="selAno"></select>
   <button class="primary" onclick="carregarTudo()">Atualizar</button>
   <span class="status loading" id="status"><span class="dot"></span><span id="statusTxt">Carregando…</span></span>
 </header>
 
+<div class="nav">
+  <a href="#sMensal">📊 Mensal</a><a href="#sHistorico">📅 Histórico</a><a href="#sHeat">🔥 Heatmaps</a><a href="#sCompo">🧪 Composição</a><a href="#sDiario">🏭 Diária</a><a href="#sClientes">👤 Clientes</a><a href="#sSaldo">⚖ Saldo</a>
+</div>
+
 <div class="kpis" id="kpis"></div>
 
 <!-- ===== VISÃO MENSAL ===== -->
-<div class="sec" style="--c:#ffd34d"><span class="bar"></span><h2>📊 Visão Mensal</h2><span class="badge" id="bMensalAno"></span></div>
+<div class="sec" id="sMensal" style="--c:#ffd34d"><span class="bar"></span><h2>📊 Visão Mensal</h2><span class="badge" id="bMensalAno"></span></div>
 <div class="card">
   <div class="tablewrap"><div id="tbMensal" class="empty">Carregando…</div></div>
   <p class="muted" style="margin-top:8px;font-size:11.5px">Passagem = peso que passou na produção (tipo de serviço Banho, todos os materiais). Faturado = peso dos romaneios sem Vernizes, Canetas e Adicionais. Saldo = Produção real − Faturado (positivo: em produção a faturar · negativo: faturou estoque de meses anteriores).</p>
@@ -124,17 +153,63 @@ tr.totalrow td{font-weight:800;border-top:2px solid var(--border-2);background:v
 </div>
 
 <!-- ===== HISTÓRICO ===== -->
-<div class="sec" style="--c:#38bdf8"><span class="bar"></span><h2>📅 Histórico Anual</h2><span class="badge">2020 → hoje</span></div>
+<div class="sec" id="sHistorico" style="--c:#38bdf8"><span class="bar"></span><h2>📅 Histórico Anual</h2><span class="badge">2020 → hoje</span></div>
 <div class="card">
   <div class="tablewrap"><div id="tbAnual" class="empty">Carregando…</div></div>
 </div>
 <div class="card"><h3>Faturamento (R$, barras) × Peso faturado (kg, linha)</h3><div class="chartbox"><canvas id="chAnual"></canvas></div></div>
 
 <!-- ===== HEATMAPS ===== -->
-<div class="sec" style="--c:#34d399"><span class="bar"></span><h2>🔥 Heatmaps mensais</h2><span class="badge">todos os anos</span></div>
+<div class="sec" id="sHeat" style="--c:#34d399"><span class="bar"></span><h2>🔥 Heatmaps mensais</h2><span class="badge">todos os anos</span></div>
 <div class="row2">
   <div class="card"><h3 style="color:var(--gold)">Faturamento por mês (mil R$)</h3><div class="tablewrap"><div id="tbHeatRS" class="empty">Carregando…</div></div></div>
   <div class="card"><h3 style="color:var(--cyan)">Peso faturado por mês (kg)</h3><div class="tablewrap"><div id="tbHeatKG" class="empty">Carregando…</div></div></div>
+</div>
+
+<!-- ===== COMPOSIÇÃO ===== -->
+<div class="sec" id="sCompo" style="--c:#a78bfa"><span class="bar"></span><h2>🧪 Composição do faturado por material</h2><span class="badge" id="bCompoAno"></span></div>
+<div class="card">
+  <div class="tablewrap"><div id="tbCompo" class="empty">Carregando…</div></div>
+  <p class="muted" style="margin-top:8px;font-size:11.5px">Consumo = Σ peso × milésimos ÷ 1000 (Au para Dourado, Ag para Prateado). "Conta no peso" indica se o material entra no Total Peso da planilha (Vernizes, Canetas e Adicionais não entram).</p>
+</div>
+
+<!-- ===== PRODUÇÃO DIÁRIA ===== -->
+<div class="sec" id="sDiario" style="--c:#fbbf24"><span class="bar"></span><h2>🏭 Produção Diária</h2><span class="badge">clique no dia para abrir cliente a cliente</span></div>
+<div class="card">
+  <div class="filters">
+    <div class="field"><label>Período</label>
+      <select id="selDias"><option value="30">Últimos 30 dias</option><option value="60">Últimos 60 dias</option><option value="90" selected>Últimos 90 dias</option></select>
+    </div>
+    <button class="btn" onclick="carregarDiario()">Buscar</button>
+  </div>
+  <div class="chartbox" style="height:240px"><canvas id="chDiario"></canvas></div>
+</div>
+<div class="card">
+  <div class="tablewrap"><div id="tbDiario" class="empty">Carregando…</div></div>
+</div>
+
+<!-- ===== CLIENTES ===== -->
+<div class="sec" id="sClientes" style="--c:#5ea2ff"><span class="bar"></span><h2>👤 Clientes do mês</h2><span class="badge" id="bCliMes"></span><span class="badge" id="bCliQtd"></span></div>
+<div class="card">
+  <div class="filters">
+    <div class="field"><label>Mês</label><input type="month" id="selMesCli"></div>
+    <div class="field"><label>Filtrar cliente</label><input type="text" id="fCliNome" placeholder="nome…" oninput="renderClientes()"></div>
+    <button class="btn" onclick="carregarClientes()">Buscar</button>
+  </div>
+  <div id="alertDup"></div>
+  <div class="tablewrap"><div id="tbClientes" class="empty">Carregando…</div></div>
+  <p class="muted" style="margin-top:8px;font-size:11.5px">Clique no cliente para abrir o mês a mês dele no ano. A variação de peso entre Passagem e Faturado é normal em ±2% (embalagens, fios, forma de pesagem). RETRABALHO TAMIRES é o controle interno de reprocesso — nunca fatura.</p>
+</div>
+
+<!-- ===== SALDO ===== -->
+<div class="sec" id="sSaldo" style="--c:#f87171"><span class="bar"></span><h2>⚖ Saldo Acumulado no ano</h2><span class="badge" id="bSaldoAno"></span></div>
+<div class="card">
+  <h3 style="color:var(--amber)">Em produção · a faturar</h3>
+  <div class="tablewrap"><div id="tbSaldoPos" class="empty">Carregando…</div></div>
+</div>
+<div class="card">
+  <h3 style="color:var(--blue)">Faturou estoque de período anterior (saldo negativo)</h3>
+  <div class="tablewrap"><div id="tbSaldoNeg" class="empty">—</div></div>
 </div>
 
 </div><!-- /app -->
@@ -151,10 +226,11 @@ tr.totalrow td{font-weight:800;border-top:2px solid var(--border-2);background:v
 <script>
 // ================= VERSÕES =================
 const VERSIONS = [
-  { v:'2.0', d:'10/06/2026', notes:'Refeito como dashboard ONE-PAGE (sem abas): Visão Mensal + Histórico Anual na mesma tela, cores de alto contraste (dourado/ciano/verde sobre grafite escuro), números maiores nos KPIs. NOVO heatmap de PESO faturado mensal (kg, escala ciano) lado a lado com o heatmap de R$ (escala dourada). Gráfico de R$ mensal agora compara o ano selecionado com o ano anterior (linha). Publicado também no Netlify (validadorfranco.netlify.app) via shim — a mesma página roda dentro do Cowork e em qualquer navegador com login. As abas Produção Diária, Clientes e Saldo Acumulado da v1.2 ficaram preservadas em SISTEMA FRANCO/DASHBOARD/franco_banhos_financeiro.html (dá pra restaurar ou virar página própria depois).' },
-  { v:'1.2', d:'10/06/2026', notes:'Layout dark moderno e conexão trocada do galvanica local para o Aiven (mirror online, SSL) que voltou ao ar — validado: Mai/2026 R$ 715.269,06 idêntico ao local. Lógica das queries inalterada.' },
-  { v:'1.1', d:'10/06/2026', notes:'Renomeado para BANHO VS ANOS · ROMANEIO E PRODUÇÃO, a pedido do Roger.' },
-  { v:'1.0', d:'10/06/2026', notes:'Versão inicial — 5 abas (Visão Mensal, Histórico, Produção Diária, Clientes, Saldo Acumulado), conectado ao galvanica local. Regras validadas contra fechamento de Mar e Abr/2026: faturado exclui Vernizes/Canetas/Adicionais; passagem = tipo de serviço Banho; retrabalho = cliente RETRABALHO TAMIRES (id 33); alerta de duplicatas de passagem.' }
+  { v:'3.0', d:'10/06/2026', notes:'One-page COMPLETO: voltaram todas as seções que tinham saído na v2.0 — Produção Diária (gráfico empilhado por material + tabela com expansão cliente a cliente por dia), Clientes do mês (filtro por nome, expansão mês a mês do cliente, alerta de duplicatas de passagem) e Saldo Acumulado no ano (a faturar + faturou estoque, com projeção R$ pelo R$ médio/g do cliente) — agora como seções roláveis na mesma página, com menu de âncoras no topo. Mantidos: Visão Mensal com comparação de R$ contra o ano anterior, Histórico Anual com gráfico de eixo duplo, heatmaps de R$ (dourado) e de PESO em kg (ciano). NOVA seção Composição do Faturado: cada material + milésimos do ano com peso, R$, % do faturamento, consumo Au/Ag e se conta no Total Peso.' },
+  { v:'2.0', d:'10/06/2026', notes:'Refeito como dashboard one-page (apenas Visão Mensal + Histórico), cores de alto contraste, heatmap de peso novo, publicado no Netlify (validadorfranco.netlify.app) via shim.' },
+  { v:'1.2', d:'10/06/2026', notes:'Layout dark e conexão trocada do galvanica local para o Aiven (mirror online, SSL) que voltou ao ar — validado: Mai/2026 R$ 715.269,06 idêntico ao local.' },
+  { v:'1.1', d:'10/06/2026', notes:'Renomeado para BANHO VS ANOS · ROMANEIO E PRODUÇÃO.' },
+  { v:'1.0', d:'10/06/2026', notes:'Versão inicial — 5 abas, conectado ao galvanica local. Regras validadas contra fechamento de Mar e Abr/2026: faturado exclui Vernizes/Canetas/Adicionais; passagem = tipo de serviço Banho; retrabalho = cliente RETRABALHO TAMIRES (id 33).' }
 ];
 document.getElementById('verBadge').textContent = 'v' + VERSIONS[0].v;
 document.getElementById('verList').innerHTML = VERSIONS.map(x => `<div class="vitem"><b>v${x.v}</b> · ${x.d}<br>${x.notes}</div>`).join('');
@@ -222,11 +298,27 @@ async function callDB(sql) {
   return parseResult(txt);
 }
 
+async function callDBAll(sqlBase) {
+  const PAGE = 500;
+  let core = sqlBase.replace(/\s*LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/i, '').trim();
+  let orderBy = '';
+  const m = core.match(/(\s+ORDER BY [\s\S]+)$/i);
+  if (m) { orderBy = m[1]; core = core.slice(0, m.index).trim(); }
+  let all = [], offset = 0;
+  while (offset < 100000) {
+    const rows = await callDB(`${core}${orderBy} LIMIT ${PAGE} OFFSET ${offset}`);
+    all = all.concat(rows);
+    if (rows.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
+}
+
 // Exclusões de peso no FATURADO (regra validada Mar/Abr 2026)
 const EXCL_FAT = `m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Caneta%' AND m.descricao NOT ILIKE 'Adicional%'`;
 
 // ================= STATE =================
-const state = { ano: hoje().getFullYear(), mensal: [], mensalPrev: [], anual: [], heatRS: [], heatKG: [], charts: {} };
+const state = { ano: hoje().getFullYear(), mensal: [], mensalPrev: [], anual: [], heatRS: [], heatKG: [], compo: [], diario: [], clientes: [], saldo: [], charts: {} };
 
 // ================= QUERIES =================
 function qMensal(ano) {
@@ -292,22 +384,98 @@ function qHeatKG() {
     WHERE s.datavenda >= '2020-01-01' GROUP BY 1,2 ORDER BY 1,2`;
 }
 
+function qCompo(ano) {
+  return `SELECT m.descricao AS material, i.milesimos, SUM(i.peso) AS peso, SUM(i.valor) AS valor,
+    ROUND(SUM(i.peso*i.milesimos/1000.0),2) AS consumo,
+    CASE WHEN ${EXCL_FAT} THEN 1 ELSE 0 END AS conta_peso
+  FROM itemservico i JOIN servico s ON s.id=i.idservico JOIN material m ON m.id=i.idmaterial
+  WHERE s.datavenda >= '${ano}-01-01' AND s.datavenda < '${ano+1}-01-01'
+  GROUP BY 1, 2, 6 ORDER BY valor DESC`;
+}
+
+function qDiario(dias) {
+  return `SELECT p.data_servico::date::text AS dia,
+    COALESCE(SUM(p.peso) FILTER (WHERE m.descricao ILIKE 'Dourado%' AND p.cliente_id<>${RETRAB_ID}),0) AS dourado,
+    COALESCE(SUM(p.peso) FILTER (WHERE m.descricao ILIKE 'Prateado%' AND p.cliente_id<>${RETRAB_ID}),0) AS prateado,
+    COALESCE(SUM(p.peso) FILTER (WHERE m.descricao ILIKE 'Ródio%' AND p.cliente_id<>${RETRAB_ID}),0) AS rodio,
+    COALESCE(SUM(p.peso) FILTER (WHERE m.descricao ILIKE 'Níveo%' AND p.cliente_id<>${RETRAB_ID}),0) AS niveo,
+    COALESCE(SUM(p.peso) FILTER (WHERE p.cliente_id<>${RETRAB_ID} AND m.descricao NOT ILIKE 'Dourado%' AND m.descricao NOT ILIKE 'Prateado%' AND m.descricao NOT ILIKE 'Ródio%' AND m.descricao NOT ILIKE 'Níveo%'),0) AS outros,
+    COALESCE(SUM(p.peso) FILTER (WHERE p.cliente_id=${RETRAB_ID}),0) AS retrabalho,
+    SUM(p.peso) AS total, COUNT(DISTINCT p.cliente_id) AS clientes
+  FROM passagem_pecas p JOIN tiposervico ts ON ts.id=p.tiposervico_id JOIN material m ON m.id=p.material_id
+  WHERE p.deleted_at IS NULL AND ts.descricao='Banho' AND p.data_servico >= now() - INTERVAL '${dias} days'
+  GROUP BY 1 ORDER BY 1 DESC`;
+}
+
+function qDiaDetalhe(dia) {
+  return `SELECT REPLACE(REPLACE(c.nome, CHR(13), ' '), CHR(10), ' ') AS cliente, m.descricao AS material, p.milesimos, SUM(p.peso) AS peso, COUNT(*) AS lancamentos
+  FROM passagem_pecas p JOIN tiposervico ts ON ts.id=p.tiposervico_id JOIN material m ON m.id=p.material_id JOIN cliente c ON c.id=p.cliente_id
+  WHERE p.deleted_at IS NULL AND ts.descricao='Banho' AND p.data_servico::date = '${dia}'
+  GROUP BY 1,2,3 ORDER BY peso DESC`;
+}
+
+function qClientes(d1, d2) {
+  return `WITH pa AS (
+    SELECT p.cliente_id AS cid, SUM(p.peso) AS passagem
+    FROM passagem_pecas p JOIN tiposervico ts ON ts.id=p.tiposervico_id
+    WHERE p.deleted_at IS NULL AND ts.descricao='Banho' AND p.data_servico >= '${d1}' AND p.data_servico < '${d2}' GROUP BY 1
+  ), f AS (
+    SELECT s.idcliente AS cid,
+      SUM(i.peso) FILTER (WHERE ${EXCL_FAT}) AS faturado,
+      SUM(i.valor) AS valor, COUNT(DISTINCT s.id) AS romaneios
+    FROM itemservico i JOIN servico s ON s.id=i.idservico JOIN material m ON m.id=i.idmaterial
+    WHERE s.datavenda >= '${d1}' AND s.datavenda < '${d2}' GROUP BY 1
+  )
+  SELECT COALESCE(pa.cid, f.cid) AS cid,
+    REPLACE(REPLACE(c.nome, CHR(13), ' '), CHR(10), ' ') AS nome,
+    COALESCE(pa.passagem,0) AS passagem, COALESCE(f.faturado,0) AS faturado,
+    COALESCE(f.valor,0) AS valor, COALESCE(f.romaneios,0) AS romaneios
+  FROM pa FULL JOIN f ON f.cid = pa.cid JOIN cliente c ON c.id = COALESCE(pa.cid, f.cid)
+  ORDER BY GREATEST(COALESCE(pa.passagem,0), COALESCE(f.faturado,0)) DESC`;
+}
+
+function qClienteMensal(cid, ano) {
+  return `WITH pa AS (
+    SELECT date_trunc('month', p.data_servico)::date AS mes, SUM(p.peso) AS passagem
+    FROM passagem_pecas p JOIN tiposervico ts ON ts.id=p.tiposervico_id
+    WHERE p.deleted_at IS NULL AND ts.descricao='Banho' AND p.cliente_id=${cid} AND p.data_servico >= '${ano}-01-01' AND p.data_servico < '${ano+1}-01-01' GROUP BY 1
+  ), f AS (
+    SELECT date_trunc('month', s.datavenda)::date AS mes,
+      SUM(i.peso) FILTER (WHERE ${EXCL_FAT}) AS faturado, SUM(i.valor) AS valor
+    FROM itemservico i JOIN servico s ON s.id=i.idservico JOIN material m ON m.id=i.idmaterial
+    WHERE s.idcliente=${cid} AND s.datavenda >= '${ano}-01-01' AND s.datavenda < '${ano+1}-01-01' GROUP BY 1
+  )
+  SELECT COALESCE(pa.mes, f.mes)::text AS mes, COALESCE(pa.passagem,0) AS passagem,
+    COALESCE(f.faturado,0) AS faturado, COALESCE(f.valor,0) AS valor
+  FROM pa FULL JOIN f ON f.mes = pa.mes ORDER BY 1`;
+}
+
+function qDuplicatas(d1, d2) {
+  return `SELECT COUNT(*) AS grupos, COALESCE(SUM(qtd-1),0) AS lanc_extras, COALESCE(SUM(peso*(qtd-1)),0) AS peso_extra
+  FROM (SELECT p.cliente_id, p.material_id, p.milesimos, p.peso, p.created_at, COUNT(*) AS qtd
+    FROM passagem_pecas p WHERE p.deleted_at IS NULL AND p.data_servico >= '${d1}' AND p.data_servico < '${d2}'
+    GROUP BY 1,2,3,4,5 HAVING COUNT(*) > 1) x`;
+}
+
 // ================= CARGA (one-page: tudo de uma vez) =================
 async function carregarTudo() {
   state.ano = +$('selAno').value;
   setStatus('Carregando ' + state.ano + '…', 'loading');
   try {
-    const [mensal, mensalPrev, anual, heatRS, heatKG] = await Promise.all([
+    const [mensal, mensalPrev, anual, heatRS, heatKG, compo] = await Promise.all([
       callDB(qMensal(state.ano)),
       state.ano > 2020 ? callDB(qMensal(state.ano - 1)) : Promise.resolve([]),
       callDB(qAnual()),
       callDB(qHeatRS()),
       callDB(qHeatKG()),
+      callDB(qCompo(state.ano)),
     ]);
     state.mensal = mensal; state.mensalPrev = mensalPrev; state.anual = anual;
-    state.heatRS = heatRS; state.heatKG = heatKG;
-    renderKpis(); renderMensal(); renderAnual(); renderHeatmaps();
+    state.heatRS = heatRS; state.heatKG = heatKG; state.compo = compo;
+    renderKpis(); renderMensal(); renderAnual(); renderHeatmaps(); renderCompo();
     setStatus('Atualizado ' + new Date().toLocaleString('pt-BR'), '');
+    // Seções com filtros próprios carregam em paralelo sem travar as principais
+    carregarDiario(); carregarClientes(); carregarSaldo();
   } catch (e) { setStatus('Erro: ' + e.message, 'error'); }
 }
 
@@ -459,6 +627,209 @@ function renderHeatmaps() {
     + '<p class="muted" style="margin-top:7px;font-size:11px">Peso faturado (sem vernizes/canetas/adicionais). Quanto mais ciano, mais kg no mês.</p>';
 }
 
+// ================= COMPOSIÇÃO =================
+function renderCompo() {
+  $('bCompoAno').textContent = state.ano;
+  const C = state.compo;
+  if (!C.length) { $('tbCompo').innerHTML = '<div class="empty">Sem dados</div>'; return; }
+  const totV = C.reduce((a, r) => a + (+r.valor || 0), 0);
+  let h = `<table><thead><tr><th class="left">Material</th><th>Milésimos</th><th>Peso (g)</th><th>Faturado (R$)</th><th>% do faturamento</th><th>Consumo Au/Ag (g)</th><th>Conta no peso</th></tr></thead><tbody>`;
+  let tp = 0, tpConta = 0;
+  C.forEach(r => {
+    tp += +r.peso || 0;
+    if (+r.conta_peso === 1) tpConta += +r.peso || 0;
+    const isMetal = /^(Dourado|Prateado)/i.test(r.material);
+    h += `<tr><td class="left"><b>${esc(r.material)}</b></td><td>${r.milesimos ?? '—'}</td>
+      <td>${fmtG(r.peso)}</td><td>${fmtR(r.valor)}</td><td>${fmtPct(totV ? (+r.valor / totV * 100) : null)}</td>
+      <td>${isMetal ? fmtG1(r.consumo) : '—'}</td>
+      <td>${+r.conta_peso === 1 ? '<span class="tag sim">sim</span>' : '<span class="tag nao">não</span>'}</td></tr>`;
+  });
+  h += `<tr class="totalrow"><td class="left">TOTAL</td><td></td><td>${fmtG(tp)}</td><td>${fmtR(totV)}</td><td>100%</td><td></td><td>${fmtG(tpConta)} g contam</td></tr>`;
+  h += '</tbody></table>';
+  $('tbCompo').innerHTML = h;
+}
+
+// ================= PRODUÇÃO DIÁRIA =================
+async function carregarDiario() {
+  try {
+    state.diario = await callDBAll(qDiario(+$('selDias').value));
+    renderDiario();
+  } catch (e) { $('tbDiario').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+}
+
+function renderDiario() {
+  const D = state.diario;
+  if (!D.length) { $('tbDiario').innerHTML = '<div class="empty">Sem produção no período</div>'; return; }
+  const asc = [...D].reverse();
+  const lbl = asc.map(r => r.dia.slice(8,10) + '/' + r.dia.slice(5,7));
+  novoChart('chDiario', {
+    type: 'bar',
+    data: { labels: lbl, datasets: [
+      { label: 'Dourado', data: asc.map(r => +r.dourado||0), backgroundColor: 'rgba(255,211,77,.92)', stack: 's' },
+      { label: 'Prateado', data: asc.map(r => +r.prateado||0), backgroundColor: 'rgba(190,200,214,.82)', stack: 's' },
+      { label: 'Ródio', data: asc.map(r => +r.rodio||0), backgroundColor: 'rgba(94,162,255,.82)', stack: 's' },
+      { label: 'Níveo', data: asc.map(r => +r.niveo||0), backgroundColor: 'rgba(52,211,153,.78)', stack: 's' },
+      { label: 'Outros', data: asc.map(r => +r.outros||0), backgroundColor: 'rgba(140,150,170,.55)', stack: 's' },
+      { label: 'Retrabalho', data: asc.map(r => +r.retrabalho||0), backgroundColor: 'rgba(248,113,113,.72)', stack: 's' }
+    ]},
+    options: { ...optBase(), scales: { x: { stacked: true, ticks: { font: { size: 10 } }, grid: { display: false } }, y: { stacked: true, ticks: { font: { size: 10 }, callback: v => v.toLocaleString('pt-BR') } } } }
+  });
+
+  const DOW = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  let h = `<table><thead><tr><th class="left">Dia</th><th>Dourado (g)</th><th>Prateado (g)</th><th>Ródio (g)</th><th>Níveo (g)</th><th>Outros (g)</th><th>Retrabalho (g)</th><th>Total (g)</th><th>Clientes</th></tr></thead><tbody>`;
+  const tot = { d:0, p:0, r:0, n:0, o:0, re:0, t:0 };
+  D.forEach(r => {
+    const dt = new Date(r.dia + 'T12:00:00');
+    tot.d += +r.dourado||0; tot.p += +r.prateado||0; tot.r += +r.rodio||0; tot.n += +r.niveo||0; tot.o += +r.outros||0; tot.re += +r.retrabalho||0; tot.t += +r.total||0;
+    h += `<tr class="clickable" onclick="toggleDia(this, '${r.dia}')"><td class="left"><b>${r.dia.slice(8,10)}/${r.dia.slice(5,7)}/${r.dia.slice(0,4)}</b> <span class="muted">${DOW[dt.getDay()]}</span></td>
+      <td>${fmtG(r.dourado)}</td><td>${fmtG(r.prateado)}</td><td>${fmtG(r.rodio)}</td><td>${fmtG(r.niveo)}</td><td>${fmtG(r.outros)}</td>
+      <td>${+r.retrabalho ? '<span class="neg">' + fmtG(r.retrabalho) + '</span>' : '—'}</td><td><b>${fmtG(r.total)}</b></td><td>${fmtG(r.clientes)}</td></tr>`;
+  });
+  h += `<tr class="totalrow"><td class="left">TOTAL período</td><td>${fmtG(tot.d)}</td><td>${fmtG(tot.p)}</td><td>${fmtG(tot.r)}</td><td>${fmtG(tot.n)}</td><td>${fmtG(tot.o)}</td><td>${fmtG(tot.re)}</td><td>${fmtG(tot.t)}</td><td></td></tr>`;
+  h += '</tbody></table>';
+  $('tbDiario').innerHTML = h;
+}
+
+async function toggleDia(tr, dia) {
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('detail-row')) { next.remove(); return; }
+  tr.parentNode.querySelectorAll('.detail-row').forEach(x => x.remove());
+  const det = document.createElement('tr');
+  det.className = 'detail-row';
+  det.innerHTML = `<td colspan="9">Carregando ${dia}…</td>`;
+  tr.after(det);
+  try {
+    const rows = await callDBAll(qDiaDetalhe(dia));
+    let h = `<b>Passagens de ${dia.slice(8,10)}/${dia.slice(5,7)}/${dia.slice(0,4)}</b><table style="margin-top:6px"><thead><tr><th class="left">Cliente</th><th class="left">Material</th><th>Milésimos</th><th>Peso (g)</th><th>Lançamentos</th></tr></thead><tbody>`;
+    rows.forEach(r => {
+      h += `<tr><td class="left">${esc(r.cliente)}</td><td class="left">${esc(r.material)}</td><td>${r.milesimos ?? '—'}</td><td>${fmtG(r.peso)}</td><td>${r.lancamentos}</td></tr>`;
+    });
+    h += '</tbody></table>';
+    det.firstElementChild.innerHTML = h;
+  } catch (e) { det.firstElementChild.innerHTML = 'Erro: ' + esc(e.message); }
+}
+
+// ================= CLIENTES =================
+function mesCliRange() {
+  const v = $('selMesCli').value; // yyyy-mm
+  const [a, m] = v.split('-').map(Number);
+  const d1 = `${a}-${String(m).padStart(2,'0')}-01`;
+  const prox = m === 12 ? `${a+1}-01-01` : `${a}-${String(m+1).padStart(2,'0')}-01`;
+  return [d1, prox];
+}
+
+async function carregarClientes() {
+  const [d1, d2] = mesCliRange();
+  try {
+    const [rows, dup] = await Promise.all([callDBAll(qClientes(d1, d2)), callDB(qDuplicatas(d1, d2))]);
+    state.clientes = rows;
+    const dd = dup[0];
+    $('alertDup').innerHTML = (dd && +dd.lanc_extras > 0)
+      ? `<div class="alert warn">⚠ Possíveis duplicatas de passagem no mês: ${dd.lanc_extras} lançamento(s) repetido(s) (mesmo cliente, material, milésimos, peso e horário de criação) somando ${fmtG(dd.peso_extra)} g a mais. Confira antes de fechar o mês — o sistema às vezes grava POST duplo.</div>` : '';
+    renderClientes();
+  } catch (e) { $('tbClientes').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+}
+
+function statusCliente(r) {
+  const p = +r.passagem||0, f = +r.faturado||0;
+  if (+r.cid === RETRAB_ID) return '<span class="tag antec">retrabalho interno</span>';
+  if (p > 0 && f === 0) return '<span class="tag semfat">sem faturamento</span>';
+  if (p === 0 && f > 0) return '<span class="tag antec">faturou estoque</span>';
+  const v = (f - p) / p * 100;
+  if (Math.abs(v) <= 5) return '<span class="tag sinc">sincronizado</span>';
+  if (f < p) return '<span class="tag aberto">parcial em produção</span>';
+  return '<span class="tag antec">faturou estoque</span>';
+}
+
+function renderClientes() {
+  const filtro = ($('fCliNome').value || '').toLowerCase();
+  const rows = state.clientes.filter(r => !filtro || String(r.nome).toLowerCase().includes(filtro));
+  $('bCliMes').textContent = $('selMesCli').value;
+  $('bCliQtd').textContent = rows.length + ' clientes';
+  if (!rows.length) { $('tbClientes').innerHTML = '<div class="empty">Nada encontrado</div>'; return; }
+  let h = `<table><thead><tr><th class="left">Cliente</th><th>Passagem (g)</th><th>Faturado (g)</th><th>Diferença (g)</th><th>Variação %</th><th>Faturado (R$)</th><th>Romaneios</th><th>Situação</th></tr></thead><tbody>`;
+  const tot = { p:0, f:0, v:0, r:0 };
+  rows.forEach(r => {
+    const p = +r.passagem||0, f = +r.faturado||0, dif = f - p;
+    const v = p > 0 ? dif / p * 100 : null;
+    tot.p += p; tot.f += f; tot.v += +r.valor||0; tot.r += +r.romaneios||0;
+    h += `<tr class="clickable" onclick="toggleCliente(this, ${r.cid}, '${esc(r.nome).replace(/'/g, '&#39;')}')">
+      <td class="left">${esc(r.nome)}</td><td>${fmtG(p)}</td><td>${fmtG(f)}</td>
+      <td class="${clsSaldo(dif)}">${(dif>0?'+':'')+fmtG(dif)}</td><td class="${clsSaldo(v)}">${fmtPct(v)}</td>
+      <td>${fmtR(r.valor)}</td><td>${fmtG(r.romaneios)}</td><td>${statusCliente(r)}</td></tr>`;
+  });
+  const difT = tot.f - tot.p;
+  h += `<tr class="totalrow"><td class="left">TOTAL</td><td>${fmtG(tot.p)}</td><td>${fmtG(tot.f)}</td>
+    <td class="${clsSaldo(difT)}">${(difT>0?'+':'')+fmtG(difT)}</td><td>${fmtPct(tot.p ? difT/tot.p*100 : null)}</td>
+    <td>${fmtR(tot.v)}</td><td>${fmtG(tot.r)}</td><td></td></tr>`;
+  h += '</tbody></table>';
+  $('tbClientes').innerHTML = h;
+}
+
+async function toggleCliente(tr, cid, nome) {
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('detail-row')) { next.remove(); return; }
+  tr.parentNode.querySelectorAll('.detail-row').forEach(x => x.remove());
+  const ano = +($('selMesCli').value || '').slice(0,4) || state.ano;
+  const det = document.createElement('tr');
+  det.className = 'detail-row';
+  det.innerHTML = `<td colspan="8">Carregando ${esc(nome)}…</td>`;
+  tr.after(det);
+  try {
+    const rows = await callDB(qClienteMensal(cid, ano));
+    let h = `<b>${esc(nome)} · mês a mês ${ano}</b><table style="margin-top:6px"><thead><tr><th class="left">Mês</th><th>Passagem (g)</th><th>Faturado (g)</th><th>Diferença (g)</th><th>Faturado (R$)</th></tr></thead><tbody>`;
+    let tp = 0, tf = 0, tv = 0;
+    rows.forEach(r => {
+      const dif = (+r.faturado||0) - (+r.passagem||0);
+      tp += +r.passagem||0; tf += +r.faturado||0; tv += +r.valor||0;
+      h += `<tr><td class="left"><b>${MESES[+r.mes.slice(5,7)-1]}</b></td><td>${fmtG(r.passagem)}</td><td>${fmtG(r.faturado)}</td>
+        <td class="${clsSaldo(dif)}">${(dif>0?'+':'')+fmtG(dif)}</td><td>${fmtR(r.valor)}</td></tr>`;
+    });
+    const difT = tf - tp;
+    h += `<tr class="totalrow"><td class="left">TOTAL</td><td>${fmtG(tp)}</td><td>${fmtG(tf)}</td><td class="${clsSaldo(difT)}">${(difT>0?'+':'')+fmtG(difT)}</td><td>${fmtR(tv)}</td></tr>`;
+    h += '</tbody></table><p class="muted" style="margin-top:5px;font-size:11px">Saldo acumulado do cliente no ano: ' + (difT < 0 ? fmtG(-difT) + ' g ainda em produção (a faturar)' : difT > 0 ? fmtG(difT) + ' g faturados acima do que passou (estoque anterior ou variação de pesagem)' : 'zerado') + '</p>';
+    det.firstElementChild.innerHTML = h;
+  } catch (e) { det.firstElementChild.innerHTML = 'Erro: ' + esc(e.message); }
+}
+
+// ================= SALDO =================
+async function carregarSaldo() {
+  const ano = state.ano;
+  $('bSaldoAno').textContent = `01/01/${ano} até hoje`;
+  try {
+    const fim = new Date(); fim.setDate(fim.getDate() + 1);
+    const d2 = fim.toISOString().slice(0,10);
+    state.saldo = await callDBAll(qClientes(`${ano}-01-01`, d2));
+    renderSaldo();
+  } catch (e) { $('tbSaldoPos').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+}
+
+function renderSaldo() {
+  const MIN = 100; // g — ignora ruído de pesagem
+  const rows = state.saldo.filter(r => +r.cid !== RETRAB_ID);
+  const pos = rows.map(r => ({ ...r, saldo: (+r.passagem||0) - (+r.faturado||0) })).filter(r => r.saldo > MIN).sort((a,b) => b.saldo - a.saldo);
+  const neg = rows.map(r => ({ ...r, saldo: (+r.passagem||0) - (+r.faturado||0) })).filter(r => r.saldo < -MIN).sort((a,b) => a.saldo - b.saldo);
+
+  function tabela(list, label) {
+    if (!list.length) return '<div class="empty">Nenhum cliente</div>';
+    let h = `<table><thead><tr><th class="left">Cliente</th><th>Passagem (g)</th><th>Faturado (g)</th><th>${label} (g)</th><th>Faturado (R$)</th><th>R$ médio por g</th><th>Projeção R$ do saldo</th></tr></thead><tbody>`;
+    let ts = 0, tproj = 0;
+    list.forEach(r => {
+      const rg = (+r.faturado > 0) ? (+r.valor / +r.faturado) : null;
+      const proj = rg != null ? Math.abs(r.saldo) * rg : null;
+      ts += r.saldo; if (proj) tproj += proj;
+      h += `<tr><td class="left">${esc(r.nome)}</td><td>${fmtG(r.passagem)}</td><td>${fmtG(r.faturado)}</td>
+        <td class="${r.saldo > 0 ? 'pos' : 'neg'}"><b>${(r.saldo>0?'+':'')+fmtG(r.saldo)}</b></td>
+        <td>${fmtR(r.valor)}</td><td>${rg != null ? 'R$ ' + rg.toFixed(2) : '—'}</td><td>${proj != null ? fmtR(proj) : '—'}</td></tr>`;
+    });
+    h += `<tr class="totalrow"><td class="left">TOTAL (${list.length} clientes)</td><td></td><td></td><td>${(ts>0?'+':'')+fmtG(ts)}</td><td></td><td></td><td>${fmtR(tproj)}</td></tr>`;
+    h += '</tbody></table>';
+    return h;
+  }
+  $('tbSaldoPos').innerHTML = tabela(pos, 'A faturar') + '<p class="muted" style="margin-top:7px;font-size:11px">Peso que passou na produção no ano e ainda não apareceu em romaneio. Projeção usa o R$ médio por grama já faturado do próprio cliente. Diferenças até ±2% são variação normal de pesagem.</p>';
+  $('tbSaldoNeg').innerHTML = tabela(neg, 'Saldo');
+}
+
 // ================= INIT =================
 (function init() {
   const anoAtual = hoje().getFullYear();
@@ -467,6 +838,8 @@ function renderHeatmaps() {
     const o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o);
   }
   sel.value = anoAtual;
+  const mm = String(hoje().getMonth() + 1).padStart(2, '0');
+  $('selMesCli').value = `${anoAtual}-${mm}`;
   carregarTudo();
 })();
 </script>
