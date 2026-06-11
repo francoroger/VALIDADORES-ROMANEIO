@@ -149,9 +149,9 @@ tr.totalrow td{font-weight:800;border-top:2px solid var(--border-2);background:v
 </div>
 <div class="row2">
   <div class="card"><h3>Produção real × Faturado (g)</h3><div class="chartbox"><canvas id="chPeso"></canvas></div></div>
-  <div class="card"><h3>Faturamento (R$) — ano atual (barras) × 2 anos anteriores (linhas)</h3><div class="chartbox"><canvas id="chValor"></canvas></div></div>
+  <div class="card"><h3>Faturamento (R$) por mês — barras: ano selecionado · linhas: 2020 em diante, em ordem</h3><div class="chartbox"><canvas id="chValor"></canvas></div></div>
 </div>
-<div class="card"><h3>Peso faturado por mês (g) — ano atual (barras) × 2 anos anteriores (linhas)</h3><div class="chartbox"><canvas id="chPesoFat"></canvas></div></div>
+<div class="card"><h3>Peso faturado por mês (g) — barras: ano selecionado · linhas: 2020 em diante, em ordem</h3><div class="chartbox"><canvas id="chPesoFat"></canvas></div></div>
 
 <!-- ===== HISTÓRICO ===== -->
 <div class="sec" id="sHistorico" style="--c:#38bdf8"><span class="bar"></span><h2>📅 Histórico Anual</h2><span class="badge">2020 → hoje</span></div>
@@ -227,6 +227,7 @@ tr.totalrow td{font-weight:800;border-top:2px solid var(--border-2);background:v
 <script>
 // ================= VERSÕES =================
 const VERSIONS = [
+  { v:'3.2', d:'10/06/2026', notes:'Correção de ordem dos anos nas legendas (a propriedade order do Chart.js embaralhava 2024 entre 2025 e 2026 — removida) e os dois gráficos comparativos mensais (Faturamento R$ e Peso faturado) agora trazem TODOS os anos desde 2020 como linhas, em ordem crescente, cada ano com cor própria fixa (2020 cinza, 2021 verde-água, 2022 rosa, 2023 âmbar, 2024 laranja, 2025 roxo), com as barras do ano selecionado por último. Os dados das linhas reaproveitam a consulta dos heatmaps — nenhuma query a mais no banco.' },
   { v:'3.1', d:'10/06/2026', notes:'Gráficos comparativos com 2 anos anteriores: no Faturamento (R$) mensal entrou a linha do ano-2 (tracejada laranja) junto da linha do ano-1 (roxa) sobre as barras do ano atual. NOVO gráfico Peso faturado por mês com a mesma lógica — barras do ano atual (ciano) × linhas dos 2 anos anteriores. O seletor de ano recalcula os 3 anos do comparativo automaticamente.' },
   { v:'3.0', d:'10/06/2026', notes:'One-page COMPLETO: voltaram todas as seções que tinham saído na v2.0 — Produção Diária (gráfico empilhado por material + tabela com expansão cliente a cliente por dia), Clientes do mês (filtro por nome, expansão mês a mês do cliente, alerta de duplicatas de passagem) e Saldo Acumulado no ano (a faturar + faturou estoque, com projeção R$ pelo R$ médio/g do cliente) — agora como seções roláveis na mesma página, com menu de âncoras no topo. Mantidos: Visão Mensal com comparação de R$ contra o ano anterior, Histórico Anual com gráfico de eixo duplo, heatmaps de R$ (dourado) e de PESO em kg (ciano). NOVA seção Composição do Faturado: cada material + milésimos do ano com peso, R$, % do faturamento, consumo Au/Ag e se conta no Total Peso.' },
   { v:'2.0', d:'10/06/2026', notes:'Refeito como dashboard one-page (apenas Visão Mensal + Histórico), cores de alto contraste, heatmap de peso novo, publicado no Netlify (validadorfranco.netlify.app) via shim.' },
@@ -320,7 +321,7 @@ async function callDBAll(sqlBase) {
 const EXCL_FAT = `m.descricao NOT ILIKE 'Verniz%' AND m.descricao NOT ILIKE 'Caneta%' AND m.descricao NOT ILIKE 'Adicional%'`;
 
 // ================= STATE =================
-const state = { ano: hoje().getFullYear(), mensal: [], mensalPrev: [], mensalPrev2: [], anual: [], heatRS: [], heatKG: [], compo: [], diario: [], clientes: [], saldo: [], charts: {} };
+const state = { ano: hoje().getFullYear(), mensal: [], anual: [], heatRS: [], heatKG: [], compo: [], diario: [], clientes: [], saldo: [], charts: {} };
 
 // ================= QUERIES =================
 function qMensal(ano) {
@@ -464,16 +465,14 @@ async function carregarTudo() {
   state.ano = +$('selAno').value;
   setStatus('Carregando ' + state.ano + '…', 'loading');
   try {
-    const [mensal, mensalPrev, mensalPrev2, anual, heatRS, heatKG, compo] = await Promise.all([
+    const [mensal, anual, heatRS, heatKG, compo] = await Promise.all([
       callDB(qMensal(state.ano)),
-      state.ano > 2020 ? callDB(qMensal(state.ano - 1)) : Promise.resolve([]),
-      state.ano > 2021 ? callDB(qMensal(state.ano - 2)) : Promise.resolve([]),
       callDB(qAnual()),
       callDB(qHeatRS()),
       callDB(qHeatKG()),
       callDB(qCompo(state.ano)),
     ]);
-    state.mensal = mensal; state.mensalPrev = mensalPrev; state.mensalPrev2 = mensalPrev2; state.anual = anual;
+    state.mensal = mensal; state.anual = anual;
     state.heatRS = heatRS; state.heatKG = heatKG; state.compo = compo;
     renderKpis(); renderMensal(); renderAnual(); renderHeatmaps(); renderCompo();
     setStatus('Atualizado ' + new Date().toLocaleString('pt-BR'), '');
@@ -536,6 +535,25 @@ function porMes(rows, key) {
   return arr;
 }
 
+function porMesHeat(rows, ano) {
+  const arr = new Array(12).fill(null);
+  rows.filter(r => +r.ano === ano).forEach(r => { arr[+r.mes - 1] = +r.v || 0; });
+  return arr;
+}
+
+const PALETA_ANO = ['#94a3b8','#2dd4bf','#f472b6','#fbbf24','#fb923c','#a78bfa','#e879f9','#60a5fa'];
+function corAno(ano) { return PALETA_ANO[(ano - 2020) % PALETA_ANO.length]; }
+
+function linhasAnosAnteriores(heatRows, prefixo) {
+  const ds = [];
+  for (let a = 2020; a < state.ano; a++) {
+    const cor = corAno(a);
+    ds.push({ type: 'line', label: prefixo + a, data: porMesHeat(heatRows, a),
+      borderColor: cor, backgroundColor: cor, borderWidth: 2, tension: .3, pointRadius: 2 });
+  }
+  return ds;
+}
+
 function desenharChartsMensal() {
   novoChart('chPeso', {
     type: 'bar',
@@ -548,18 +566,16 @@ function desenharChartsMensal() {
   novoChart('chValor', {
     type: 'bar',
     data: { labels: MESES, datasets: [
-      { label: 'R$ ' + state.ano, data: porMes(state.mensal, 'fat_valor'), backgroundColor: 'rgba(52,211,153,.85)', borderRadius: 4, order: 3 },
-      { type: 'line', label: 'R$ ' + (state.ano - 1), data: porMes(state.mensalPrev, 'fat_valor'), borderColor: 'rgba(167,139,250,.95)', backgroundColor: 'rgba(167,139,250,.95)', tension: .3, pointRadius: 3, order: 1 },
-      { type: 'line', label: 'R$ ' + (state.ano - 2), data: porMes(state.mensalPrev2, 'fat_valor'), borderColor: 'rgba(251,146,60,.95)', backgroundColor: 'rgba(251,146,60,.95)', borderDash: [6,3], tension: .3, pointRadius: 3, order: 2 }
+      ...linhasAnosAnteriores(state.heatRS, 'R$ '),
+      { label: 'R$ ' + state.ano, data: porMes(state.mensal, 'fat_valor'), backgroundColor: 'rgba(52,211,153,.88)', borderRadius: 4 }
     ]},
     options: optBase(v => 'R$ ' + (v/1000).toLocaleString('pt-BR') + ' mil')
   });
   novoChart('chPesoFat', {
     type: 'bar',
     data: { labels: MESES, datasets: [
-      { label: 'Peso faturado ' + state.ano + ' (g)', data: porMes(state.mensal, 'fat_peso'), backgroundColor: 'rgba(56,189,248,.85)', borderRadius: 4, order: 3 },
-      { type: 'line', label: 'Peso ' + (state.ano - 1) + ' (g)', data: porMes(state.mensalPrev, 'fat_peso'), borderColor: 'rgba(167,139,250,.95)', backgroundColor: 'rgba(167,139,250,.95)', tension: .3, pointRadius: 3, order: 1 },
-      { type: 'line', label: 'Peso ' + (state.ano - 2) + ' (g)', data: porMes(state.mensalPrev2, 'fat_peso'), borderColor: 'rgba(251,146,60,.95)', backgroundColor: 'rgba(251,146,60,.95)', borderDash: [6,3], tension: .3, pointRadius: 3, order: 2 }
+      ...linhasAnosAnteriores(state.heatKG, 'Peso '),
+      { label: 'Peso ' + state.ano + ' (g)', data: porMes(state.mensal, 'fat_peso'), backgroundColor: 'rgba(56,189,248,.88)', borderRadius: 4 }
     ]},
     options: optBase()
   });
