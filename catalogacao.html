@@ -94,7 +94,7 @@ padding:9px 12px;font-size:12px;z-index:99;display:none;box-shadow:0 8px 24px rg
   <div class="logo"><div class="ic">&#128202;</div><div><h1>Cataloga&ccedil;&atilde;o &mdash; Painel de Produ&ccedil;&atilde;o</h1><div class="sub">Banco folheados (Aiven, ao vivo) &middot; tabela itemtriagem</div></div></div>
   <div class="spacer"></div>
   <div class="badge" id="bSrc">Carregando&hellip;</div>
-  <div class="badge" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;font-weight:700">v3.3</div>
+  <div class="badge" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;font-weight:700">v3.4</div>
   <div class="badge" id="bScope">&mdash;</div>
   <div class="badge">Dados at&eacute; <b id="bLast">&mdash;</b></div>
 </div></header>
@@ -153,6 +153,9 @@ padding:9px 12px;font-size:12px;z-index:99;display:none;box-shadow:0 8px 24px rg
         <details>
           <summary style="cursor:pointer;font-size:14px;font-weight:700;color:#0f172a">&#128221; Log de altera&ccedil;&otilde;es (versionamento)</summary>
           <div style="font-size:12.5px;color:#475569;line-height:1.8;margin-top:10px">
+            <b>v3.4 &mdash; 12/06/2026</b><br>
+            &bull; Carga ao vivo incremental (snapshot + delta), eliminando o timeout que deixava o painel "Offline"<br>
+            &bull; Badge mostra data e <b>hor&aacute;rio do &uacute;ltimo lan&ccedil;amento</b> no banco e a hora da consulta<br><br>
             <b>v3.3 &mdash; 12/06/2026</b><br>
             &bull; Corre&ccedil;&atilde;o: rolagem horizontal do heatmap contida no quadro (n&atilde;o estica mais a p&aacute;gina); coluna de usu&aacute;rios fixa funcionando<br><br>
             <b>v3.2 &mdash; 12/06/2026</b><br>
@@ -175,7 +178,7 @@ padding:9px 12px;font-size:12px;z-index:99;display:none;box-shadow:0 8px 24px rg
           </div>
         </details>
       </div>
-      <div class="foot">Fonte: PostgreSQL <b>folheados</b> (Aiven via MCP) &middot; per&iacute;odo dispon&iacute;vel: 09/03/2021 em diante &middot; dados ao vivo &middot; <b>v3.3</b></div>
+      <div class="foot">Fonte: PostgreSQL <b>folheados</b> (Aiven via MCP) &middot; per&iacute;odo dispon&iacute;vel: 09/03/2021 em diante &middot; dados ao vivo &middot; <b>v3.4</b></div>
     </main>
   </div>
 </div>
@@ -3560,25 +3563,34 @@ function parseLines(txt){
   });
   return out;
 }
+const DELTA_SQL=(cut,off)=>"SELECT concat_ws(';', d,u,it,cl,pc,pg,pcd,pgd) AS l FROM (SELECT inicio_edicao::date d, COALESCE(usuario,'(sem)') u, COUNT(*) it, COUNT(*) FILTER (WHERE flag_clone) cl, ROUND(COALESCE(SUM(quantidade),0)) pc, ROUND(COALESCE(SUM(peso*quantidade),0)) pg, ROUND(COALESCE(SUM(quantidade) FILTER (WHERE flag_clone IS NULL),0)) pcd, ROUND(COALESCE(SUM(peso*quantidade) FILTER (WHERE flag_clone IS NULL),0)) pgd FROM itemtriagem WHERE inicio_edicao >= '"+cut+"' GROUP BY 1,2 ORDER BY 1,2 LIMIT 500 OFFSET "+off+") t";
 async function loadLive(){
-  const rs=[];let off=0;
-  for(let i=0;i<40;i++){
-    $('bSrc').textContent='Carregando do banco… '+rs.length+' registros';
-    const page=parseLines(await callDB(AGG_SQL(off)));
-    rs.push(...page);
+  // snapshot embutido + delta ao vivo (rapido, nao estoura o timeout da function)
+  const stat=parseStatic();
+  const cut=stat.reduce((a,r)=>r.d>a?r.d:a,'');
+  $('bSrc').textContent='Consultando banco…';
+  const txtMax=await callDB("SELECT to_char(MAX(inicio_edicao),'DD/MM/YYYY HH24:MI') AS mx FROM itemtriagem");
+  const mline=txtMax.split('\n').map(l=>l.trim()).find(l=>/^\d{2}\/\d{2}\/\d{4}/.test(l))||'';
+  const delta=[];let off=0;
+  for(let i=0;i<20;i++){
+    const page=parseLines(await callDB(DELTA_SQL(cut,off)));
+    delta.push(...page);
     if(page.length<500)break;
     off+=500;
+    $('bSrc').textContent='Atualizando… +'+delta.length;
   }
-  if(rs.length<100)throw new Error('retorno insuficiente');
-  return rs;
+  const rs=stat.filter(r=>r.d<cut).concat(delta.length?delta:stat.filter(r=>r.d===cut));
+  return{rs,mx:mline};
 }
 (async function boot(){
   try{
-    initData(await loadLive());
-    $('bSrc').innerHTML='&#128994; Ao vivo &mdash; banco Aiven';
+    const{rs,mx}=await loadLive();
+    initData(rs);
+    const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    $('bSrc').innerHTML='&#128994; Ao vivo &mdash; &uacute;ltimo lan&ccedil;amento: <b>'+(mx||'?')+'</b> &middot; consultado &agrave;s '+hora;
   }catch(e){
     initData(parseStatic());
-    $('bSrc').innerHTML='&#9888;&#65039; Offline &mdash; snapshot de 12/06/2026';
+    $('bSrc').innerHTML='&#9888;&#65039; Offline &mdash; snapshot at&eacute; 12/06/2026 11:32';
   }
 })();
 

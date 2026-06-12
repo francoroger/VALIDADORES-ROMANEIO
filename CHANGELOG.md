@@ -1,3 +1,7 @@
+## 2026-06-12 — Catalogação v3.4
+
+- **catalogacao.html**: carga ao vivo incremental (snapshot embutido + delta desde 12/06) — corrige o "Offline" causado por timeout de 9s da function na consulta completa. Badge passa a mostrar data/horário do último lançamento no banco e hora da consulta.
+
 ## 2026-06-12 — Catalogação v3.3
 
 - **catalogacao.html**: scroll horizontal do heatmap contido no quadro (grid `minmax(0,1fr)`); a coluna sticky de usuários agora funciona. Inclui v3.2: contagem padrão "Somente Digitado".
