@@ -1,3 +1,11 @@
+## 2026-06-12 — Catalogação v3.3
+
+- **catalogacao.html**: scroll horizontal do heatmap contido no quadro (grid `minmax(0,1fr)`); a coluna sticky de usuários agora funciona. Inclui v3.2: contagem padrão "Somente Digitado".
+
+## 2026-06-12 — Catalogação v3.2
+
+- **catalogacao.html**: contagem padrão agora vem pré-selecionada em "Somente Digitado".
+
 ## 2026-06-12 — Catalogação v3.1
 
 - **catalogacao.html**: coluna de usuários do heatmap agora fica fixa (sticky) ao rolar horizontalmente em períodos longos.
