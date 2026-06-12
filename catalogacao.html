@@ -63,7 +63,7 @@ padding:12px 14px;box-shadow:0 1px 4px rgba(15,23,42,.05)}
 .hm-scroll{overflow-x:auto;padding-bottom:4px}
 table.hm{border-collapse:separate;border-spacing:2px}
 table.hm th{font-size:10.5px;color:var(--muted);font-weight:700;padding:3px 4px;text-align:center;white-space:nowrap}
-table.hm th.u{text-align:right;padding-right:9px;font-size:12.5px;color:var(--text)}
+table.hm th.u{text-align:right;padding-right:9px;font-size:12.5px;color:var(--text);position:sticky;left:0;background:#fff;z-index:3;box-shadow:2px 0 5px rgba(15,23,42,.10)}
 table.hm td{min-width:42px;height:30px;border-radius:5px;text-align:center;font-size:11px;font-weight:600;
 background:#f8fafc;cursor:default}
 table.hm tr.tot th.u,table.hm tr.tot td{border-top:2px solid var(--border)}
@@ -92,7 +92,7 @@ padding:9px 12px;font-size:12px;z-index:99;display:none;box-shadow:0 8px 24px rg
   <div class="logo"><div class="ic">&#128202;</div><div><h1>Cataloga&ccedil;&atilde;o &mdash; Painel de Produ&ccedil;&atilde;o</h1><div class="sub">Banco folheados (Aiven, ao vivo) &middot; tabela itemtriagem</div></div></div>
   <div class="spacer"></div>
   <div class="badge" id="bSrc">Carregando&hellip;</div>
-  <div class="badge" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;font-weight:700">v3.0</div>
+  <div class="badge" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;font-weight:700">v3.1</div>
   <div class="badge" id="bScope">&mdash;</div>
   <div class="badge">Dados at&eacute; <b id="bLast">&mdash;</b></div>
 </div></header>
@@ -151,6 +151,8 @@ padding:9px 12px;font-size:12px;z-index:99;display:none;box-shadow:0 8px 24px rg
         <details>
           <summary style="cursor:pointer;font-size:14px;font-weight:700;color:#0f172a">&#128221; Log de altera&ccedil;&otilde;es (versionamento)</summary>
           <div style="font-size:12.5px;color:#475569;line-height:1.8;margin-top:10px">
+            <b>v3.1 &mdash; 12/06/2026</b><br>
+            &bull; Coluna de usu&aacute;rios fixa ao rolar o heatmap na horizontal<br><br>
             <b>v3.0 &mdash; 12/06/2026</b><br>
             &bull; Publicado em validadorfranco.netlify.app com dados <b>ao vivo</b> do banco Aiven (via Netlify Function /api/db, mesmo padr&atilde;o dos demais artefatos)<br>
             &bull; Fallback autom&aacute;tico para snapshot embutido se o banco estiver indispon&iacute;vel<br><br>
@@ -167,7 +169,7 @@ padding:9px 12px;font-size:12px;z-index:99;display:none;box-shadow:0 8px 24px rg
           </div>
         </details>
       </div>
-      <div class="foot">Fonte: PostgreSQL <b>folheados</b> (Aiven via MCP) &middot; per&iacute;odo dispon&iacute;vel: 09/03/2021 em diante &middot; dados ao vivo &middot; <b>v3.0</b></div>
+      <div class="foot">Fonte: PostgreSQL <b>folheados</b> (Aiven via MCP) &middot; per&iacute;odo dispon&iacute;vel: 09/03/2021 em diante &middot; dados ao vivo &middot; <b>v3.1</b></div>
     </main>
   </div>
 </div>

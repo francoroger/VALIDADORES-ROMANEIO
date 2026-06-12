@@ -1,3 +1,7 @@
+## 2026-06-12 — Catalogação v3.1
+
+- **catalogacao.html**: coluna de usuários do heatmap agora fica fixa (sticky) ao rolar horizontalmente em períodos longos.
+
 ## 2026-06-12 — Catalogação por Usuário v3.0 (novo artefato)
 
 - **catalogacao.html**: painel de catalogação por usuário (tabela `itemtriagem`).
