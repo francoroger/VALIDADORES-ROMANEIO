@@ -1,3 +1,7 @@
+## 2026-06-12 — Catalogação v3.5
+
+- **catalogacao.html**: novos atalhos de período "Hoje" e "Esta semana" (segunda-feira até o último dia com dados).
+
 ## 2026-06-12 — Catalogação v3.4
 
 - **catalogacao.html**: carga ao vivo incremental (snapshot embutido + delta desde 12/06) — corrige o "Offline" causado por timeout de 9s da function na consulta completa. Badge passa a mostrar data/horário do último lançamento no banco e hora da consulta.
