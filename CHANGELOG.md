@@ -1,3 +1,12 @@
+## 2026-06-12 — Catalogação por Usuário v3.0 (novo artefato)
+
+- **catalogacao.html**: painel de catalogação por usuário (tabela `itemtriagem`).
+  - Heatmap usuário × dia/mês/ano, KPIs, evolução (digitado × clonado + linha Itens/kg), resumo por usuário.
+  - Filtros: De/Até + atalhos, agrupamento Dia/Mês/Ano, modos Digitado+Clonado / Somente Digitado / Somente Clonado, seleção de usuários.
+  - Dados ao vivo via `/api/db` (padrão shim); fallback para snapshot embutido (12/06/2026).
+  - Métricas validadas contra a planilha ITENS CATALOGADOS (aba DASH): Itens/kg = itens ÷ peso(kg); 2026 = 56,41 ✓.
+- **index.html**: novo card "Catalogação por Usuário".
+
 # CHANGELOG
 
 Histórico consolidado das versões dos artefatos. Cada artefato também mantém seu próprio array `VERSIONS` em JS (clicável no header).
