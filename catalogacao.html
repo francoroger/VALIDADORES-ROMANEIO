@@ -94,7 +94,7 @@ padding:9px 12px;font-size:12px;z-index:99;display:none;box-shadow:0 8px 24px rg
   <div class="logo"><div class="ic">&#128202;</div><div><h1>Cataloga&ccedil;&atilde;o &mdash; Painel de Produ&ccedil;&atilde;o</h1><div class="sub">Banco folheados (Aiven, ao vivo) &middot; tabela itemtriagem</div></div></div>
   <div class="spacer"></div>
   <div class="badge" id="bSrc">Carregando&hellip;</div>
-  <div class="badge" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;font-weight:700">v3.5</div>
+  <div class="badge" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;font-weight:700">v3.6</div>
   <div class="badge" id="bScope">&mdash;</div>
   <div class="badge">Dados at&eacute; <b id="bLast">&mdash;</b></div>
 </div></header>
@@ -155,6 +155,8 @@ padding:9px 12px;font-size:12px;z-index:99;display:none;box-shadow:0 8px 24px rg
         <details>
           <summary style="cursor:pointer;font-size:14px;font-weight:700;color:#0f172a">&#128221; Log de altera&ccedil;&otilde;es (versionamento)</summary>
           <div style="font-size:12.5px;color:#475569;line-height:1.8;margin-top:10px">
+            <b>v3.6 &mdash; 12/06/2026</b><br>
+            &bull; Cabe&ccedil;alho do heatmap com cor por ano quando o per&iacute;odo cruza mais de um ano<br><br>
             <b>v3.5 &mdash; 12/06/2026</b><br>
             &bull; Novos atalhos de per&iacute;odo: <b>Hoje</b> e <b>Esta semana</b><br><br>
             <b>v3.4 &mdash; 12/06/2026</b><br>
@@ -182,7 +184,7 @@ padding:9px 12px;font-size:12px;z-index:99;display:none;box-shadow:0 8px 24px rg
           </div>
         </details>
       </div>
-      <div class="foot">Fonte: PostgreSQL <b>folheados</b> (Aiven via MCP) &middot; per&iacute;odo dispon&iacute;vel: 09/03/2021 em diante &middot; dados ao vivo &middot; <b>v3.5</b></div>
+      <div class="foot">Fonte: PostgreSQL <b>folheados</b> (Aiven via MCP) &middot; per&iacute;odo dispon&iacute;vel: 09/03/2021 em diante &middot; dados ao vivo &middot; <b>v3.6</b></div>
     </main>
   </div>
 </div>
@@ -3478,7 +3480,10 @@ function render(){
     const bg=`rgb(${mix(base[0],241)},${mix(base[1],245)},${mix(base[2],249)})`;
     return['background:'+bg,'color:'+(t>.55?'#fff':'#1e293b')];
   };
-  let h='<table class="hm"><tr><th class="u"></th>'+cols.map(c=>`<th>${labOf(c)}</th>`).join('')+'<th>TOTAL</th></tr>';
+  const YPAL=[['#fef3c7','#92400e'],['#dbeafe','#1e40af'],['#dcfce7','#166534'],['#fce7f3','#9d174d'],['#ede9fe','#5b21b6'],['#cffafe','#155e75']];
+  const multiAno=new Set(cols.map(c=>String(c).slice(0,4))).size>1;
+  const thY=c=>{if(!multiAno)return'';const[bg,fg]=YPAL[(+String(c).slice(0,4))%6];return` style="background:${bg};color:${fg};border-radius:5px"`};
+  let h='<table class="hm"><tr><th class="u"></th>'+cols.map(c=>`<th${thY(c)}>${labOf(c)}</th>`).join('')+'<th>TOTAL</th></tr>';
   act.forEach(u=>{
     let tot=0;
     h+=`<tr><th class="u" style="color:${UC[u]}">${u}</th>`;

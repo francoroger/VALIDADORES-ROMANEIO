@@ -1,3 +1,7 @@
+## 2026-06-12 — Catalogação v3.6
+
+- **catalogacao.html**: colunas do heatmap coloridas por ano quando o período cruza mais de um ano (mai/24 e jun/24 mesma cor; 2025 e 2026 cores diferentes).
+
 ## 2026-06-12 — Catalogação v3.5
 
 - **catalogacao.html**: novos atalhos de período "Hoje" e "Esta semana" (segunda-feira até o último dia com dados).
